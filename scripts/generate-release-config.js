@@ -129,7 +129,7 @@ function generateReleaseConfig(marketplace) {
   const manifest = {};
   const components = [];
 
-  marketplace.plugins.forEach((plugin, index) => {
+  marketplace.plugins.forEach((plugin) => {
     const pluginPath = `plugins/${plugin.name}`;
     const pluginJsonPath = path.join(ROOT, pluginPath, '.claude-plugin', 'plugin.json');
 
@@ -149,11 +149,6 @@ function generateReleaseConfig(marketplace) {
           type: 'json',
           path: '.claude-plugin/plugin.json',
           jsonpath: '$.version'
-        },
-        {
-          type: 'json',
-          path: '../../.claude-plugin/marketplace.json',
-          jsonpath: `$.plugins[${index}].version`
         }
       ]
     };
