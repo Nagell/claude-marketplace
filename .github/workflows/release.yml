@@ -18,19 +18,38 @@ jobs:
   release-please:
     name: Release Please
     runs-on: ubuntu-latest
+    # Skip when bot pushes config sync commits (prevents double workflow runs)
+    if: github.actor != 'github-actions[bot]'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Detect Release PR merges by checking commit message pattern.
+      # Pattern "chore(release):" is set in release-please-config.json
+      - name: Check if release commit
+        id: release_check
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          if echo "$COMMIT_MSG" | grep -qE "^chore\(release\):"; then
+            echo "is_release=true" >> $GITHUB_OUTPUT
+            echo "Detected release commit - skipping config generation"
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      # Config generation only runs for feature/fix commits, not after Release PR merge
       - name: Setup Node.js
+        if: steps.release_check.outputs.is_release != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Generate Release Config
+        if: steps.release_check.outputs.is_release != 'true'
         run: node scripts/generate-release-config.js
 
       - name: Commit config changes
+        if: steps.release_check.outputs.is_release != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -42,8 +61,10 @@ jobs:
             git push
           fi
 
+      # Release Please runs on every push:
+      # - After feat/fix commits: creates or updates the Release PR
+      # - After Release PR merge: creates GitHub Release with git tag
       - name: Create Release
-        # v4.4.0 - pinned to SHA for security
-        uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38
+        uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}

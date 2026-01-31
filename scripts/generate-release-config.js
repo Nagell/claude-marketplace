@@ -188,6 +188,7 @@ function generateReleaseConfig(marketplace) {
     'bump-patch-for-minor-pre-major': true,
     'include-component-in-tag': true,
     'include-v-in-tag': true,
+    'pull-request-title-pattern': 'chore(release): ${version}',
     'changelog-sections': [
       { type: 'feat', section: 'Features' },
       { type: 'fix', section: 'Bug Fixes' },
