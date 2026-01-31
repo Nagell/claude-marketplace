@@ -1,0 +1,28 @@
+{
+  "name": "dawidnitka",
+  "version": "1.0.0",
+  "description": "Personal Claude Code marketplace providing foundational development tools, safety guardrails, and pre-configured integrations. Built around opinionated defaults that prioritize safety, code quality, and streamlined workflows.",
+  "author": {
+    "name": "Dawid Nitka",
+    "email": "contact@dawidnitka.com"
+  },
+  "plugins": [
+    {
+      "name": "base-setup",
+      "source": "./plugins/base-setup",
+      "description": "Foundational Claude Code configuration with safety guardrails (dangerous command blocking, secret detection), automatic code formatting (prettier, eslint, ruff), MCP server integrations (context7, playwright, chrome-devtools), and opinionated development defaults.",
+      "version": "0.1.0",
+      "keywords": [
+        "setup",
+        "hooks",
+        "mcp",
+        "safety",
+        "formatting",
+        "guardrails",
+        "configuration",
+        "foundation"
+      ],
+      "category": "productivity"
+    }
+  ]
+}
