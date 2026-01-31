@@ -129,7 +129,10 @@ function generateReleaseConfig(marketplace) {
   const manifest = {};
   const components = [];
 
-  marketplace.plugins.forEach((plugin) => {
+  // Build extra-files for root package to update marketplace.json
+  const marketplaceExtraFiles = [];
+
+  marketplace.plugins.forEach((plugin, index) => {
     const pluginPath = `plugins/${plugin.name}`;
     const pluginJsonPath = path.join(ROOT, pluginPath, '.claude-plugin', 'plugin.json');
 
@@ -153,9 +156,30 @@ function generateReleaseConfig(marketplace) {
       ]
     };
 
+    // Add marketplace.json update for this plugin to root package
+    marketplaceExtraFiles.push({
+      type: 'json',
+      path: `.claude-plugin/marketplace.json`,
+      jsonpath: `$.plugins[${index}].version`
+    });
+
     manifest[pluginPath] = version;
     components.push(plugin.name);
   });
+
+  // Add root package to update marketplace.json versions
+  if (marketplaceExtraFiles.length > 0) {
+    packages['.'] = {
+      component: 'marketplace',
+      'skip-github-release': true,
+      'extra-files': marketplaceExtraFiles
+    };
+    // Use the first plugin's version for the root package
+    const firstPluginPath = `plugins/${marketplace.plugins[0].name}`;
+    manifest['.'] = existingManifest['.'] || manifest[firstPluginPath] || '0.1.0';
+    // Add to linked-versions so it bumps together with plugins
+    components.push('marketplace');
+  }
 
   const config = {
     '$schema': 'https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json',
