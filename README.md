@@ -70,6 +70,30 @@ This marketplace includes comprehensive safety guardrails:
 - Git
 - Node.js (for npx-based MCP servers)
 
+## Versioning & Releases
+
+This repository uses [Release Please](https://github.com/googleapis/release-please) for automated versioning based on [Conventional Commits](https://www.conventionalcommits.org/).
+
+### How it works
+
+1. When you merge a PR to `main`, Release Please analyzes commit messages
+2. It creates a Release PR with version bumps and changelog updates
+3. Merging the Release PR publishes the new version
+
+### Commit message format
+
+| Prefix | Version Bump | Example |
+| ------ | ------------ | ------- |
+| `feat:` | Minor (0.1.0 → 0.2.0) | `feat: add new safety hook` |
+| `fix:` | Patch (0.1.0 → 0.1.1) | `fix: correct regex in guard` |
+| `feat!:` or `BREAKING CHANGE:` | Major (0.1.0 → 1.0.0) | `feat!: redesign hook API` |
+
+### Files updated automatically
+
+- `plugins/<name>/.claude-plugin/plugin.json` - plugin version
+- `.claude-plugin/marketplace.json` - marketplace plugin entry version
+- `plugins/<name>/CHANGELOG.md` - changelog
+
 ## Directory Structure
 
 ```
