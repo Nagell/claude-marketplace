@@ -24,15 +24,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Detect Release PR merges by checking commit message pattern.
-      # Release Please uses "chore: release main" for monorepo merged PRs
+      # Detect Release PR merges by checking if commit is from release-please branch.
+      # GitHub merge commits look like: "Merge pull request #X from .../release-please--branches--main"
       - name: Check if release commit
         id: release_check
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%s)
-          if echo "$COMMIT_MSG" | grep -qE "^chore: release"; then
+          if echo "$COMMIT_MSG" | grep -qE "release-please--branches--"; then
             echo "is_release=true" >> $GITHUB_OUTPUT
-            echo "Detected release commit - skipping config generation"
+            echo "Detected release PR merge - skipping config generation"
           else
             echo "is_release=false" >> $GITHUB_OUTPUT
           fi
