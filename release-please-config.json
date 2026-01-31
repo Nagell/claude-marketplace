@@ -6,6 +6,7 @@
   "include-component-in-tag": true,
   "include-v-in-tag": true,
   "pull-request-title-pattern": "chore(release): ${version}",
+  "skip-github-release": true,
   "changelog-sections": [
     {
       "type": "feat",
@@ -43,7 +44,8 @@
     },
     ".": {
       "component": "marketplace",
-      "skip-github-release": true,
+      "skip-changelog": true,
+      "skip-github-release": false,
       "extra-files": [
         {
           "type": "json",

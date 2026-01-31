@@ -168,10 +168,13 @@ function generateReleaseConfig(marketplace) {
   });
 
   // Add root package to update marketplace.json versions
+  // skip-changelog: true - plugin changelogs are the source of truth
+  // skip-github-release: false - root creates THE release (overrides global default)
   if (marketplaceExtraFiles.length > 0) {
     packages['.'] = {
       component: 'marketplace',
-      'skip-github-release': true,
+      'skip-changelog': true,
+      'skip-github-release': false,
       'extra-files': marketplaceExtraFiles
     };
     // Use the first plugin's version for the root package
@@ -189,6 +192,7 @@ function generateReleaseConfig(marketplace) {
     'include-component-in-tag': true,
     'include-v-in-tag': true,
     'pull-request-title-pattern': 'chore(release): ${version}',
+    'skip-github-release': true,
     'changelog-sections': [
       { type: 'feat', section: 'Features' },
       { type: 'fix', section: 'Bug Fixes' },
