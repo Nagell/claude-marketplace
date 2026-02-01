@@ -1,13 +1,7 @@
 ---
+name: commit-agent
 description: Expert in creating atomic conventional commits following strict standards
-capabilities:
-  [
-    "atomic commits",
-    "conventional commit format",
-    "git staging",
-    "commit grouping",
-    "commit verification",
-  ]
+tools: Bash, Read, Glob, Grep
 ---
 
 # Commit Agent
