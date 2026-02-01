@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.8](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.7...base-setup-v0.1.8) (2026-02-01)
+
+
+### Bug Fixes
+
+* normalize formatting in plugin config files ([6f797ba](https://github.com/Nagell/claude-marketplace/commit/6f797bad1dd37fb961a165a09042d3920f1db1c6))
+
 ## [0.1.7](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.6...base-setup-v0.1.7) (2026-01-31)
 
 
