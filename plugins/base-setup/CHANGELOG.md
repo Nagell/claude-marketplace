@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.10](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.9...base-setup-v0.1.10) (2026-02-01)
+
+
+### Bug Fixes
+
+* add execute permissions to hook scripts ([609cf37](https://github.com/Nagell/claude-marketplace/commit/609cf377704b8e11e7823c975c638582c614029f))
+* add execute permissions to hook scripts ([da5c351](https://github.com/Nagell/claude-marketplace/commit/da5c351ed35ac1482956335b882533d27a37264c))
+
 ## [0.1.9](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.8...base-setup-v0.1.9) (2026-02-01)
 
 
