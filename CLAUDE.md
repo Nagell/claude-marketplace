@@ -25,8 +25,7 @@ Everything else is automated:
     "name": "Dawid Nitka",
     "email": "contact@dawidnitka.com"
   },
-  "keywords": ["relevant", "tags"],
-  "category": "productivity"
+  "keywords": ["relevant", "tags"]
 }
 ```
 
