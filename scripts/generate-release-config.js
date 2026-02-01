@@ -63,13 +63,13 @@ function syncMarketplace(plugins) {
     const pj = plugin.json;
 
     if (existingByName.has(pj.name)) {
-      // Update existing plugin - sync all fields except category
+      // Update existing plugin - sync all fields
       const idx = existingByName.get(pj.name);
       const existing = marketplace.plugins[idx];
 
       const changes = [];
 
-      // Sync all fields from plugin.json (except category)
+      // Sync all fields from plugin.json
       if (existing.source !== `./plugins/${plugin.dirName}`) {
         existing.source = `./plugins/${plugin.dirName}`;
         changes.push('source');
@@ -86,10 +86,6 @@ function syncMarketplace(plugins) {
         existing.keywords = pj.keywords || [];
         changes.push('keywords');
       }
-      if (pj.category && existing.category !== pj.category) {
-        existing.category = pj.category;
-        changes.push('category');
-      }
 
       if (changes.length > 0) {
         updated = true;
@@ -102,8 +98,7 @@ function syncMarketplace(plugins) {
         source: `./plugins/${plugin.dirName}`,
         description: pj.description || '',
         version: pj.version || '0.1.0',
-        keywords: pj.keywords || [],
-        category: pj.category || 'productivity'
+        keywords: pj.keywords || []
       });
       updated = true;
       console.log(`Added new plugin: ${pj.name}`);
