@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.11](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.10...base-setup-v0.1.11) (2026-02-01)
+
+
+### Bug Fixes
+
+* **agents:** add required name field to commit-agent frontmatter ([f890dbf](https://github.com/Nagell/claude-marketplace/commit/f890dbfb88c26cc94509d185c798cdeceac59f8d))
+* **agents:** add required name field to commit-agent frontmatter ([619f0e8](https://github.com/Nagell/claude-marketplace/commit/619f0e85714753a4ed856f22e35b88748a6dec40))
+
 ## [0.1.10](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.9...base-setup-v0.1.10) (2026-02-01)
 
 
