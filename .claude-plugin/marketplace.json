@@ -1,5 +1,8 @@
 {
   "name": "dawidnitka",
+  "owner": {
+    "name": "Dawid Nitka"
+  },
   "version": "1.0.0",
   "description": "Personal Claude Code marketplace providing foundational development tools, safety guardrails, and pre-configured integrations. Built around opinionated defaults that prioritize safety, code quality, and streamlined workflows.",
   "author": {
