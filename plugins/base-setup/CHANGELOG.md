@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.12](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.11...base-setup-v0.1.12) (2026-02-01)
+
+
+### Bug Fixes
+
+* **plugin:** remove unsupported category field from plugin manifest ([a7a3a7f](https://github.com/Nagell/claude-marketplace/commit/a7a3a7f83d1a4d006a0f1f10e97096fcc85cf52c))
+* **plugin:** remove unsupported category field from plugin manifest ([6774075](https://github.com/Nagell/claude-marketplace/commit/67740758d77db7bf635943cd71b5e75225eac777))
+
 ## [0.1.11](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.10...base-setup-v0.1.11) (2026-02-01)
 
 
