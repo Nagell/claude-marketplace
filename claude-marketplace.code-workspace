@@ -26,6 +26,7 @@
     "files.associations": {
       "*.md": "markdown"
     },
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "favorites.sortOrder": "ASC"
   }
 }
