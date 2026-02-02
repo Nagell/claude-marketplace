@@ -15,7 +15,8 @@ INPUT=$(cat)
 
 # Extract the command from JSON input
 # Use sed for compatibility (grep -oP is not available on all systems)
-COMMAND=$(echo "$INPUT" | sed -n 's/.*"command"\s*:\s*"\([^"]*\)".*/\1/p' 2>/dev/null | head -1)
+# Pattern handles JSON-escaped quotes (\") by matching [^"\\] OR escape sequences (\\.)
+COMMAND=$(echo "$INPUT" | sed -n 's/.*"command"\s*:\s*"\(\([^"\\]*\(\\.[^"\\]*\)*\)\)".*/\1/p' 2>/dev/null | sed 's/\\"/"/g;s/\\\\/\\/g' | head -1)
 
 # If we couldn't extract command, allow (fail open for non-Bash tools)
 if [ -z "$COMMAND" ]; then
@@ -83,7 +84,7 @@ if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force[^-]'; then
   fi
 fi
 
-if echo "$COMMAND" | grep -qE 'git\s+push\s+.*\s-f(\s|$)'; then
+if echo "$COMMAND" | grep -qE 'git\s+push\s+(-f|.*\s-f)(\s|$)'; then
   echo "BLOCKED: git push -f detected. Use --force-with-lease instead." >&2
   exit 2
 fi
