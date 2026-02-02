@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.13](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.12...base-setup-v0.1.13) (2026-02-02)
+
+
+### Bug Fixes
+
+* **hooks:** patch security bypasses in safety-guards command extraction ([28af639](https://github.com/Nagell/claude-marketplace/commit/28af6394622ee79b0738bcf951f6819038fe2cc3))
+
 ## [0.1.12](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.11...base-setup-v0.1.12) (2026-02-01)
 
 
