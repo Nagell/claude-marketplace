@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.14](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.13...base-setup-v0.1.14) (2026-02-09)
+
+
+### Bug Fixes
+
+* implement fallback formatting with oxfmt or prettier ([363d783](https://github.com/Nagell/claude-marketplace/commit/363d783053d2bd58f81fef8f5e4586198ed29853))
+* implement fallback formatting with oxfmt or prettier ([1fd43ed](https://github.com/Nagell/claude-marketplace/commit/1fd43ed1bd9a957bc371d4a600caf3334793cede))
+
 ## [0.1.13](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.12...base-setup-v0.1.13) (2026-02-02)
 
 
