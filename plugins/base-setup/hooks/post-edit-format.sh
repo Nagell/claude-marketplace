@@ -148,6 +148,7 @@ case "$EXT" in
     ;;
 
   *)
+  
     # Unknown file type, try oxfmt or prettier if available
     if $HAS_OXFMT; then
       npx oxfmt --write "$FILE" 2>/dev/null || true
