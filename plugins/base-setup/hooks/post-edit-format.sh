@@ -39,6 +39,7 @@ PROJECT_ROOT=$(pwd)
 # Detect available formatters/linters
 # ============================================
 
+HAS_OXFMT=false
 HAS_PRETTIER=false
 HAS_ESLINT=false
 HAS_STYLELINT=false
@@ -48,8 +49,12 @@ HAS_BLACK=false
 # Node.js project detection
 if [ -f "$PROJECT_ROOT/package.json" ]; then
   if command -v npx &>/dev/null; then
-    # Check if prettier is available
-    if npx prettier --version &>/dev/null 2>&1; then
+    # Check if oxfmt is available (preferred over prettier)
+    if [ -f "$PROJECT_ROOT/.oxfmtrc.json" ] && npx oxfmt --version &>/dev/null 2>&1; then
+      HAS_OXFMT=true
+    fi
+    # Check if prettier is available (fallback when oxfmt is not configured)
+    if ! $HAS_OXFMT && npx prettier --version &>/dev/null 2>&1; then
       HAS_PRETTIER=true
     fi
     # Check if eslint is available
@@ -80,7 +85,9 @@ fi
 case "$EXT" in
   # JavaScript/TypeScript/Vue/JSX/TSX
   js|jsx|ts|tsx|vue|svelte)
-    if $HAS_PRETTIER; then
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     if $HAS_ESLINT; then
@@ -93,7 +100,9 @@ case "$EXT" in
 
   # CSS/SCSS/Less
   css|scss|less|sass)
-    if $HAS_PRETTIER; then
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     if $HAS_STYLELINT; then
@@ -103,14 +112,18 @@ case "$EXT" in
 
   # JSON/YAML/Markdown
   json|yaml|yml|md)
-    if $HAS_PRETTIER; then
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     ;;
 
   # HTML
   html|htm)
-    if $HAS_PRETTIER; then
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     ;;
@@ -127,14 +140,18 @@ case "$EXT" in
 
   # GraphQL
   graphql|gql)
-    if $HAS_PRETTIER; then
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     ;;
 
   *)
-    # Unknown file type, try prettier if available (it handles many types)
-    if $HAS_PRETTIER; then
+    # Unknown file type, try oxfmt or prettier if available
+    if $HAS_OXFMT; then
+      npx oxfmt --write "$FILE" 2>/dev/null || true
+    elif $HAS_PRETTIER; then
       npx prettier --write "$FILE" 2>/dev/null || true
     fi
     ;;
