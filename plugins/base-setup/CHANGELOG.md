@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.15](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.14...base-setup-v0.1.15) (2026-02-11)
+
+
+### Features
+
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([8be9987](https://github.com/Nagell/claude-marketplace/commit/8be99877c7ec027112763326d489bec858844701))
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([09df913](https://github.com/Nagell/claude-marketplace/commit/09df91386b291efb3e3140bce37d97aeb80039a1))
+
 ## [0.1.14](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.13...base-setup-v0.1.14) (2026-02-09)
 
 
