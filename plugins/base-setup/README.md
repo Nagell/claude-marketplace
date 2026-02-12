@@ -24,9 +24,16 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 ## Commands
 
-| Command                    | Description                                                                   |
-| -------------------------- | ----------------------------------------------------------------------------- |
-| `/base-setup:plugin-setup` | Install recommended official plugins (feature-dev, serena, superpowers, etc.) |
+| Command                    | Description                                          |
+| -------------------------- | ---------------------------------------------------- |
+| `/base-setup:plugin-setup` | Install recommended plugins and marketplaces         |
+
+## Skills
+
+| Skill             | Description                                |
+| ----------------- | ------------------------------------------ |
+| `skill-creator`   | Guide for creating effective skills        |
+| `command-creator` | Guide for creating effective slash commands|
 
 ## Safety Features
 
