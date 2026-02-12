@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.16](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.15...base-setup-v0.1.16) (2026-02-12)
+
+
+### Bug Fixes
+
+* **base-setup:** require config files before activating formatters ([46c4923](https://github.com/Nagell/claude-marketplace/commit/46c49233cd4961d58fb464852054d33396d3fac4))
+
 ## [0.1.15](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.14...base-setup-v0.1.15) (2026-02-11)
 
 
