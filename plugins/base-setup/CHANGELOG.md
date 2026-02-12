@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.17](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.16...base-setup-v0.1.17) (2026-02-12)
+
+
+### Features
+
+* **base-setup:** add command-creator skill and update README ([b03f8c2](https://github.com/Nagell/claude-marketplace/commit/b03f8c2782a94d9576714b6575bc226ed6e77627))
+* **base-setup:** add command-creator skill and update README ([904ce47](https://github.com/Nagell/claude-marketplace/commit/904ce475969b428969f1ff170a042b309703900f))
+
 ## [0.1.16](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.15...base-setup-v0.1.16) (2026-02-12)
 
 
