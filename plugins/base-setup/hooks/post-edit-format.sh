@@ -36,7 +36,20 @@ EXT="${FILE##*.}"
 PROJECT_ROOT=$(pwd)
 
 # ============================================
+# Helper: check if any matching config file exists
+# Usage: has_config "pattern1" "pattern2" ...
+# ============================================
+has_config() {
+  for pattern in "$@"; do
+    # shellcheck disable=SC2086
+    ls $pattern &>/dev/null 2>&1 && return 0
+  done
+  return 1
+}
+
+# ============================================
 # Detect available formatters/linters
+# Only activate when both the tool AND its config exist
 # ============================================
 
 HAS_OXFMT=false
@@ -49,32 +62,55 @@ HAS_BLACK=false
 # Node.js project detection
 if [ -f "$PROJECT_ROOT/package.json" ]; then
   if command -v npx &>/dev/null; then
-    # Check if oxfmt is available (preferred over prettier)
+    # oxfmt: requires .oxfmtrc.json (preferred over prettier)
     if [ -f "$PROJECT_ROOT/.oxfmtrc.json" ] && npx oxfmt --version &>/dev/null 2>&1; then
       HAS_OXFMT=true
     fi
-    # Check if prettier is available (fallback when oxfmt is not configured)
+
+    # prettier: requires a config file or "prettier" key in package.json
     if ! $HAS_OXFMT && npx prettier --version &>/dev/null 2>&1; then
-      HAS_PRETTIER=true
+      if has_config "$PROJECT_ROOT"/.prettierrc{,.json,.yml,.yaml,.js,.cjs,.mjs,.toml} \
+                    "$PROJECT_ROOT"/prettier.config.{js,cjs,mjs} \
+        || grep -q '"prettier"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+        HAS_PRETTIER=true
+      fi
     fi
-    # Check if eslint is available
+
+    # eslint: requires a config file or "eslintConfig" key in package.json
     if npx eslint --version &>/dev/null 2>&1; then
-      HAS_ESLINT=true
+      if has_config "$PROJECT_ROOT"/.eslintrc{,.js,.cjs,.yaml,.yml,.json} \
+                    "$PROJECT_ROOT"/eslint.config.{js,mjs,cjs,ts,mts,cts} \
+        || grep -q '"eslintConfig"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+        HAS_ESLINT=true
+      fi
     fi
-    # Check if stylelint is available
+
+    # stylelint: requires a config file or "stylelint" key in package.json
     if npx stylelint --version &>/dev/null 2>&1; then
-      HAS_STYLELINT=true
+      if has_config "$PROJECT_ROOT"/.stylelintrc{,.json,.yml,.yaml,.js,.cjs,.mjs} \
+                    "$PROJECT_ROOT"/stylelint.config.{js,cjs,mjs} \
+        || grep -q '"stylelint"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+        HAS_STYLELINT=true
+      fi
     fi
   fi
 fi
 
 # Python project detection
 if [ -f "$PROJECT_ROOT/pyproject.toml" ] || [ -f "$PROJECT_ROOT/setup.py" ]; then
+  # ruff: requires ruff.toml, .ruff.toml, or [tool.ruff] in pyproject.toml
   if command -v ruff &>/dev/null; then
-    HAS_RUFF=true
+    if has_config "$PROJECT_ROOT"/ruff.toml "$PROJECT_ROOT"/.ruff.toml \
+      || grep -q '\[tool\.ruff\]' "$PROJECT_ROOT/pyproject.toml" 2>/dev/null; then
+      HAS_RUFF=true
+    fi
   fi
+
+  # black: requires [tool.black] in pyproject.toml
   if command -v black &>/dev/null; then
-    HAS_BLACK=true
+    if grep -q '\[tool\.black\]' "$PROJECT_ROOT/pyproject.toml" 2>/dev/null; then
+      HAS_BLACK=true
+    fi
   fi
 fi
 
