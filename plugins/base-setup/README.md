@@ -24,9 +24,10 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 ## Commands
 
-| Command                    | Description                                          |
-| -------------------------- | ---------------------------------------------------- |
-| `/base-setup:plugin-setup` | Install recommended plugins and marketplaces         |
+| Command                    | Description                                                                      |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `/base-setup:plugin-setup` | Install recommended plugins and marketplaces                                     |
+| `/base-setup:setup-zsh`    | Install and configure Zsh with Oh My Zsh, Powerlevel10k, plugins, and Nerd Fonts |
 
 ## Skills
 
@@ -90,7 +91,8 @@ base-setup/
 ├── .mcp.json
 ├── CLAUDE.md
 ├── commands/
-│   └── plugin-setup.md
+│   ├── plugin-setup.md
+│   └── setup-zsh.md
 ├── hooks/
 │   ├── hooks.json
 │   ├── safety-guards.sh
