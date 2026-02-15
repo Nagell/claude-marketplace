@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.18](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.17...base-setup-v0.1.18) (2026-02-15)
+
+
+### Features
+
+* **base-setup:** add setup-zsh command for Zsh environment setup ([bcaace2](https://github.com/Nagell/claude-marketplace/commit/bcaace23eba6c26539fd947c49c8e49d41e2fde3))
+* **base-setup:** add setup-zsh command for Zsh environment setup ([3581c1b](https://github.com/Nagell/claude-marketplace/commit/3581c1b441ad11033a86de102fc41768dd4a7ceb))
+
 ## [0.1.17](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.16...base-setup-v0.1.17) (2026-02-12)
 
 
