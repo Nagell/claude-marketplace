@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.19](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.18...base-setup-v0.1.19) (2026-02-15)
+
+
+### Features
+
+* **base-setup:** add global CLAUDE.md setup step to plugin-setup command ([e7c2d2d](https://github.com/Nagell/claude-marketplace/commit/e7c2d2dcb24d911ec56a4378e04abfe4669b77b6))
+* **base-setup:** add interactive plugin selection to plugin-setup command ([070dd83](https://github.com/Nagell/claude-marketplace/commit/070dd836bd05f2d6b98ea87e1e7bc30c9bde66e4))
+
+
+### Bug Fixes
+
+* **base-setup:** correct step numbering in plugin-setup command ([6d429c4](https://github.com/Nagell/claude-marketplace/commit/6d429c4b2b04653543457af6a177441c602f2603))
+
 ## [0.1.18](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.17...base-setup-v0.1.18) (2026-02-15)
 
 
