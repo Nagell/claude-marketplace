@@ -19,13 +19,13 @@ Install recommended Claude Code plugins and marketplaces with interactive select
    - Then ask the user as a plain text message to reply with the numbers or names of plugins they want installed, or "all" / "none" for the group.
    - Wait for the user's reply before moving to the next marketplace group.
 
-4. **Derive marketplaces**: Only add marketplaces that have at least one selected plugin.
+   **Derive marketplaces**: Only add marketplaces that have at least one selected plugin.
 
-5. **Install order**: Run marketplace commands first, then plugin commands.
+   **Install order**: Run marketplace commands first, then plugin commands.
 
-6. After installation, tell the user to restart Claude Code to activate the plugins.
+   After installation, tell the user to restart Claude Code to activate the plugins.
 
-7. **Step 6 — Global CLAUDE.md instructions**: After installation, offer to save this plugin's `CLAUDE.md` as the user's global Claude instructions (`~/.claude/CLAUDE.md`).
+4. **Step 3 — Global CLAUDE.md instructions**: After installation, offer to save this plugin's `CLAUDE.md` as the user's global Claude instructions (`~/.claude/CLAUDE.md`).
    - Check if `~/.claude/CLAUDE.md` already exists.
    - **If it does NOT exist**: Use `AskUserQuestion` to ask:
      - "Yes, create it (Recommended)" — copy `plugins/base-setup/CLAUDE.md` to `~/.claude/CLAUDE.md`
