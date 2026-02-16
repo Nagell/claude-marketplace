@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.20](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.19...base-setup-v0.1.20) (2026-02-16)
+
+
+### Bug Fixes
+
+* **base-setup:** improve setup-zsh font handling, VS Code config, and bash env porting ([5df0070](https://github.com/Nagell/claude-marketplace/commit/5df00704843e7989a875a4c08f57dc59249d8913))
+* **base-setup:** improve setup-zsh font handling, VS Code config, and… ([3d06fa1](https://github.com/Nagell/claude-marketplace/commit/3d06fa19a448cb45886f953ab3226ccd252b31a5))
+
 ## [0.1.19](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.18...base-setup-v0.1.19) (2026-02-15)
 
 
