@@ -1,5 +1,85 @@
 # Changelog
 
+## [0.1.24](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.23...base-setup-v0.1.24) (2026-03-16)
+
+
+### Features
+
+* add Release Please automation for versioning ([7a461f7](https://github.com/Nagell/claude-marketplace/commit/7a461f7d67a397e81f09134b0a0b9c78669b089c))
+* **base-setup:** add command-creator skill and update README ([b03f8c2](https://github.com/Nagell/claude-marketplace/commit/b03f8c2782a94d9576714b6575bc226ed6e77627))
+* **base-setup:** add command-creator skill and update README ([904ce47](https://github.com/Nagell/claude-marketplace/commit/904ce475969b428969f1ff170a042b309703900f))
+* **base-setup:** add core plugin structure ([e2ca37e](https://github.com/Nagell/claude-marketplace/commit/e2ca37e7c8e34535e0f5861bc6db449f46c14764))
+* **base-setup:** add global CLAUDE.md setup step to plugin-setup command ([e7c2d2d](https://github.com/Nagell/claude-marketplace/commit/e7c2d2dcb24d911ec56a4378e04abfe4669b77b6))
+* **base-setup:** add interactive plugin selection to plugin-setup command ([070dd83](https://github.com/Nagell/claude-marketplace/commit/070dd836bd05f2d6b98ea87e1e7bc30c9bde66e4))
+* **base-setup:** add setup-zsh command for Zsh environment setup ([bcaace2](https://github.com/Nagell/claude-marketplace/commit/bcaace23eba6c26539fd947c49c8e49d41e2fde3))
+* **base-setup:** add setup-zsh command for Zsh environment setup ([3581c1b](https://github.com/Nagell/claude-marketplace/commit/3581c1b441ad11033a86de102fc41768dd4a7ceb))
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([8be9987](https://github.com/Nagell/claude-marketplace/commit/8be99877c7ec027112763326d489bec858844701))
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([09df913](https://github.com/Nagell/claude-marketplace/commit/09df91386b291efb3e3140bce37d97aeb80039a1))
+* **commit-agent:** add atomic commit specialist agent ([45a7528](https://github.com/Nagell/claude-marketplace/commit/45a7528fc17d8bcafef4bb9f9bca3a066eca8dff))
+* **hooks:** add safety and formatting hooks ([4d5b9e0](https://github.com/Nagell/claude-marketplace/commit/4d5b9e02ea4aa54e516fbeebbd8af7eb620faf43))
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([2cd948e](https://github.com/Nagell/claude-marketplace/commit/2cd948e2aa6eb91e13bec605d653e0c4d7e0e845))
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([732b2bd](https://github.com/Nagell/claude-marketplace/commit/732b2bd5e48506363223617899820500e9f31b14))
+* **skill-creator:** add skill authoring toolkit ([018a220](https://github.com/Nagell/claude-marketplace/commit/018a22081708859d2634fdd93cb53f0d08481311))
+
+
+### Bug Fixes
+
+* add execute permissions to hook scripts ([609cf37](https://github.com/Nagell/claude-marketplace/commit/609cf377704b8e11e7823c975c638582c614029f))
+* add execute permissions to hook scripts ([da5c351](https://github.com/Nagell/claude-marketplace/commit/da5c351ed35ac1482956335b882533d27a37264c))
+* **agents:** add required name field to commit-agent frontmatter ([f890dbf](https://github.com/Nagell/claude-marketplace/commit/f890dbfb88c26cc94509d185c798cdeceac59f8d))
+* **agents:** add required name field to commit-agent frontmatter ([619f0e8](https://github.com/Nagell/claude-marketplace/commit/619f0e85714753a4ed856f22e35b88748a6dec40))
+* **base-setup:** correct step numbering in plugin-setup command ([6d429c4](https://github.com/Nagell/claude-marketplace/commit/6d429c4b2b04653543457af6a177441c602f2603))
+* **base-setup:** improve setup-zsh font handling, VS Code config, and bash env porting ([5df0070](https://github.com/Nagell/claude-marketplace/commit/5df00704843e7989a875a4c08f57dc59249d8913))
+* **base-setup:** improve setup-zsh font handling, VS Code config, and… ([3d06fa1](https://github.com/Nagell/claude-marketplace/commit/3d06fa19a448cb45886f953ab3226ccd252b31a5))
+* **base-setup:** require config files before activating formatters ([46c4923](https://github.com/Nagell/claude-marketplace/commit/46c49233cd4961d58fb464852054d33396d3fac4))
+* **base-setup:** require config files before activating formatters ([aeeb007](https://github.com/Nagell/claude-marketplace/commit/aeeb007a460e7b76867a892800b2a1930536c404))
+* **hooks:** patch security bypasses in safety-guards command extraction ([28af639](https://github.com/Nagell/claude-marketplace/commit/28af6394622ee79b0738bcf951f6819038fe2cc3))
+* implement fallback formatting with oxfmt or prettier ([363d783](https://github.com/Nagell/claude-marketplace/commit/363d783053d2bd58f81fef8f5e4586198ed29853))
+* implement fallback formatting with oxfmt or prettier ([1fd43ed](https://github.com/Nagell/claude-marketplace/commit/1fd43ed1bd9a957bc371d4a600caf3334793cede))
+* normalize formatting in plugin config files ([6f797ba](https://github.com/Nagell/claude-marketplace/commit/6f797bad1dd37fb961a165a09042d3920f1db1c6))
+* **plugin:** remove unsupported category field from plugin manifest ([a7a3a7f](https://github.com/Nagell/claude-marketplace/commit/a7a3a7f83d1a4d006a0f1f10e97096fcc85cf52c))
+* **plugin:** remove unsupported category field from plugin manifest ([6774075](https://github.com/Nagell/claude-marketplace/commit/67740758d77db7bf635943cd71b5e75225eac777))
+
+## [0.1.23](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.22...base-setup-v0.1.23) (2026-03-16)
+
+
+### Features
+
+* add Release Please automation for versioning ([7a461f7](https://github.com/Nagell/claude-marketplace/commit/7a461f7d67a397e81f09134b0a0b9c78669b089c))
+* **base-setup:** add command-creator skill and update README ([b03f8c2](https://github.com/Nagell/claude-marketplace/commit/b03f8c2782a94d9576714b6575bc226ed6e77627))
+* **base-setup:** add command-creator skill and update README ([904ce47](https://github.com/Nagell/claude-marketplace/commit/904ce475969b428969f1ff170a042b309703900f))
+* **base-setup:** add core plugin structure ([e2ca37e](https://github.com/Nagell/claude-marketplace/commit/e2ca37e7c8e34535e0f5861bc6db449f46c14764))
+* **base-setup:** add global CLAUDE.md setup step to plugin-setup command ([e7c2d2d](https://github.com/Nagell/claude-marketplace/commit/e7c2d2dcb24d911ec56a4378e04abfe4669b77b6))
+* **base-setup:** add interactive plugin selection to plugin-setup command ([070dd83](https://github.com/Nagell/claude-marketplace/commit/070dd836bd05f2d6b98ea87e1e7bc30c9bde66e4))
+* **base-setup:** add setup-zsh command for Zsh environment setup ([bcaace2](https://github.com/Nagell/claude-marketplace/commit/bcaace23eba6c26539fd947c49c8e49d41e2fde3))
+* **base-setup:** add setup-zsh command for Zsh environment setup ([3581c1b](https://github.com/Nagell/claude-marketplace/commit/3581c1b441ad11033a86de102fc41768dd4a7ceb))
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([8be9987](https://github.com/Nagell/claude-marketplace/commit/8be99877c7ec027112763326d489bec858844701))
+* **base-setup:** update plugin-setup with nuxt-skills marketplace and plugins ([09df913](https://github.com/Nagell/claude-marketplace/commit/09df91386b291efb3e3140bce37d97aeb80039a1))
+* **commit-agent:** add atomic commit specialist agent ([45a7528](https://github.com/Nagell/claude-marketplace/commit/45a7528fc17d8bcafef4bb9f9bca3a066eca8dff))
+* **hooks:** add safety and formatting hooks ([4d5b9e0](https://github.com/Nagell/claude-marketplace/commit/4d5b9e02ea4aa54e516fbeebbd8af7eb620faf43))
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([2cd948e](https://github.com/Nagell/claude-marketplace/commit/2cd948e2aa6eb91e13bec605d653e0c4d7e0e845))
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([732b2bd](https://github.com/Nagell/claude-marketplace/commit/732b2bd5e48506363223617899820500e9f31b14))
+* **skill-creator:** add skill authoring toolkit ([018a220](https://github.com/Nagell/claude-marketplace/commit/018a22081708859d2634fdd93cb53f0d08481311))
+
+
+### Bug Fixes
+
+* add execute permissions to hook scripts ([609cf37](https://github.com/Nagell/claude-marketplace/commit/609cf377704b8e11e7823c975c638582c614029f))
+* add execute permissions to hook scripts ([da5c351](https://github.com/Nagell/claude-marketplace/commit/da5c351ed35ac1482956335b882533d27a37264c))
+* **agents:** add required name field to commit-agent frontmatter ([f890dbf](https://github.com/Nagell/claude-marketplace/commit/f890dbfb88c26cc94509d185c798cdeceac59f8d))
+* **agents:** add required name field to commit-agent frontmatter ([619f0e8](https://github.com/Nagell/claude-marketplace/commit/619f0e85714753a4ed856f22e35b88748a6dec40))
+* **base-setup:** correct step numbering in plugin-setup command ([6d429c4](https://github.com/Nagell/claude-marketplace/commit/6d429c4b2b04653543457af6a177441c602f2603))
+* **base-setup:** improve setup-zsh font handling, VS Code config, and bash env porting ([5df0070](https://github.com/Nagell/claude-marketplace/commit/5df00704843e7989a875a4c08f57dc59249d8913))
+* **base-setup:** improve setup-zsh font handling, VS Code config, and… ([3d06fa1](https://github.com/Nagell/claude-marketplace/commit/3d06fa19a448cb45886f953ab3226ccd252b31a5))
+* **base-setup:** require config files before activating formatters ([46c4923](https://github.com/Nagell/claude-marketplace/commit/46c49233cd4961d58fb464852054d33396d3fac4))
+* **base-setup:** require config files before activating formatters ([aeeb007](https://github.com/Nagell/claude-marketplace/commit/aeeb007a460e7b76867a892800b2a1930536c404))
+* **hooks:** patch security bypasses in safety-guards command extraction ([28af639](https://github.com/Nagell/claude-marketplace/commit/28af6394622ee79b0738bcf951f6819038fe2cc3))
+* implement fallback formatting with oxfmt or prettier ([363d783](https://github.com/Nagell/claude-marketplace/commit/363d783053d2bd58f81fef8f5e4586198ed29853))
+* implement fallback formatting with oxfmt or prettier ([1fd43ed](https://github.com/Nagell/claude-marketplace/commit/1fd43ed1bd9a957bc371d4a600caf3334793cede))
+* normalize formatting in plugin config files ([6f797ba](https://github.com/Nagell/claude-marketplace/commit/6f797bad1dd37fb961a165a09042d3920f1db1c6))
+* **plugin:** remove unsupported category field from plugin manifest ([a7a3a7f](https://github.com/Nagell/claude-marketplace/commit/a7a3a7f83d1a4d006a0f1f10e97096fcc85cf52c))
+* **plugin:** remove unsupported category field from plugin manifest ([6774075](https://github.com/Nagell/claude-marketplace/commit/67740758d77db7bf635943cd71b5e75225eac777))
+
 ## [0.1.22](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.21...base-setup-v0.1.22) (2026-03-16)
 
 
