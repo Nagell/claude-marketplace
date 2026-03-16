@@ -50,6 +50,10 @@ test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" && 
 test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" && echo "INSTALLED" || echo "MISSING"
 ```
 
+```bash
+test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-shift-select" && echo "INSTALLED" || echo "MISSING"
+```
+
 Report which components are already installed and which need installation. Skip already-installed components in subsequent steps.
 
 ### 3. Install Zsh (requires user action on Linux/WSL)
@@ -120,6 +124,12 @@ git clone https://github.com/zsh-users/zsh-autosuggestions.git "${ZSH_CUSTOM:-$H
 
 ```bash
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
+```
+
+**zsh-shift-select** (Shift+Arrow selection):
+
+```bash
+git clone https://github.com/jirutka/zsh-shift-select.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-shift-select"
 ```
 
 ### 7. Install MesloLGS NF Nerd Font
@@ -314,11 +324,142 @@ Read the existing `~/.zshrc` file using the Read tool.
 **Set the plugins:** Use Edit tool to update the `plugins=(...)` line:
 
 - old_string: `plugins=(git)` (or whatever the current plugins list is)
-- new_string: `plugins=(git zsh-autosuggestions zsh-syntax-highlighting)`
+- new_string: `plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-shift-select)`
 
 If the plugins line already contains some of these plugins, merge them - do not duplicate entries.
 
-### 9. Port Bash Environment to Zsh
+### 9. Configure Keybindings
+
+Read `~/.zshrc` using Read tool. Check if a keybindings block already exists by searching for `_select_all`. If found, skip this step.
+
+If not found, use Edit tool to append the following block **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise.
+
+**All environments** — append this base block:
+
+```zsh
+# Windows-like keybindings
+_select_all() {
+  zle beginning-of-line
+  zle set-mark-command
+  zle end-of-line
+}
+zle -N _select_all
+bindkey '^A' _select_all
+bindkey '^Z' undo
+bindkey '^Y' redo
+```
+
+Then append clipboard bindings depending on the environment detected in Step 1:
+
+**If WSL** — append:
+
+```zsh
+_cut_to_clipboard() {
+  zle kill-region
+  echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+}
+zle -N _cut_to_clipboard
+
+_paste_from_clipboard() {
+  local paste
+  paste=$(powershell.exe Get-Clipboard 2>/dev/null | tr -d '\r')
+  LBUFFER+=$paste
+}
+zle -N _paste_from_clipboard
+
+bindkey '^X' _cut_to_clipboard
+bindkey '^V' _paste_from_clipboard
+
+_backspace_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+    echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+  else
+    zle backward-delete-char
+  fi
+}
+zle -N _backspace_or_delete_region
+bindkey '^?' _backspace_or_delete_region
+
+_delete_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+    echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+  else
+    zle delete-char
+  fi
+}
+zle -N _delete_or_delete_region
+bindkey '^[[3~' _delete_or_delete_region
+```
+
+**If macOS** — append:
+
+```zsh
+_cut_to_clipboard() {
+  zle kill-region
+  echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
+}
+zle -N _cut_to_clipboard
+
+_paste_from_clipboard() {
+  local paste
+  paste=$(pbpaste 2>/dev/null)
+  LBUFFER+=$paste
+}
+zle -N _paste_from_clipboard
+
+bindkey '^X' _cut_to_clipboard
+bindkey '^V' _paste_from_clipboard
+
+_backspace_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+    echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
+  else
+    zle backward-delete-char
+  fi
+}
+zle -N _backspace_or_delete_region
+bindkey '^?' _backspace_or_delete_region
+
+_delete_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+    echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
+  else
+    zle delete-char
+  fi
+}
+zle -N _delete_or_delete_region
+bindkey '^[[3~' _delete_or_delete_region
+```
+
+**If native Linux** — skip clipboard bindings but still add backspace/delete region support:
+
+```zsh
+_backspace_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+  else
+    zle backward-delete-char
+  fi
+}
+zle -N _backspace_or_delete_region
+bindkey '^?' _backspace_or_delete_region
+
+_delete_or_delete_region() {
+  if (( REGION_ACTIVE )); then
+    zle kill-region
+  else
+    zle delete-char
+  fi
+}
+zle -N _delete_or_delete_region
+bindkey '^[[3~' _delete_or_delete_region
+```
+
+### 11. Port Bash Environment to Zsh
 
 Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
 
@@ -368,7 +509,7 @@ Report results to the user. If commands like `node` are missing, suggest they ch
 
 If no portable statements are found in bash configs, skip this step and inform the user that no environment setup needed porting.
 
-### 10. VS Code Terminal Font Configuration
+### 12. VS Code Terminal Font Configuration
 
 Set `"terminal.integrated.fontFamily": "MesloLGS NF"` in all VS Code settings files — both the default and any profile-specific ones. VS Code profiles store their own `settings.json` that overrides the default.
 
@@ -394,7 +535,7 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 11. Apply Configuration
+### 13. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
