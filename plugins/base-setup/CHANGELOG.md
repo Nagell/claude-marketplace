@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.25](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.24...base-setup-v0.1.25) (2026-03-16)
+
+
+### Bug Fixes
+
+* **ci:** remove skip-labeling to restore release PR detection ([f15cac0](https://github.com/Nagell/claude-marketplace/commit/f15cac055e646d9d131d7ee76065185dae30e803))
+
 ## [0.1.24](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.23...base-setup-v0.1.24) (2026-03-16)
 
 
