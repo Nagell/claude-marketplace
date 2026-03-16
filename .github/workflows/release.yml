@@ -14,6 +14,9 @@ permissions:
   pull-requests: write  # Create release PRs
   issues: write         # Create labels
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   release-please:
     name: Release Please
