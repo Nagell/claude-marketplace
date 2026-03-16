@@ -42,7 +42,7 @@ jobs:
         if: steps.release_check.outputs.is_release != 'true'
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Generate Release Config
         if: steps.release_check.outputs.is_release != 'true'
@@ -68,3 +68,4 @@ jobs:
         uses: googleapis/release-please-action@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          skip-labeling: true
