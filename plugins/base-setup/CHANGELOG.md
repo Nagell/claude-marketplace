@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.26](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.25...base-setup-v0.1.26) (2026-03-16)
+
+
+### Maintenance
+
+* **base-setup:** Synchronize marketplace versions
+
 ## [0.1.25](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.24...base-setup-v0.1.25) (2026-03-16)
 
 
