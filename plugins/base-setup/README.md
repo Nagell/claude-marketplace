@@ -16,7 +16,7 @@ Foundational Claude Code configuration with safety guardrails, auto-formatting, 
 
 After installing, run:
 
-```
+```bash
 /base-setup:plugin-setup
 ```
 
