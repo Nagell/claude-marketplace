@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.21](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.20...base-setup-v0.1.21) (2026-03-16)
+
+
+### Features
+
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([2cd948e](https://github.com/Nagell/claude-marketplace/commit/2cd948e2aa6eb91e13bec605d653e0c4d7e0e845))
+* **setup-zsh:** add Windows-like keybindings and zsh-shift-select plugin ([732b2bd](https://github.com/Nagell/claude-marketplace/commit/732b2bd5e48506363223617899820500e9f31b14))
+
 ## [0.1.20](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.19...base-setup-v0.1.20) (2026-02-16)
 
 
