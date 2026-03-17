@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.30](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.29...base-setup-v0.1.30) (2026-03-17)
+
+
+### Features
+
+* **base-setup:** add optional p10k right prompt wrapping fix to setup-zsh ([1629743](https://github.com/Nagell/claude-marketplace/commit/16297434eb591c285fa245b43b99cdbe7969ca83))
+* **base-setup:** add optional p10k right prompt wrapping fix to setup-zsh ([b190134](https://github.com/Nagell/claude-marketplace/commit/b19013451c9646302eb917a9cba1caba8d4c0e13))
+
 ## [0.1.29](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.28...base-setup-v0.1.29) (2026-03-17)
 
 
