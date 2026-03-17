@@ -459,6 +459,58 @@ zle -N _delete_or_delete_region
 bindkey '^[[3~' _delete_or_delete_region
 ```
 
+### 10. Configure WSL Audio (WSL only)
+
+Skip this step entirely if the environment is not WSL.
+
+This enables microphone/audio input in WSL via WSLg's PulseAudio bridge — required for tools like Claude Code voice mode.
+
+**Check what's already set up:**
+
+```bash
+which pactl 2>/dev/null && echo "pactl: OK" || echo "pactl: MISSING"
+dpkg -l libasound2-plugins 2>/dev/null | grep -q '^ii' && echo "libasound2-plugins: OK" || echo "libasound2-plugins: MISSING"
+test -f /mnt/wslg/runtime-dir/pulse/native && echo "WSLg PulseAudio: OK" || echo "WSLg PulseAudio: NOT RUNNING"
+test -f "$HOME/.asoundrc" && echo ".asoundrc: EXISTS" || echo ".asoundrc: MISSING"
+grep -q 'PULSE_SERVER' "$HOME/.zshrc" 2>/dev/null && echo "PULSE_SERVER in .zshrc: YES" || echo "PULSE_SERVER in .zshrc: NO"
+```
+
+**If packages are missing (`pactl: MISSING` or `libasound2-plugins: MISSING`):**
+
+**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+
+```
+Please run this command manually, then confirm when done:
+
+sudo apt-get install -y pulseaudio-utils libasound2-plugins
+```
+
+Use AskUserQuestion to ask "Have you finished installing the audio packages?" with options "Yes, done" and "Skip audio setup".
+
+If user skips, skip the rest of this step.
+
+**If WSLg PulseAudio is not running:**
+
+Inform the user: "WSLg PulseAudio is not running — audio may not work until you restart WSL. Continue anyway and audio will work after restart."
+
+**Configure `~/.asoundrc`:**
+
+If `~/.asoundrc` does not exist, or does not contain `pcm.default pulse`, create/overwrite it using Write tool:
+
+```
+pcm.default pulse
+ctl.default pulse
+```
+
+**Add `PULSE_SERVER` to `.zshrc`:**
+
+If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after the `export PATH=` line:
+
+- old_string: the existing `export PATH=...` line
+- new_string: same line + newline + `export PULSE_SERVER=unix:/mnt/wslg/runtime-dir/pulse/native`
+
+Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
+
 ### 11. Port Bash Environment to Zsh
 
 Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
