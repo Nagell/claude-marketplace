@@ -587,7 +587,53 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 13. Apply Configuration
+### 13. Fix Powerlevel10k Right Prompt Wrapping (optional)
+
+On narrow terminals, right prompt segments on line 1 cause powerline cap symbols to wrap and create graphical artifacts when resizing the terminal window. This fix removes all line 1 right segments and clears the cap symbols that render as invisible artifacts even when no segments are shown.
+
+**Trade-off:** All right-side prompt info (exit code, execution time, node/python/etc. versions, background jobs, etc.) will no longer be visible. Only the left prompt remains.
+
+Use AskUserQuestion to ask: "Do you want to fix p10k right prompt wrapping artifacts on narrow terminals? (Trade-off: all right-side prompt info — exit code, execution time, version managers, etc. — will no longer be visible)" with options "Yes, apply fix" and "No, skip".
+
+If the user skips, proceed to Step 14.
+
+If the user accepts:
+
+**Check if `~/.p10k.zsh` exists:**
+
+```bash
+test -f ~/.p10k.zsh && echo "EXISTS" || echo "MISSING"
+```
+
+If `MISSING`: inform the user — "The fix requires `~/.p10k.zsh`. It is generated when you run the p10k wizard, which launches automatically on the first `exec zsh`. Run the wizard first, then re-apply this fix manually or re-run the command." Skip the rest of this step.
+
+If `EXISTS`, read `~/.p10k.zsh` using the Read tool, then apply these changes with the Edit tool:
+
+**1. Clear line 1 right prompt segments** — replace the entire `POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(...)` block with one that has no line 1 segments and only `newline` on line 2. The exact content of the block will vary, but use Edit tool to replace from the opening `typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(` line through the closing `)` with:
+
+```zsh
+  typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(
+    # =========================[ Line #1 ]=========================
+    # (all line 1 segments removed to prevent wrapping/artifacts on narrow terminals)
+    # =========================[ Line #2 ]=========================
+    newline
+  )
+```
+
+**2. Clear right prompt powerline cap symbols** — these render invisible frame artifacts even when no segments are present. Find and replace:
+
+- `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL='\uE0BA'` → `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL=''`
+- `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL='\uE0BC'` → `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL=''`
+
+Note: the exact unicode values may differ depending on the style chosen in the p10k wizard — search for `RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL` and `RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL` by name, not by value.
+
+Run to apply immediately:
+
+```bash
+source ~/.p10k.zsh
+```
+
+### 14. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
