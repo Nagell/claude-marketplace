@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.29](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.28...base-setup-v0.1.29) (2026-03-17)
+
+
+### Bug Fixes
+
+* **base-setup:** remove unnecessary chrome-devtools MCP flags ([94bb07a](https://github.com/Nagell/claude-marketplace/commit/94bb07a3df57956f028182ee669ed2d586b77e57))
+
 ## [0.1.28](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.27...base-setup-v0.1.28) (2026-03-17)
 
 
