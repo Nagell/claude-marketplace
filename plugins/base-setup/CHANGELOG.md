@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.27](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.26...base-setup-v0.1.27) (2026-03-17)
+
+
+### Features
+
+* **base-setup:** add WSL audio setup step to setup-zsh ([b55d370](https://github.com/Nagell/claude-marketplace/commit/b55d370bdf095e6b19a84d3aaea6ed83c27a5787))
+* **base-setup:** add WSL audio setup step to setup-zsh ([9c2df9f](https://github.com/Nagell/claude-marketplace/commit/9c2df9f75b90b5877e617888edc4c357476c173f))
+
 ## [0.1.26](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.25...base-setup-v0.1.26) (2026-03-16)
 
 
