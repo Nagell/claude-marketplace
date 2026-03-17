@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.28](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.27...base-setup-v0.1.28) (2026-03-17)
+
+
+### Features
+
+* **base-setup:** add Chrome debug launcher command and configure chrome-devtools MCP ([20feba3](https://github.com/Nagell/claude-marketplace/commit/20feba3f7826b758bc98db38d27e2d9dbe8f1d1f))
+* **base-setup:** add start-chrome-debug command ([dad9698](https://github.com/Nagell/claude-marketplace/commit/dad969888a3abae61258671f4d755ac1f4309399))
+
 ## [0.1.27](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.26...base-setup-v0.1.27) (2026-03-17)
 
 
