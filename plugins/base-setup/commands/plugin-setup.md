@@ -41,6 +41,7 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 
 ```bash
 /plugin marketplace add claude-plugins-official
+/plugin marketplace add DrCatHicks/learning-opportunities
 /plugin marketplace add onmax/nuxt-skills
 ```
 
@@ -59,6 +60,13 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 /plugin install superpowers@claude-plugins-official
 # Iterative development loops with self-referential AI
 /plugin install ralph-loop@claude-plugins-official
+```
+
+#### learning-opportunities
+
+```bash
+# Deliberate skill development during AI-assisted coding
+/plugin install learning-opportunities@learning-opportunities
 ```
 
 #### nuxt-skills
