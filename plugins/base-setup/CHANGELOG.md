@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.33](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.32...base-setup-v0.1.33) (2026-03-29)
+
+
+### Features
+
+* **base-setup:** add setup-token-tools command ([5f2ab6c](https://github.com/Nagell/claude-marketplace/commit/5f2ab6cbcc6d1dba4b67f9ad10efd920b14994d6))
+
 ## [0.1.32](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.31...base-setup-v0.1.32) (2026-03-29)
 
 
