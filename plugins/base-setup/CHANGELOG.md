@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.32](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.31...base-setup-v0.1.32) (2026-03-29)
+
+
+### Features
+
+* **base-setup:** add Fira Code Nerd Font option to setup-zsh ([d808359](https://github.com/Nagell/claude-marketplace/commit/d808359f1037ddb8914764a6236134ce2d40c744))
+* **base-setup:** add Fira Code Nerd Font option to setup-zsh ([9523612](https://github.com/Nagell/claude-marketplace/commit/95236120807239ba00fe283c913f3bccefdb6369))
+
 ## [0.1.31](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.30...base-setup-v0.1.31) (2026-03-24)
 
 
