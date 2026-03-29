@@ -132,7 +132,18 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM
 git clone https://github.com/jirutka/zsh-shift-select.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-shift-select"
 ```
 
-### 7. Install MesloLGS NF Nerd Font
+### 7. Install Nerd Font
+
+**Ask the user which font to install** using AskUserQuestion: "Which Nerd Font would you like to install?" with options:
+
+- `MesloLGS NF` (recommended — specially designed for Powerlevel10k)
+- `Fira Code Nerd Font` (popular programming font with ligatures)
+
+Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 12 to set the correct VS Code font family name.
+
+---
+
+#### Option A: MesloLGS NF (FONT_CHOICE = "meslo")
 
 Download the four MesloLGS NF font files. The installation location depends on the environment detected in Step 1.
 
@@ -309,6 +320,140 @@ echo "Missing fonts: ${MISSING}"
 ```
 
 If any fonts are missing or invalid, report the specific failures to the user and do NOT proceed — ask them to retry or download manually.
+
+macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
+
+---
+
+#### Option B: Fira Code Nerd Font (FONT_CHOICE = "fira")
+
+Download from: `https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip`
+
+The zip contains ~20 TTF files across three variants (standard, Mono, Propo). Use the pattern `FiraCodeNerdFont-*.ttf` to extract only the ~6 standard variants — this excludes `FiraCodeNerdFontMono-*` and `FiraCodeNerdFontPropo-*`.
+
+**If WSL:**
+
+Check if already installed:
+
+```bash
+WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
+ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+If INSTALLED, skip downloading and report already installed.
+
+If MISSING, download and install:
+
+```bash
+WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
+mkdir -p "${FONTDIR}"
+TMPFONT=$(mktemp -d)
+curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
+rm -rf "${TMPFONT}"
+```
+
+Verify:
+
+```bash
+WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
+filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
+if [[ -f "$filepath" ]]; then
+  size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
+  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
+else
+  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
+fi
+```
+
+If the font is missing or invalid, report it to the user and do NOT proceed.
+
+Register all installed FiraCode fonts in the Windows registry:
+
+```bash
+WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+WINFONTDIR="C:\\Users\\${WINUSER}\\AppData\\Local\\Microsoft\\Windows\\Fonts"
+FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
+for f in "${FONTDIR}"/FiraCodeNerdFont-*.ttf; do
+  [[ -f "$f" ]] || continue
+  fname=$(basename "$f")
+  reg.exe add "HKCU\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts" /v "${fname%.ttf} (TrueType)" /t REG_SZ /d "${WINFONTDIR}\\${fname}" /f
+done
+```
+
+**If native Linux:**
+
+Check if already installed:
+
+```bash
+FONTDIR="$HOME/.local/share/fonts"
+ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+If MISSING, download and install:
+
+```bash
+FONTDIR="$HOME/.local/share/fonts"
+mkdir -p "${FONTDIR}"
+TMPFONT=$(mktemp -d)
+curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4/FiraCode.zip"
+unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
+rm -rf "${TMPFONT}"
+fc-cache -fv
+```
+
+Verify:
+
+```bash
+FONTDIR="$HOME/.local/share/fonts"
+filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
+if [[ -f "$filepath" ]]; then
+  size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
+  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
+else
+  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
+fi
+```
+
+If the font is missing or invalid, report it to the user and do NOT proceed.
+
+**If macOS:**
+
+Check if already installed:
+
+```bash
+FONTDIR="$HOME/Library/Fonts"
+ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+If MISSING, download and install:
+
+```bash
+FONTDIR="$HOME/Library/Fonts"
+mkdir -p "${FONTDIR}"
+TMPFONT=$(mktemp -d)
+curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
+unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
+rm -rf "${TMPFONT}"
+```
+
+Verify:
+
+```bash
+FONTDIR="$HOME/Library/Fonts"
+filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
+if [[ -f "$filepath" ]]; then
+  size=$(stat -f%z "$filepath" 2>/dev/null || echo 0)
+  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
+else
+  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
+fi
+```
+
+If the font is missing or invalid, report it to the user and do NOT proceed.
 
 macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
 
@@ -563,7 +708,12 @@ If no portable statements are found in bash configs, skip this step and inform t
 
 ### 12. VS Code Terminal Font Configuration
 
-Set `"terminal.integrated.fontFamily": "MesloLGS NF"` in all VS Code settings files — both the default and any profile-specific ones. VS Code profiles store their own `settings.json` that overrides the default.
+Use the `FONT_CHOICE` from Step 7 to determine the font family name:
+
+- `FONT_CHOICE = "meslo"` → font family: `"MesloLGS NF"`
+- `FONT_CHOICE = "fira"` → font family: `"FiraCode Nerd Font"`
+
+Set `"terminal.integrated.fontFamily": "<font family>"` in all VS Code settings files — both the default and any profile-specific ones. VS Code profiles store their own `settings.json` that overrides the default.
 
 First, locate the VS Code config directory and find all `settings.json` files:
 
@@ -581,9 +731,9 @@ find "${VSCODE_DIR}/User/profiles" -name "settings.json" 2>/dev/null
 
 For **each** `settings.json` found, read it using the Read tool, then:
 
-- If `"terminal.integrated.fontFamily"` already exists, use Edit tool to update its value to `"MesloLGS NF"`
-- If it does not exist, use Edit tool to add `"terminal.integrated.fontFamily": "MesloLGS NF"` inside the top-level JSON object (after the opening `{`)
-- If the file does not exist, create it with Write tool containing: `{ "terminal.integrated.fontFamily": "MesloLGS NF" }`
+- If `"terminal.integrated.fontFamily"` already exists, use Edit tool to update its value to the chosen font family name
+- If it does not exist, use Edit tool to add `"terminal.integrated.fontFamily": "<font family>"` inside the top-level JSON object (after the opening `{`)
+- If the file does not exist, create it with Write tool containing: `{ "terminal.integrated.fontFamily": "<font family>" }`
 
 Report which files were updated and which already had the correct value.
 
