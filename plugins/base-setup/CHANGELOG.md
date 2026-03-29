@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.31](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.30...base-setup-v0.1.31) (2026-03-24)
+
+
+### Features
+
+* **base-setup:** add learning-opportunities plugin to plugin-setup ([6540ee8](https://github.com/Nagell/claude-marketplace/commit/6540ee8c7421f6f2de5d7da83ecb3e0581d643ee))
+* **base-setup:** add learning-opportunities plugin to plugin-setup command ([94130a7](https://github.com/Nagell/claude-marketplace/commit/94130a70a5565541c2c0f082649f24681f4f3e38))
+
 ## [0.1.30](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.29...base-setup-v0.1.30) (2026-03-17)
 
 
