@@ -43,6 +43,7 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 /plugin marketplace add claude-plugins-official
 /plugin marketplace add DrCatHicks/learning-opportunities
 /plugin marketplace add onmax/nuxt-skills
+/plugin marketplace add mksglu/context-mode
 ```
 
 ### Plugins
@@ -67,6 +68,13 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 ```bash
 # Deliberate skill development during AI-assisted coding
 /plugin install learning-opportunities@learning-opportunities
+```
+
+#### context-mode
+
+```bash
+# Context window compression (98% savings), sandboxed code execution, FTS5 knowledge base
+/plugin install context-mode@context-mode
 ```
 
 #### nuxt-skills
