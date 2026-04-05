@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.34](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.33...base-setup-v0.1.34) (2026-04-05)
+
+
+### Features
+
+* **base-setup:** add Windows Git Bash path prerequisite step to plugin-setup ([0ba1d33](https://github.com/Nagell/claude-marketplace/commit/0ba1d33de66d55ecb7d5481cc5b2ad4988736a90))
+* **base-setup:** improve plugin-setup command ([d0c5cac](https://github.com/Nagell/claude-marketplace/commit/d0c5cacb82313f7dcab4feae248411bd7c9f4d98))
+
 ## [0.1.33](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.32...base-setup-v0.1.33) (2026-03-29)
 
 
