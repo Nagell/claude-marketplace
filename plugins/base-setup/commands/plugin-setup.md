@@ -10,11 +10,24 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 
 1. When running as an agent, prefix all `claude` CLI commands with `unset CLAUDECODE &&` to avoid the nested session error.
 
-2. **Step 1 — Ask install mode**: Use `AskUserQuestion` to ask the user:
+2. **Step 0 — Windows prerequisite**: Check the platform. If on Windows:
+   - Read `~/.claude/settings.json`
+   - Check if the `env` object contains `CLAUDE_CODE_GIT_BASH_PATH`
+   - If missing, add it:
+
+     ```json
+     "env": {
+       "CLAUDE_CODE_GIT_BASH_PATH": "C:\\Program Files\\Git\\bin\\bash.exe"
+     }
+     ```
+
+   - Inform the user the path was set (default: `C:\Program Files\Git\bin\bash.exe`) and ask them to confirm it matches their Git installation before continuing.
+
+3. **Step 1 — Ask install mode**: Use `AskUserQuestion` to ask the user:
    - "Install all (Recommended)" — skip to installing everything from the plugin list below
    - "Let me choose" — proceed to Step 2
 
-3. **Step 2 — Interactive selection** (only if "Let me choose"):
+4. **Step 2 — Interactive selection** (only if "Let me choose"):
    - Do NOT use `AskUserQuestion` for this step. Instead, for each marketplace group (each `####` heading), print a numbered list of all plugins with their descriptions (the comment above each command).
    - Then ask the user as a plain text message to reply with the numbers or names of plugins they want installed, or "all" / "none" for the group.
    - Wait for the user's reply before moving to the next marketplace group.
@@ -25,7 +38,7 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 
    After installation, tell the user to restart Claude Code to activate the plugins.
 
-4. **Step 3 — Global CLAUDE.md instructions**: After installation, offer to save this plugin's `CLAUDE.md` as the user's global Claude instructions (`~/.claude/CLAUDE.md`).
+5. **Step 3 — Global CLAUDE.md instructions**: After installation, offer to save this plugin's `CLAUDE.md` as the user's global Claude instructions (`~/.claude/CLAUDE.md`).
    - Check if `~/.claude/CLAUDE.md` already exists.
    - **If it does NOT exist**: Use `AskUserQuestion` to ask:
      - "Yes, create it (Recommended)" — copy `plugins/base-setup/CLAUDE.md` to `~/.claude/CLAUDE.md`
@@ -67,6 +80,8 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 ```bash
 # Deliberate skill development during AI-assisted coding
 /plugin install learning-opportunities@learning-opportunities
+# Automated learning opportunity detection and suggestions
+/plugin install learning-opportunities-auto@learning-opportunities
 ```
 
 #### nuxt-skills
