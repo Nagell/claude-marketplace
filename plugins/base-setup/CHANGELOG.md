@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.35](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.34...base-setup-v0.1.35) (2026-04-06)
+
+
+### Features
+
+* **base-setup:** add writing-style-guide skill ([d624364](https://github.com/Nagell/claude-marketplace/commit/d624364325f096e051d8d5c8192971a78bef07de))
+* **base-setup:** add writing-style-guide skill ([bf189f8](https://github.com/Nagell/claude-marketplace/commit/bf189f87607a2bf4a3f879bb7bc2c1d261921c6a))
+
+
+### Documentation
+
+* **base-setup:** update README with new commands and skills ([968a163](https://github.com/Nagell/claude-marketplace/commit/968a163ed0e2e67c28ea5b5fed8977dc24ec9d1e))
+
 ## [0.1.34](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.33...base-setup-v0.1.34) (2026-04-05)
 
 
