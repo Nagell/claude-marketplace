@@ -24,17 +24,20 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 ## Commands
 
-| Command                    | Description                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| `/base-setup:plugin-setup` | Install recommended plugins and marketplaces                                     |
-| `/base-setup:setup-zsh`    | Install and configure Zsh with Oh My Zsh, Powerlevel10k, plugins, and Nerd Fonts |
+| Command                         | Description                                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------- |
+| `/base-setup:plugin-setup`      | Install recommended plugins and marketplaces                                     |
+| `/base-setup:setup-token-tools` | Set up tools for CC to save tokens                                               |
+| `/base-setup:setup-zsh`         | Install and configure Zsh with Oh My Zsh, Powerlevel10k, plugins, and Nerd Fonts |
+| `/start-chrome-debug`           | A personal skill to run Chrome debugging sessions                                |
 
 ## Skills
 
-| Skill             | Description                                |
-| ----------------- | ------------------------------------------ |
-| `skill-creator`   | Guide for creating effective skills        |
-| `command-creator` | Guide for creating effective slash commands|
+| Skill                 | Description                                 |
+| --------------------- | ------------------------------------------- |
+| `skill-creator`       | Guide for creating effective skills         |
+| `command-creator`     | Guide for creating effective slash commands |
+| `writing-style-guide` | Dawid Nitka's personal writing style guide  |
 
 ## Safety Features
 
