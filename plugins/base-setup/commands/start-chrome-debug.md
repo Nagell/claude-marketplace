@@ -77,6 +77,12 @@ Using a separate `--user-data-dir` ensures the debug instance is isolated from a
   > /dev/null 2>&1 &
 ```
 
+Flag rationale:
+- `--remote-debugging-port=9222` — enables the CDP endpoint that MCP tools connect to
+- `--user-data-dir="/tmp/chrome-debug"` — isolated profile; without it Chrome hands off to an existing instance and the debug flag is ignored
+- `--no-first-run` — skips the "Welcome to Chrome" screen that appears on fresh profiles
+- `--no-default-browser-check` — suppresses the "set as default?" prompt that also appears on fresh profiles
+
 On WSL, since Chrome runs as a native Linux process, it binds directly to `127.0.0.1:9222` inside the WSL network namespace — no Windows port forwarding needed.
 
 ### Step 5 — Verify connection
