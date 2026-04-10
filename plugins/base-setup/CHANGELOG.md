@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.36](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.35...base-setup-v0.1.36) (2026-04-10)
+
+
+### Bug Fixes
+
+* use native WSL Chrome instead of Windows Chrome for debug mode ([2ec2ca1](https://github.com/Nagell/claude-marketplace/commit/2ec2ca1da39f9775bce4b7315e1a8e9fea830e68))
+
+
+### Documentation
+
+* add flag rationale to start-chrome-debug command ([2bc7785](https://github.com/Nagell/claude-marketplace/commit/2bc77850668c88085b156d54d70e4f71b012df97))
+
 ## [0.1.35](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.34...base-setup-v0.1.35) (2026-04-06)
 
 
