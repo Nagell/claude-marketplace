@@ -1,8 +1,9 @@
 ---
 description: Install RTK (token-saving CLI proxy) and context-mode (context window compression plugin) by fetching the latest instructions from GitHub
+version: "1.0"
 ---
 
-# Setup Token Tools
+# Setup Token Savings
 
 Install two complementary token-saving tools:
 
@@ -39,11 +40,11 @@ rtk --version
 rtk gain
 ```
 
-### Step 3 — Install context-mode and verify
+### Step 3 — Install context-mode
 
 Follow the install instructions from the context-mode README. The commands are typically:
 
-```
+```text
 /plugin marketplace add mksglu/context-mode
 /plugin install context-mode@context-mode
 ```
@@ -55,8 +56,18 @@ claude plugin marketplace add mksglu/context-mode
 claude plugin install context-mode@context-mode
 ```
 
-Tell the user to **restart Claude Code** to activate context-mode hooks and MCP server, then run the doctor skill to confirm everything is active:
+## Final step — print this to the user
 
-```
-/context-mode:ctx-doctor
-```
+Print the following message verbatim:
+
+---
+
+### ✅ RTK and context-mode are installed
+
+### ⚠️ One manual step required: restart Claude Code
+
+context-mode hooks and MCP server only activate after a full restart. Close and reopen Claude Code now — this is the only thing you need to do.
+
+### 💡 Optional verification
+
+After restarting, run `/context-mode:ctx-doctor` to confirm everything is active.
