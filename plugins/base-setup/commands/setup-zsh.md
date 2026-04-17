@@ -1,10 +1,10 @@
 ---
-description: Install and configure Zsh with Oh My Zsh, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts
+description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts
 ---
 
 # Setup Zsh Environment
 
-Install and configure a complete Zsh environment with Oh My Zsh, Powerlevel10k theme, zsh-autosuggestions, zsh-syntax-highlighting, and MesloLGS NF Nerd Font. Handles WSL, native Linux, and macOS environments.
+Install and configure a complete Zsh environment with zinit plugin manager, Powerlevel10k theme, zsh-autosuggestions, zsh-syntax-highlighting, and MesloLGS NF Nerd Font. No Oh My Zsh — zinit self-bootstraps and manages everything. Handles WSL, native Linux, and macOS environments.
 
 ## Implementation Steps
 
@@ -18,7 +18,7 @@ Run this check using Bash tool:
 if [[ "$(uname)" == "Darwin" ]]; then echo "MACOS"; elif grep -qi microsoft /proc/version 2>/dev/null; then echo "WSL"; else echo "LINUX"; fi
 ```
 
-Store the result - it determines how Zsh is installed (Step 3) and how fonts are installed (Step 7).
+Store the result - it determines how Zsh is installed (Step 3) and how fonts are installed (Step 4).
 
 Possible results:
 
@@ -35,26 +35,10 @@ which zsh 2>/dev/null && echo "INSTALLED" || echo "MISSING"
 ```
 
 ```bash
-test -d "$HOME/.oh-my-zsh" && echo "INSTALLED" || echo "MISSING"
+test -d "$HOME/.local/share/zinit/zinit.git" && echo "INSTALLED" || echo "MISSING"
 ```
 
-```bash
-test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
-test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions" && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
-test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting" && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
-test -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-shift-select" && echo "INSTALLED" || echo "MISSING"
-```
-
-Report which components are already installed and which need installation. Skip already-installed components in subsequent steps.
+Report which components are already installed. Zinit manages all plugins and Powerlevel10k — they are downloaded automatically on the first shell launch after `.zshrc` is configured.
 
 ### 3. Install Zsh (requires user action on Linux/WSL)
 
@@ -84,62 +68,14 @@ Explain that `chsh` changes the default shell and takes effect on next login/ter
 
 **DO NOT proceed to Step 4 until the user confirms Zsh is installed.** Use AskUserQuestion to ask "Have you finished installing Zsh and setting it as default shell?" with options "Yes, done" and "Skip, it was already installed".
 
-### 4. Install Oh My Zsh
-
-If Oh My Zsh is not already installed (`~/.oh-my-zsh` does not exist):
-
-Run using Bash tool:
-
-```bash
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-```
-
-The `--unattended` flag prevents the installer from switching the shell or prompting. This should succeed without sudo.
-
-If `~/.oh-my-zsh` already exists, skip this step and report it as already installed.
-
-### 5. Install Powerlevel10k Theme
-
-If not already installed:
-
-Run using Bash tool:
-
-```bash
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
-```
-
-This clones into the Oh My Zsh custom themes directory - NOT into the current working directory.
-
-### 6. Install Plugins
-
-If not already installed, clone each plugin into the Oh My Zsh custom plugins directory. Run these in parallel using Bash tool:
-
-**zsh-autosuggestions:**
-
-```bash
-git clone https://github.com/zsh-users/zsh-autosuggestions.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-autosuggestions"
-```
-
-**zsh-syntax-highlighting:**
-
-```bash
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting"
-```
-
-**zsh-shift-select** (Shift+Arrow selection):
-
-```bash
-git clone https://github.com/jirutka/zsh-shift-select.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/plugins/zsh-shift-select"
-```
-
-### 7. Install Nerd Font
+### 4. Install Nerd Font
 
 **Ask the user which font to install** using AskUserQuestion: "Which Nerd Font would you like to install?" with options:
 
 - `MesloLGS NF` (recommended — specially designed for Powerlevel10k)
 - `Fira Code Nerd Font` (popular programming font with ligatures)
 
-Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 12 to set the correct VS Code font family name.
+Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 9 to set the correct VS Code font family name.
 
 ---
 
@@ -457,23 +393,68 @@ If the font is missing or invalid, report it to the user and do NOT proceed.
 
 macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
 
-### 8. Configure ~/.zshrc
+### 5. Configure ~/.zshrc
 
-Read the existing `~/.zshrc` file using the Read tool.
+Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured — skip to Step 6.
 
-**Set the theme:** Use Edit tool to change the `ZSH_THEME` line:
+Otherwise, use the Write tool to create `~/.zshrc` with the following structure. Preserve any existing PATH exports, NVM setup, custom functions, and keybindings already present.
 
-- old_string: `ZSH_THEME="robbyrussell"` (or whatever the current theme is)
-- new_string: `ZSH_THEME="powerlevel10k/powerlevel10k"`
+The core zinit block (add after the P10K instant prompt block, before any other config):
 
-**Set the plugins:** Use Edit tool to update the `plugins=(...)` line:
+```zsh
+# Zinit - auto-installs itself if missing
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+if [ ! -d "$ZINIT_HOME" ]; then
+  mkdir -p "$(dirname $ZINIT_HOME)"
+  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+fi
+source "${ZINIT_HOME}/zinit.zsh"
 
-- old_string: `plugins=(git)` (or whatever the current plugins list is)
-- new_string: `plugins=(git zsh-autosuggestions zsh-syntax-highlighting zsh-shift-select)`
+# Powerlevel10k
+zinit ice depth=1; zinit light romkatv/powerlevel10k
 
-If the plugins line already contains some of these plugins, merge them - do not duplicate entries.
+# Plugins
+zinit light zsh-users/zsh-autosuggestions
+zinit light zsh-users/zsh-syntax-highlighting
+zinit light zsh-users/zsh-completions
+zinit light jirutka/zsh-shift-select
 
-### 9. Configure Keybindings
+# OMZ snippets
+zinit snippet OMZL::git.zsh
+zinit snippet OMZP::git
+zinit snippet OMZP::sudo
+zinit snippet OMZP::command-not-found
+
+# Completions
+autoload -Uz compinit && compinit
+zinit cdreplay -q
+```
+
+Add history configuration after the zinit block:
+
+```zsh
+# History
+HISTSIZE=5000
+HISTFILE=~/.zsh_history
+SAVEHIST=$HISTSIZE
+HISTDUP=erase
+setopt appendhistory
+setopt sharehistory
+setopt hist_ignore_space
+setopt hist_ignore_all_dups
+setopt hist_save_no_dups
+setopt hist_ignore_dups
+setopt hist_find_no_dups
+
+# Completion styling
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+zstyle ':completion:*' menu no
+```
+
+Do NOT include `export ZSH`, `ZSH_THEME`, `plugins=(...)`, or `source $ZSH/oh-my-zsh.sh` — there is no Oh My Zsh. Zinit handles everything.
+
+### 6. Configure Keybindings
 
 Read `~/.zshrc` using Read tool. Check if a keybindings block already exists by searching for `_select_all`. If found, skip this step.
 
@@ -604,7 +585,7 @@ zle -N _delete_or_delete_region
 bindkey '^[[3~' _delete_or_delete_region
 ```
 
-### 10. Configure WSL Audio (WSL only)
+### 7. Configure WSL Audio (WSL only)
 
 Skip this step entirely if the environment is not WSL.
 
@@ -656,7 +637,7 @@ If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after th
 
 Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
 
-### 11. Port Bash Environment to Zsh
+### 8. Port Bash Environment to Zsh
 
 Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
 
@@ -706,7 +687,7 @@ Report results to the user. If commands like `node` are missing, suggest they ch
 
 If no portable statements are found in bash configs, skip this step and inform the user that no environment setup needed porting.
 
-### 12. VS Code Terminal Font Configuration
+### 9. VS Code Terminal Font Configuration
 
 Use the `FONT_CHOICE` from Step 7 to determine the font family name:
 
@@ -737,7 +718,7 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 13. Fix Powerlevel10k Right Prompt Wrapping (optional)
+### 10. Fix Powerlevel10k Right Prompt Wrapping (optional)
 
 On narrow terminals, right prompt segments on line 1 cause powerline cap symbols to wrap and create graphical artifacts when resizing the terminal window. This fix removes all line 1 right segments and clears the cap symbols that render as invisible artifacts even when no segments are shown.
 
@@ -745,7 +726,7 @@ On narrow terminals, right prompt segments on line 1 cause powerline cap symbols
 
 Use AskUserQuestion to ask: "Do you want to fix p10k right prompt wrapping artifacts on narrow terminals? (Trade-off: all right-side prompt info — exit code, execution time, version managers, etc. — will no longer be visible)" with options "Yes, apply fix" and "No, skip".
 
-If the user skips, proceed to Step 14.
+If the user skips, proceed to Step 11.
 
 If the user accepts:
 
@@ -783,7 +764,7 @@ Run to apply immediately:
 source ~/.p10k.zsh
 ```
 
-### 14. Apply Configuration
+### 11. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
