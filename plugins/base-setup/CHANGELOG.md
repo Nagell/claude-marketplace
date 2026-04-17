@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.38](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.37...base-setup-v0.1.38) (2026-04-17)
+
+
+### Documentation
+
+* **base-setup:** rename token-tools to token-savings ([80b5521](https://github.com/Nagell/claude-marketplace/commit/80b5521da52a1d68334327ef147d38c36d024037))
+* **base-setup:** rename token-tools to token-savings with content updates ([84a5c2a](https://github.com/Nagell/claude-marketplace/commit/84a5c2a2671ce92bb24e15f3020d69c79514b61a))
+
 ## [0.1.37](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.36...base-setup-v0.1.37) (2026-04-17)
 
 
