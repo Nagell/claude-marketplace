@@ -35,6 +35,22 @@ which zsh 2>/dev/null && echo "INSTALLED" || echo "MISSING"
 ```
 
 ```bash
+which git 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+```bash
+which curl 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+```bash
+which unzip 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+```bash
+which fzf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+```bash
 test -d "$HOME/.local/share/zinit/zinit.git" && echo "INSTALLED" || echo "MISSING"
 ```
 
@@ -75,7 +91,7 @@ Explain that `chsh` changes the default shell and takes effect on next login/ter
 - `MesloLGS NF` (recommended — specially designed for Powerlevel10k)
 - `Fira Code Nerd Font` (popular programming font with ligatures)
 
-Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 9 to set the correct VS Code font family name.
+Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 10 to set the correct VS Code font family name.
 
 ---
 
@@ -393,11 +409,40 @@ If the font is missing or invalid, report it to the user and do NOT proceed.
 
 macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
 
-### 5. Configure ~/.zshrc
+### 5. Install fzf
+
+fzf is required for fzf-tab completion and shell key bindings. It must be installed before the first `exec zsh`, otherwise fzf-tab silently does nothing.
+
+If already installed (`which fzf` returned INSTALLED), skip this step.
+
+**If MACOS or WSL (linuxbrew available):**
+
+```bash
+brew install fzf
+```
+
+**If LINUX (no brew):**
+
+**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+
+```bash
+# Please run this command manually, then confirm when done:
+sudo apt install fzf -y
+```
+
+Use AskUserQuestion to ask "Have you finished installing fzf?" with options "Yes, done" and "Skip".
+
+After installing, verify:
+
+```bash
+which fzf && fzf --version
+```
+
+### 6. Configure ~/.zshrc
 
 Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured — skip to Step 6.
 
-Otherwise, use the Write tool to create `~/.zshrc` with the following structure. Preserve any existing PATH exports, NVM setup, custom functions, and keybindings already present.
+Otherwise, read the existing `~/.zshrc` with the Read tool to identify any PATH exports, NVM setup, custom functions, or keybindings to preserve. Then use the Write tool to create `~/.zshrc` with the following structure, incorporating any preserved content after the aliases block.
 
 The core zinit block (add after the P10K instant prompt block, before any other config):
 
@@ -418,6 +463,7 @@ zinit light zsh-users/zsh-autosuggestions
 zinit light zsh-users/zsh-syntax-highlighting
 zinit light zsh-users/zsh-completions
 zinit light jirutka/zsh-shift-select
+zinit light Aloxaf/fzf-tab
 
 # OMZ snippets
 zinit snippet OMZL::git.zsh
@@ -450,11 +496,22 @@ setopt hist_find_no_dups
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
 zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
 zstyle ':completion:*' menu no
+zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
+
+# Aliases
+alias ls='ls --color'
+```
+
+Also add a shell integrations block before the p10k sourcing line:
+
+```zsh
+# Shell integrations
+eval "$(fzf --zsh)"
 ```
 
 Do NOT include `export ZSH`, `ZSH_THEME`, `plugins=(...)`, or `source $ZSH/oh-my-zsh.sh` — there is no Oh My Zsh. Zinit handles everything.
 
-### 6. Configure Keybindings
+### 7. Configure Keybindings
 
 Read `~/.zshrc` using Read tool. Check if a keybindings block already exists by searching for `_select_all`. If found, skip this step.
 
@@ -585,7 +642,7 @@ zle -N _delete_or_delete_region
 bindkey '^[[3~' _delete_or_delete_region
 ```
 
-### 7. Configure WSL Audio (WSL only)
+### 8. Configure WSL Audio (WSL only)
 
 Skip this step entirely if the environment is not WSL.
 
@@ -637,7 +694,7 @@ If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after th
 
 Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
 
-### 8. Port Bash Environment to Zsh
+### 9. Port Bash Environment to Zsh
 
 Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
 
@@ -687,7 +744,7 @@ Report results to the user. If commands like `node` are missing, suggest they ch
 
 If no portable statements are found in bash configs, skip this step and inform the user that no environment setup needed porting.
 
-### 9. VS Code Terminal Font Configuration
+### 10. VS Code Terminal Font Configuration
 
 Use the `FONT_CHOICE` from Step 7 to determine the font family name:
 
@@ -718,7 +775,7 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 10. Fix Powerlevel10k Right Prompt Wrapping (optional)
+### 11. Fix Powerlevel10k Right Prompt Wrapping (optional)
 
 On narrow terminals, right prompt segments on line 1 cause powerline cap symbols to wrap and create graphical artifacts when resizing the terminal window. This fix removes all line 1 right segments and clears the cap symbols that render as invisible artifacts even when no segments are shown.
 
@@ -726,7 +783,7 @@ On narrow terminals, right prompt segments on line 1 cause powerline cap symbols
 
 Use AskUserQuestion to ask: "Do you want to fix p10k right prompt wrapping artifacts on narrow terminals? (Trade-off: all right-side prompt info — exit code, execution time, version managers, etc. — will no longer be visible)" with options "Yes, apply fix" and "No, skip".
 
-If the user skips, proceed to Step 11.
+If the user skips, proceed to Step 12.
 
 If the user accepts:
 
@@ -764,7 +821,7 @@ Run to apply immediately:
 source ~/.p10k.zsh
 ```
 
-### 11. Apply Configuration
+### 12. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 

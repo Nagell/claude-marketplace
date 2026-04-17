@@ -15,6 +15,12 @@ Talk in english and produce all documentation in english
 - Use conventional commits (feat:, fix:, etc.)
 - First line under 72 characters
 
+## Git Push — NEVER Without Explicit Per-Action Confirmation
+
+NEVER push automatically, even if the user previously said "you can push" or approved a push once.  
+Every single push requires explicit confirmation at that moment. A one-time allowance does not carry over.  
+When in doubt, commit only and ask.
+
 ## Code Style
 
 - DO NOT over-engineer
