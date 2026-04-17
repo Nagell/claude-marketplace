@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.37](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.36...base-setup-v0.1.37) (2026-04-17)
+
+
+### Documentation
+
+* **setup-zsh:** add fzf install step and fix .zshrc contradiction ([45ad091](https://github.com/Nagell/claude-marketplace/commit/45ad0918c29d9a5c12cf1518cb3ed826b42e7349))
+
 ## [0.1.36](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.35...base-setup-v0.1.36) (2026-04-10)
 
 
