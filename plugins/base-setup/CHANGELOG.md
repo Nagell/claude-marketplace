@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.39](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.38...base-setup-v0.1.39) (2026-05-13)
+
+
+### Features
+
+* **base-setup:** add html-report skill ([e87df14](https://github.com/Nagell/claude-marketplace/commit/e87df14c9c222ab8e0bc1bf380367b5c4a8738d0))
+* **base-setup:** add html-report skill ([be833c0](https://github.com/Nagell/claude-marketplace/commit/be833c098ad3c89ce473b5c7e5bff5e45d3625a4))
+
 ## [0.1.38](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.37...base-setup-v0.1.38) (2026-04-17)
 
 
