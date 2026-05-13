@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.40](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.39...base-setup-v0.1.40) (2026-05-13)
+
+
+### Documentation
+
+* **base-setup:** fix command names and update skills table in README ([b14ece0](https://github.com/Nagell/claude-marketplace/commit/b14ece0dec84d8348da41daf38fd471fdf42fb4e))
+* **base-setup:** fix command names and update skills table in README ([a2bf39b](https://github.com/Nagell/claude-marketplace/commit/a2bf39b16a4b3d93fc0674503df15dd60e517edb))
+
 ## [0.1.39](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.38...base-setup-v0.1.39) (2026-05-13)
 
 
