@@ -24,20 +24,21 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 ## Commands
 
-| Command                         | Description                                                                      |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| `/base-setup:plugin-setup`      | Install recommended plugins and marketplaces                                     |
-| `/base-setup:setup-token-tools` | Set up tools for CC to save tokens                                               |
-| `/base-setup:setup-zsh`         | Install and configure Zsh with Oh My Zsh, Powerlevel10k, plugins, and Nerd Fonts |
-| `/start-chrome-debug`           | A personal skill to run Chrome debugging sessions                                |
+| Command                           | Description                                                              |
+| --------------------------------- | ------------------------------------------------------------------------ |
+| `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
+| `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
+| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts |
+| `/base-setup:start-chrome-debug`  | Start Chrome with remote debugging (WSL/Linux/macOS/Windows)             |
 
 ## Skills
 
-| Skill                 | Description                                 |
-| --------------------- | ------------------------------------------- |
-| `skill-creator`       | Guide for creating effective skills         |
-| `command-creator`     | Guide for creating effective slash commands |
-| `writing-style-guide` | Dawid Nitka's personal writing style guide  |
+| Skill                 | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `skill-creator`       | Guide for creating effective skills                  |
+| `command-creator`     | Guide for creating effective slash commands          |
+| `writing-style-guide` | Dawid Nitka's personal writing style guide           |
+| `html-report`         | Convert markdown documents into styled HTML reports  |
 
 ## Safety Features
 
