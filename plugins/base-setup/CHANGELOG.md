@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.1.42](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.41...base-setup-v0.1.42) (2026-05-15)
+
+
+### Features
+
+* **base-setup:** add git push confirmation guard ([3a6579a](https://github.com/Nagell/claude-marketplace/commit/3a6579a31e979840fe74ac7186a46fbdc87ad2fd))
+* **safety-guards:** add push confirmation guard ([e8e5830](https://github.com/Nagell/claude-marketplace/commit/e8e5830932b1ba0b897ba5ce3b06cdcbf85ac664))
+
+
+### Bug Fixes
+
+* **base-setup:** strengthen push guard to prevent autonomous token creation ([a917ad4](https://github.com/Nagell/claude-marketplace/commit/a917ad41da88db67292b1888816bd0ccc18d4056))
+
 ## [0.1.41](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.40...base-setup-v0.1.41) (2026-05-15)
 
 
