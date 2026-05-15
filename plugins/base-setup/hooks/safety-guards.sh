@@ -74,6 +74,26 @@ if echo "$COMMAND" | grep -qE '(echo|cat|printf|>>|>)\s+.*\.env'; then
 fi
 
 # ============================================
+# CONFIRM: git push requires user approval
+# Works in all permission modes including bypass
+# ============================================
+
+# Truncate at first heredoc marker (<<) to avoid matching "git push" inside heredoc content,
+# then strip remaining quoted strings
+BEFORE_HEREDOC=$(echo "$COMMAND" | awk '{if(/<</) {sub(/<<.*/,""); print; exit} print}')
+CMD_STRIPPED=$(echo "$BEFORE_HEREDOC" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
+if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)git\s+push'; then
+  GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$HOME")
+  TOKEN_FILE="$GIT_ROOT/.claude-push-token"
+  if [ -f "$TOKEN_FILE" ]; then
+    rm -f "$TOKEN_FILE"
+  else
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply in this turn. DO NOT create the token or push autonomously. Only after the user explicitly confirms: (1) run `touch .claude-push-token` in the repo root as a separate Bash call, then (2) run the original git push command."}}'
+    exit 0
+  fi
+fi
+
+# ============================================
 # BLOCK: Unsafe git force push
 # ============================================
 
