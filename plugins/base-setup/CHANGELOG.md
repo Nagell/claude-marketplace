@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.41](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.40...base-setup-v0.1.41) (2026-05-15)
+
+
+### Documentation
+
+* **base-setup:** add step 4 for manual hook registration in settings… ([fa625b3](https://github.com/Nagell/claude-marketplace/commit/fa625b33d615d9d9d9bfe2c63f497791d977fe8c))
+* **base-setup:** add step 4 for manual hook registration in settings.json ([2b52db8](https://github.com/Nagell/claude-marketplace/commit/2b52db8d5a481ee8ef3ef5ad42d958ecb4a54a16))
+
 ## [0.1.40](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.39...base-setup-v0.1.40) (2026-05-13)
 
 
