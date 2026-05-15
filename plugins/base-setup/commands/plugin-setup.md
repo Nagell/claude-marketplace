@@ -48,6 +48,31 @@ Install recommended Claude Code plugins and marketplaces with interactive select
      - "Replace existing" — overwrite with the proposed content
      - "Skip" — do nothing
 
+6. **Step 4 — Register learning-opportunities-auto hooks** (only if that plugin was installed):
+
+   The `learning-opportunities-auto` plugin ships a `PostToolUse` Bash hook, but the Claude Code plugin system does **not** auto-merge plugin `hooks.json` files into the global `~/.claude/settings.json`. Without this step the hook never fires.
+
+   - Run: `find ~/.claude/plugins/cache/learning-opportunities/learning-opportunities-auto -name "post-tool-use.sh" | sort -V | tail -1` to get the absolute hook path.
+   - Read `~/.claude/settings.json`.
+   - Check if a `PostToolUse` entry already exists with a hook pointing to that script path.
+   - If not, add it under `"hooks"` → `"PostToolUse"` (create the array if missing):
+
+     ```json
+     "PostToolUse": [
+       {
+         "matcher": "Bash",
+         "hooks": [
+           {
+             "type": "command",
+             "command": "bash /absolute/path/to/post-tool-use.sh"
+           }
+         ]
+       }
+     ]
+     ```
+
+   - Write the updated `settings.json`. Inform the user the hook was registered and that a session restart is required to activate it.
+
 ## Plugin List
 
 ### Marketplaces
@@ -80,7 +105,10 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 ```bash
 # Deliberate skill development during AI-assisted coding
 /plugin install learning-opportunities@learning-opportunities
-# Automated learning opportunity detection and suggestions
+# Automated learning opportunity detection and suggestions after git commits.
+# ⚠️ IMPORTANT: This plugin ships a PostToolUse Bash hook (hooks/hooks.json +
+# hooks/post-tool-use.sh) that the plugin system does NOT auto-merge into
+# ~/.claude/settings.json. Without Step 4 below, the hook will never fire.
 /plugin install learning-opportunities-auto@learning-opportunities
 ```
 
