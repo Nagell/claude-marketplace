@@ -88,7 +88,7 @@ if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)git\s+push'; 
   if [ -f "$TOKEN_FILE" ]; then
     rm -f "$TOKEN_FILE"
   else
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user before pushing. When they confirm: (1) run `touch .claude-push-token` in the repo root as a separate Bash call, then (2) run the original git push command."}}'
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply in this turn. DO NOT create the token or push autonomously. Only after the user explicitly confirms: (1) run `touch .claude-push-token` in the repo root as a separate Bash call, then (2) run the original git push command."}}'
     exit 0
   fi
 fi
