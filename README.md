@@ -116,4 +116,4 @@ claude-marketplace/
 
 ## License
 
-Private - personal use only.
+MIT
