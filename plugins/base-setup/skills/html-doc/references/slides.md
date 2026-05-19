@@ -6,6 +6,7 @@ All CSS, JS, and HTML patterns for HTML presentations built with the `html-doc` 
 
 - [Deck Shell CSS](#deck-shell-css)
 - [Navigation JS](#navigation-js)
+- [Chart Construction](#chart-construction)
 - [Slide Types](#slide-types)
   - [Title slide](#1-title-slide)
   - [Stats + single-series chart](#2-stats--single-series-chart-slide)
@@ -212,6 +213,79 @@ Paste verbatim at the end of `<body>`. Handles keyboard, touch, dot clicks, URL 
 })();
 </script>
 ```
+
+---
+
+## Chart Construction
+
+Bar charts are driven by a single CSS custom property `--pct` (0–100) set inline on each `.bar`. No JS needed for rendering — only for the legend toggle (already in the nav script).
+
+### Computing values
+
+```js
+--pct  = Math.round(count / total * 100)   // bar height as % of bar-area
+```
+
+`bar__meta` label format: `"count · pct%"` — e.g. `38 · 93%`.
+
+### Chart layout
+
+| Attribute | Effect |
+| --- | --- |
+| `style="--cols:N"` on `.chart` | Number of columns (= number of answer options) |
+| `chart--single` modifier | Single-series layout — wider columns, more breathing room |
+| No modifier | Dual-series layout — two bars per group side by side |
+
+Rule of thumb: `--cols` up to 6 works well for dual-series; up to 10 for single-series. Beyond that, labels get cramped — consider splitting across two slides.
+
+### Single-series (one group per question)
+
+Use `.bar--tech` or `.bar--nontech` (or any single class) — color is determined by the class. `--pct` is relative to the **total respondent count** for that group.
+
+```html
+<div class="chart chart--single" style="--cols:5">
+  <div class="group">
+    <div class="group__bars">
+      <div class="bar bar--tech" style="--pct:49">
+        <span class="bar__meta">40 · 49%</span>
+        <div class="bar__fill"></div>
+      </div>
+    </div>
+    <div class="group__label">Engineering / QA</div>
+  </div>
+</div>
+```
+
+### Dual-series (two groups compared per question)
+
+Two `.bar` elements inside each `.group__bars`. Each `--pct` is relative to **that group's total**, not the combined total — so both groups can hit 100% independently.
+
+```html
+<div class="chart" style="--cols:5">
+  <div class="group">
+    <div class="group__bars">
+      <div class="bar bar--tech" style="--pct:93">
+        <span class="bar__meta">38 · 93%</span>
+        <div class="bar__fill"></div>
+      </div>
+      <div class="bar bar--nontech" style="--pct:23">
+        <span class="bar__meta">9 · 23%</span>
+        <div class="bar__fill"></div>
+      </div>
+    </div>
+    <div class="group__label">Claude Code</div>
+  </div>
+</div>
+```
+
+### Bar colors
+
+| Class | Color | Intended use |
+| --- | --- | --- |
+| `.bar--tech` | `--accent` (yellow) | Technical / primary group |
+| `.bar--nontech` | `--violet` | Non-technical / secondary group |
+
+Rename the classes freely — only the CSS fill rule needs to match (`.bar--tech .bar__fill { background: var(--accent); }`).
 
 ---
 
