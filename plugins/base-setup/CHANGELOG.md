@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.43](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.42...base-setup-v0.1.43) (2026-05-19)
+
+
+### Features
+
+* **html-doc:** rename html-report skill to html-doc ([dc759db](https://github.com/Nagell/claude-marketplace/commit/dc759db07013ad85d93d0540ad5cf446c216de17))
+* **html-doc:** rename html-report to html-doc with slide deck support ([bd9bfd7](https://github.com/Nagell/claude-marketplace/commit/bd9bfd7baac53e63d481a3e947ac474fe4ef2a51))
+
+
+### Documentation
+
+* **html-doc:** add Chart Construction section to slides reference ([66b9589](https://github.com/Nagell/claude-marketplace/commit/66b9589c4edee2ccf7a90adbf775a6cd767e001d))
+* **html-doc:** improve chart construction guidance in slides reference ([8ffa74a](https://github.com/Nagell/claude-marketplace/commit/8ffa74abc9bec5d213fb1e114eb4680c52331587))
+* **html-doc:** restore semantic comments on :root CSS variables ([829f203](https://github.com/Nagell/claude-marketplace/commit/829f2039be6242d334506424841c9d6c5b8bb436))
+
 ## [0.1.42](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.41...base-setup-v0.1.42) (2026-05-15)
 
 
