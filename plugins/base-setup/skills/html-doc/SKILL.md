@@ -1,33 +1,22 @@
 ---
-name: html-report
-description: Use when the user explicitly asks to convert an existing markdown file into a styled HTML document — "HTML version of this", "make this an HTML report", "convert to HTML". Rarely, may also be used when the user asks to create a plan or report directly in HTML from the start. Do NOT invoke automatically when writing markdown or creating plans.
+name: html-doc
+description: Use when the user asks to convert markdown into a styled HTML document OR create an HTML slide deck / presentation. Triggers: "HTML version of this", "make this an HTML report", "convert to HTML", "HTML version of [file]", "give me the HTML output", "create slides", "make a slide deck", "build a presentation", "HTML slideshow". Do NOT invoke automatically when writing markdown or creating plans.
 ---
 
-# HTML Report
+# HTML Document & Slides
 
-Convert an existing markdown document (plan, findings, code review, status report, PR writeup) into a beautiful, self-contained HTML file using the design system below.
+Convert markdown or structured content into a beautiful, self-contained HTML file — either a scrollable **report** or a fullscreen **slide deck** — using the shared design system below.
 
 > **Source:** Components adapted from Thariq Shihipar's (Anthropic) 20 HTML document examples — <https://github.com/ThariqS/html-effectiveness>. Check there first when extending this skill.
-
-## When to Use
-
-Only invoke when the user explicitly says one of:
-
-- "create an HTML version of this"
-- "make this an HTML report"
-- "convert this plan to HTML"
-- "HTML version of [file]"
-- "give me the HTML output"
-
-Do NOT trigger on plan creation, markdown writing, or any other workflow unless the user explicitly requests HTML.
 
 ## Instructions
 
 1. Read the source markdown file (or use the content already in context)
-2. Determine the document type: `status`, `code-review`, `plan`, `findings`, `pr`, `research`, or infer from content
-3. Generate a complete, self-contained HTML file using the design system below
-4. Write it next to the source file with the same base name but `.html` extension (e.g. `plan-auth.md` → `plan-auth.html`). If there is no source file, write to the current working directory with a descriptive kebab-case name.
-5. Generate a browser-ready URL for the file and output it as the only line of output:
+2. Detect mode: **report** (scrollable document) or **slide deck** (fullscreen presentation). If slides, read `references/slides.md` before generating any HTML.
+3. Determine the document type: `status`, `code-review`, `plan`, `findings`, `pr`, `research`, or infer from content
+4. Generate a complete, self-contained HTML file using the design system below
+5. Write it next to the source file with the same base name but `.html` extension (e.g. `plan-auth.md` → `plan-auth.html`). If there is no source file, write to the current working directory with a descriptive kebab-case name.
+6. Generate a browser-ready URL for the file and output it as the only line of output:
    - **WSL** (`$WSL_DISTRO_NAME` is set): run `wslpath -w "<path>"` to get the Windows UNC path (`\\wsl.localhost\Distro\...`), then convert to `file://wsl.localhost/Distro/...` by stripping the leading `\\` and replacing `\` with `/`
    - **macOS / native Linux**: `file:///absolute/path/to/file.html`
    - **Windows native** (Git Bash etc.): `file:///C:/path/to/file.html`
@@ -63,10 +52,11 @@ Colors are derived from the actual site dark theme tokens (`dawidnitka.com`).
   --accent-bg:     hsla(47.9, 95.8%, 53.1%, 0.08);
   --accent-border: hsla(47.9, 95.8%, 53.1%, 0.22);
 
-  --green:     #4ade80;  --green-bg:  rgba(74, 222, 128, 0.08);
-  --red:       #f87171;  --red-bg:    rgba(248, 113, 113, 0.08);
-  --blue:      #60a5fa;  --blue-bg:   rgba(96, 165, 250, 0.08);
-  --orange:    #fb923c;  --orange-bg: rgba(251, 146, 60, 0.08);
+  --green:     hsl(142, 69%, 58%); --green-bg:  hsla(142, 69%, 58%, 0.08);
+  --red:       hsl(0, 91%, 71%);  --red-bg:    hsla(0, 91%, 71%, 0.08);
+  --blue:      hsl(213, 94%, 68%); --blue-bg:  hsla(213, 94%, 68%, 0.08);
+  --orange:    hsl(27, 96%, 61%);  --orange-bg: hsla(27, 96%, 61%, 0.08);
+  --violet:    hsl(265, 78%, 78%); --violet-bg: hsla(265, 78%, 78%, 0.12);
 
   /* Syntax token colors — slightly desaturated for comfort (not blinding) */
   --token-kw:    hsl(265, 55%, 68%);  /* const let async if return export import function */
@@ -211,6 +201,7 @@ li > ul, li > ol { margin-top: 6px; margin-bottom: 0; }
 .pill--green  { background: var(--green-bg);   border-color: rgba(74,222,128,.2);  color: var(--green); }
 .pill--red    { background: var(--red-bg);     border-color: rgba(248,113,113,.2); color: var(--red); }
 .pill--blue   { background: var(--blue-bg);    border-color: rgba(96,165,250,.2);  color: var(--blue); }
+.pill--violet { background: var(--violet-bg);  border-color: rgba(170,128,220,.3); color: var(--violet); }
 ```
 
 ### Stats Row — summary numbers near the top
@@ -327,6 +318,7 @@ li > ul, li > ol { margin-top: 6px; margin-bottom: 0; }
 .callout--yellow { border-left-color: var(--accent);  background: var(--accent-bg);  color: var(--text); }
 .callout--red    { border-left-color: var(--red);     background: var(--red-bg); }
 .callout--green  { border-left-color: var(--green);   background: var(--green-bg); }
+.callout--violet { border-left-color: var(--violet);  background: var(--violet-bg); }
 ```
 
 ### Open Questions — decisions still pending
@@ -706,7 +698,21 @@ Map source markdown to the right HTML patterns:
 | Phases with dates | **Timeline / Milestone** |
 | PR writeup header | **PR Meta Row** |
 | Long document (research, long plan) | Add **ToC Sidebar** — switch `.page` to `.page--toc` grid |
+| Slide deck / presentation request | **Presentation Mode** — read `references/slides.md` |
 
 **For implementation plans:** use Task Cards for each unit — they visually group description + steps and accept a status pill. Add a Timeline above the units if phases/dates exist.
 
 **For research / long explainers:** always add the ToC sidebar. Add `id` attributes to every `<section>` and mirror them as `<a href="#...">` links in the `<nav>`.
+
+---
+
+## Presentation Mode
+
+When the request is for slides, a deck, or a presentation (not a scrollable document), read **`references/slides.md`** — it contains the full deck shell CSS, navigation JS, and HTML patterns for every slide type.
+
+Quick checklist:
+
+- `body` gets `overflow: hidden` (fullscreen, no scroll)
+- Each slide is a `<section class="slide">`, stacked absolutely, toggled by `.is-active`
+- The outer `.deck` wrapper holds a `.deck-header` (brand + counter) and a `.dots` nav
+- All shared design tokens and components from this file apply unchanged inside slides — only layout and typography scale differently (use `clamp()` for responsive sizing)

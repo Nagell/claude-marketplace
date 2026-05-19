@@ -33,12 +33,12 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 ## Skills
 
-| Skill                 | Description                                          |
-| --------------------- | ---------------------------------------------------- |
-| `skill-creator`       | Guide for creating effective skills                  |
-| `command-creator`     | Guide for creating effective slash commands          |
-| `writing-style-guide` | Dawid Nitka's personal writing style guide           |
-| `html-report`         | Convert markdown documents into styled HTML reports  |
+| Skill                 | Description                                              |
+| --------------------- | -------------------------------------------------------- |
+| `skill-creator`       | Guide for creating effective skills                      |
+| `command-creator`     | Guide for creating effective slash commands              |
+| `writing-style-guide` | Dawid Nitka's personal writing style guide               |
+| `html-doc`            | Convert markdown into styled HTML reports or slide decks |
 
 ## Safety Features
 
