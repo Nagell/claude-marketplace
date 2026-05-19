@@ -37,34 +37,35 @@ Colors derived from the site dark theme tokens (`dawidnitka.com`). Always includ
 
 ```css
 :root {
-  --bg:        hsl(20, 14.3%, 4.1%);
-  --surface:   hsl(12, 6.5%, 8%);
-  --surface-2: hsl(12, 6.5%, 13%);
-  --border:    hsl(12, 6.5%, 13%);
-  --border-2:  hsl(12, 6.5%, 19%);
+  --bg:        hsl(20, 14.3%, 4.1%);   /* page background */
+  --surface:   hsl(12, 6.5%, 8%);      /* card / panel background */
+  --surface-2: hsl(12, 6.5%, 13%);    /* hover state, code bg, pill bg */
+  --border:    hsl(12, 6.5%, 13%);    /* default border */
+  --border-2:  hsl(12, 6.5%, 19%);   /* stronger border, timeline line */
 
-  --text:   hsl(60, 9.1%, 97.8%);
-  --text-2: hsl(24, 5.4%, 63.9%);
-  --text-3: hsl(24, 5.4%, 40%);
+  --text:   hsl(60, 9.1%, 97.8%);     /* primary text — headings, values */
+  --text-2: hsl(24, 5.4%, 63.9%);    /* body text — paragraphs, list items */
+  --text-3: hsl(24, 5.4%, 40%);      /* muted text — dates, meta, labels */
 
-  --accent:        hsl(47.9, 95.8%, 53.1%);
+  --accent:        hsl(47.9, 95.8%, 53.1%); /* primary highlight = #facc15 yellow */
   --accent-bg:     hsla(47.9, 95.8%, 53.1%, 0.08);
   --accent-border: hsla(47.9, 95.8%, 53.1%, 0.22);
 
-  --green:     hsl(142, 69%, 58%); --green-bg:  hsla(142, 69%, 58%, 0.08);
-  --red:       hsl(0, 91%, 71%);   --red-bg:    hsla(0, 91%, 71%, 0.08);
-  --blue:      hsl(213, 94%, 68%); --blue-bg:   hsla(213, 94%, 68%, 0.08);
-  --orange:    hsl(27, 96%, 61%);  --orange-bg: hsla(27, 96%, 61%, 0.08);
-  --violet:    hsl(265, 78%, 78%); --violet-bg: hsla(265, 78%, 78%, 0.12);
+  --green:     hsl(142, 69%, 58%); --green-bg:  hsla(142, 69%, 58%, 0.08); /* success, done, additions */
+  --red:       hsl(0, 91%, 71%);   --red-bg:    hsla(0, 91%, 71%, 0.08);   /* error, risk, deletions */
+  --blue:      hsl(213, 94%, 68%); --blue-bg:   hsla(213, 94%, 68%, 0.08); /* info, links, diff hunks */
+  --orange:    hsl(27, 96%, 61%);  --orange-bg: hsla(27, 96%, 61%, 0.08);  /* warning */
+  --violet:    hsl(265, 78%, 78%); --violet-bg: hsla(265, 78%, 78%, 0.12); /* secondary group / accent */
 
-  --token-kw:    hsl(265, 55%, 68%);
-  --token-fn:    hsl(213, 74%, 66%);
-  --token-ident: hsl(47, 78%, 62%);
-  --token-str:   hsl(142, 54%, 60%);
-  --token-num:   hsl(25, 74%, 61%);
-  --token-type:  hsl(190, 55%, 60%);
-  --token-tag:   hsl(3, 58%, 63%);
-  --token-attr:  hsl(30, 60%, 62%);
+  /* Syntax tokens — used by Code Panel spans */
+  --token-kw:    hsl(265, 55%, 68%); /* keywords: const let async if return export import function */
+  --token-fn:    hsl(213, 74%, 66%); /* function / method names */
+  --token-ident: hsl(47, 78%, 62%);  /* variable names, ALL_CAPS constants */
+  --token-str:   hsl(142, 54%, 60%); /* string literals */
+  --token-num:   hsl(25, 74%, 61%);  /* numeric literals */
+  --token-type:  hsl(190, 55%, 60%); /* TS types, generics, interfaces; CSS selectors */
+  --token-tag:   hsl(3, 58%, 63%);   /* HTML/JSX element names */
+  --token-attr:  hsl(30, 60%, 62%);  /* HTML attr names; CSS property names */
 
   --sans: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "Fira Code", "FiraCode Nerd Font", "Fira Mono", "JetBrains Mono",
