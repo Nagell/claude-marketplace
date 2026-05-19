@@ -228,19 +228,29 @@ Bar charts are driven by a single CSS custom property `--pct` (0–100) set inli
 
 `bar__meta` label format: `"count · pct%"` — e.g. `38 · 93%`.
 
+**Wide-range data:** if values span a large range (e.g. 51% down to 5%), bars at the low end become ~14px tall — barely visible — and `bar__meta` collides with the baseline. In that case, normalize to percentage-of-max instead:
+
+```js
+--pct = Math.round(count / maxCount * 100)  // tallest bar always hits 100%
+```
+
+Keep the real percentage in `bar__meta`; only `--pct` changes. This trades absolute comparability for visual clarity.
+
 ### Chart layout
 
 | Attribute | Effect |
 | --- | --- |
-| `style="--cols:N"` on `.chart` | Number of columns (= number of answer options) |
+| `style="--cols:N"` on `.chart` | Must equal the number of `.group` elements — grid breaks if mismatched |
 | `chart--single` modifier | Single-series layout — wider columns, more breathing room |
 | No modifier | Dual-series layout — two bars per group side by side |
 
 Rule of thumb: `--cols` up to 6 works well for dual-series; up to 10 for single-series. Beyond that, labels get cramped — consider splitting across two slides.
 
+**Tuning `--bar-area`:** the default `clamp(280px, 44vh, 440px)` assumes the chart fills most of the slide. If you have a stats row, legend, or subtitle above the chart, reduce it — e.g. `clamp(240px, 38vh, 380px)` — to prevent overflow. Override it on the `.chart` element: `style="--bar-area: clamp(240px, 38vh, 380px); --cols:10"`.
+
 ### Single-series (one group per question)
 
-Use `.bar--tech` or `.bar--nontech` (or any single class) — color is determined by the class. `--pct` is relative to the **total respondent count** for that group.
+Use `.bar--tech` for all bars uniformly — yellow works fine as a neutral primary color for single-series data. `.bar--nontech` is only meaningful when contrasting two groups. `--pct` is relative to the **total respondent count** for that group.
 
 ```html
 <div class="chart chart--single" style="--cols:5">
@@ -282,8 +292,8 @@ Two `.bar` elements inside each `.group__bars`. Each `--pct` is relative to **th
 
 | Class | Color | Intended use |
 | --- | --- | --- |
-| `.bar--tech` | `--accent` (yellow) | Technical / primary group |
-| `.bar--nontech` | `--violet` | Non-technical / secondary group |
+| `.bar--tech` | `--accent` (yellow) | Primary group, or all bars in a single-series chart |
+| `.bar--nontech` | `--violet` | Secondary group in a dual-series comparison only |
 
 Rename the classes freely — only the CSS fill rule needs to match (`.bar--tech .bar__fill { background: var(--accent); }`).
 
