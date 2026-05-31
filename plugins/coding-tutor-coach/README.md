@@ -55,6 +55,6 @@ Want explicit per-domain bars? Paste this anywhere into your `~/coding-tutor-tut
 
 ## How the hook decides what to fire on
 
-The hook runs on every Claude Code `Bash` tool call but returns in ~1–2ms unless the command contains the literal string `git commit`. It skips `--dry-run` and `--amend`. It stays silent when the profile is missing (printing a one-liner pointing you at `/teach-me`).
+The hook runs on every Claude Code `Bash` tool call but returns in a few milliseconds (well under 5ms) unless the command contains the literal string `git commit`. It skips `--dry-run` and `--amend`. It stays silent when the profile is missing (printing a one-liner pointing you at `/teach-me`).
 
 **Assumption pinned here:** the hook inspects the committed command via the PostToolUse JSON payload on stdin (`tool_input.command`), falling back to `$CLAUDE_TOOL_INPUT`. Only substring matching is used, so no JSON parser is required. If Claude Code changes this contract upstream, the matching in `hooks/post-commit-nudge.sh` is where to look.
