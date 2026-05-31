@@ -1,4 +1,5 @@
 {
   "plugins/base-setup": "0.1.43",
+  "plugins/coding-tutor-coach": "0.1.0",
   ".": "0.1.43"
 }
