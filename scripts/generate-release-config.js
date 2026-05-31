@@ -135,8 +135,10 @@ function generateReleaseConfig(marketplace) {
     const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
     const version = existingManifest[pluginPath] || pluginJson.version || '0.1.0';
 
-    // Each plugin versions independently. A release for one plugin writes its
-    // new version into both its plugin.json and its own marketplace.json entry.
+    // Each plugin versions independently. Release Please bumps only its own
+    // plugin.json (paths here are relative to the plugin folder, so it cannot
+    // reach the repo-root marketplace.json). The shared marketplace.json is kept
+    // in sync from plugin.json by syncMarketplace() on every push.
     packages[pluginPath] = {
       component: plugin.name,
       'changelog-path': 'CHANGELOG.md',
@@ -145,30 +147,12 @@ function generateReleaseConfig(marketplace) {
           type: 'json',
           path: '.claude-plugin/plugin.json',
           jsonpath: '$.version'
-        },
-        {
-          type: 'json',
-          path: '.claude-plugin/marketplace.json',
-          jsonpath: `$.plugins[${index}].version`
         }
       ]
     };
 
     manifest[pluginPath] = version;
   });
-
-  // Marketplace umbrella release. Produces the single whole-repo archive zip and
-  // keeps the marketplace-vX release series. NOT linked to the plugins, so it
-  // never forces their versions together; each plugin still bumps on its own.
-  // It re-versions on repo-root changes (workflow, root README, this script).
-  if (marketplace.plugins.length > 0) {
-    const firstPluginPath = `plugins/${marketplace.plugins[0].name}`;
-    packages['.'] = {
-      component: 'marketplace',
-      'skip-changelog': true
-    };
-    manifest['.'] = existingManifest['.'] || manifest[firstPluginPath] || '0.1.0';
-  }
 
   const config = {
     '$schema': 'https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json',
@@ -177,7 +161,7 @@ function generateReleaseConfig(marketplace) {
     'bump-patch-for-minor-pre-major': true,
     'include-component-in-tag': true,
     'include-v-in-tag': true,
-    'pull-request-title-pattern': 'chore(release): ${version}',
+    'pull-request-title-pattern': 'chore(release): ${component} ${version}',
     'separate-pull-requests': true,
     'changelog-sections': [
       { type: 'feat', section: 'Features' },
