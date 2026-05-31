@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.45](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-coach-v0.1.44...coding-tutor-coach-v0.1.45) (2026-05-31)
+
+
+### Bug Fixes
+
+* **coding-tutor-coach:** correct hook early-return timing in README ([6beb441](https://github.com/Nagell/claude-marketplace/commit/6beb441897026d1c8c306e6aab042158b06ec43e))
+
 ## [0.1.44](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-coach-v0.1.0...coding-tutor-coach-v0.1.44) (2026-05-31)
 
 
