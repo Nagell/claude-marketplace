@@ -6,7 +6,7 @@
   "include-component-in-tag": true,
   "include-v-in-tag": true,
   "pull-request-title-pattern": "chore(release): ${version}",
-  "skip-github-release": true,
+  "separate-pull-requests": true,
   "changelog-sections": [
     {
       "type": "feat",
@@ -39,6 +39,11 @@
           "type": "json",
           "path": ".claude-plugin/plugin.json",
           "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/marketplace.json",
+          "jsonpath": "$.plugins[0].version"
         }
       ]
     },
@@ -50,18 +55,6 @@
           "type": "json",
           "path": ".claude-plugin/plugin.json",
           "jsonpath": "$.version"
-        }
-      ]
-    },
-    ".": {
-      "component": "marketplace",
-      "skip-changelog": true,
-      "skip-github-release": false,
-      "extra-files": [
-        {
-          "type": "json",
-          "path": ".claude-plugin/marketplace.json",
-          "jsonpath": "$.plugins[0].version"
         },
         {
           "type": "json",
@@ -69,17 +62,10 @@
           "jsonpath": "$.plugins[1].version"
         }
       ]
+    },
+    ".": {
+      "component": "marketplace",
+      "skip-changelog": true
     }
-  },
-  "plugins": [
-    {
-      "type": "linked-versions",
-      "groupName": "marketplace",
-      "components": [
-        "base-setup",
-        "coding-tutor-coach",
-        "marketplace"
-      ]
-    }
-  ]
+  }
 }

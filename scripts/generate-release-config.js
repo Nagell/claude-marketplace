@@ -122,10 +122,6 @@ function generateReleaseConfig(marketplace) {
 
   const packages = {};
   const manifest = {};
-  const components = [];
-
-  // Build extra-files for root package to update marketplace.json
-  const marketplaceExtraFiles = [];
 
   marketplace.plugins.forEach((plugin, index) => {
     const pluginPath = `plugins/${plugin.name}`;
@@ -139,6 +135,8 @@ function generateReleaseConfig(marketplace) {
     const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
     const version = existingManifest[pluginPath] || pluginJson.version || '0.1.0';
 
+    // Each plugin versions independently. A release for one plugin writes its
+    // new version into both its plugin.json and its own marketplace.json entry.
     packages[pluginPath] = {
       component: plugin.name,
       'changelog-path': 'CHANGELOG.md',
@@ -147,36 +145,29 @@ function generateReleaseConfig(marketplace) {
           type: 'json',
           path: '.claude-plugin/plugin.json',
           jsonpath: '$.version'
+        },
+        {
+          type: 'json',
+          path: '.claude-plugin/marketplace.json',
+          jsonpath: `$.plugins[${index}].version`
         }
       ]
     };
 
-    // Add marketplace.json update for this plugin to root package
-    marketplaceExtraFiles.push({
-      type: 'json',
-      path: `.claude-plugin/marketplace.json`,
-      jsonpath: `$.plugins[${index}].version`
-    });
-
     manifest[pluginPath] = version;
-    components.push(plugin.name);
   });
 
-  // Add root package to update marketplace.json versions
-  // skip-changelog: true - plugin changelogs are the source of truth
-  // skip-github-release: false - root creates THE release (overrides global default)
-  if (marketplaceExtraFiles.length > 0) {
+  // Marketplace umbrella release. Produces the single whole-repo archive zip and
+  // keeps the marketplace-vX release series. NOT linked to the plugins, so it
+  // never forces their versions together; each plugin still bumps on its own.
+  // It re-versions on repo-root changes (workflow, root README, this script).
+  if (marketplace.plugins.length > 0) {
+    const firstPluginPath = `plugins/${marketplace.plugins[0].name}`;
     packages['.'] = {
       component: 'marketplace',
-      'skip-changelog': true,
-      'skip-github-release': false,
-      'extra-files': marketplaceExtraFiles
+      'skip-changelog': true
     };
-    // Use the first plugin's version for the root package
-    const firstPluginPath = `plugins/${marketplace.plugins[0].name}`;
     manifest['.'] = existingManifest['.'] || manifest[firstPluginPath] || '0.1.0';
-    // Add to linked-versions so it bumps together with plugins
-    components.push('marketplace');
   }
 
   const config = {
@@ -187,7 +178,7 @@ function generateReleaseConfig(marketplace) {
     'include-component-in-tag': true,
     'include-v-in-tag': true,
     'pull-request-title-pattern': 'chore(release): ${version}',
-    'skip-github-release': true,
+    'separate-pull-requests': true,
     'changelog-sections': [
       { type: 'feat', section: 'Features' },
       { type: 'fix', section: 'Bug Fixes' },
@@ -195,14 +186,7 @@ function generateReleaseConfig(marketplace) {
       { type: 'docs', section: 'Documentation' },
       { type: 'chore', section: 'Maintenance', hidden: true }
     ],
-    packages,
-    plugins: [
-      {
-        type: 'linked-versions',
-        groupName: 'marketplace',
-        components
-      }
-    ]
+    packages
   };
 
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2) + '\n');
