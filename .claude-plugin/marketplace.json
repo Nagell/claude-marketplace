@@ -14,7 +14,7 @@
       "name": "base-setup",
       "source": "./plugins/base-setup",
       "description": "Foundational Claude Code configuration providing safety guardrails, automatic code formatting, MCP server integrations, and opinionated development defaults. The essential starting point for any Claude Code workflow.",
-      "version": "0.1.43",
+      "version": "0.1.44",
       "keywords": [
         "setup",
         "hooks",
@@ -30,7 +30,7 @@
       "name": "coding-tutor-coach",
       "source": "./plugins/coding-tutor-coach",
       "description": "Commit-triggered coach for the coding-tutor skill. Hook only — calibration lives in coding-tutor's own learner_profile.md.",
-      "version": "0.1.0",
+      "version": "0.1.44",
       "keywords": [
         "learning",
         "tutor",
