@@ -27,32 +27,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Detect Release PR merges by checking if commit is from release-please branch.
-      # GitHub merge commits look like: "Merge pull request #X from .../release-please--branches--main"
-      - name: Check if release commit
-        id: release_check
-        run: |
-          COMMIT_MSG=$(git log -1 --pretty=%s)
-          if echo "$COMMIT_MSG" | grep -qE "release-please--branches--"; then
-            echo "is_release=true" >> $GITHUB_OUTPUT
-            echo "Detected release PR merge - skipping config generation"
-          else
-            echo "is_release=false" >> $GITHUB_OUTPUT
-          fi
-
-      # Config generation only runs for feature/fix commits, not after Release PR merge
+      # Runs on every non-bot push (the job-level actor guard prevents the bot's
+      # own sync commit from re-triggering). This must run after Release PR merges
+      # too: Release Please bumps each plugin.json but cannot reach the repo-root
+      # marketplace.json, so syncMarketplace() propagates the new version there.
       - name: Setup Node.js
-        if: steps.release_check.outputs.is_release != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '22'
 
       - name: Generate Release Config
-        if: steps.release_check.outputs.is_release != 'true'
         run: node scripts/generate-release-config.js
 
       - name: Commit config changes
-        if: steps.release_check.outputs.is_release != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
