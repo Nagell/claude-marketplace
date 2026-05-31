@@ -106,9 +106,10 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 
 ## Plugins
 
-| Plugin                            | Description                                                    |
-| --------------------------------- | -------------------------------------------------------------- |
-| [base-setup](plugins/base-setup/) | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md |
+| Plugin                                            | Description                                                                         |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                      |
+| [coding-tutor-coach](plugins/coding-tutor-coach/) | Commit-triggered learning coach that nudges Claude to offer `coding-tutor` lessons  |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -149,15 +150,21 @@ claude-marketplace/
 ├── .claude-plugin/
 │   └── marketplace.json
 ├── plugins/
-│   └── base-setup/
+│   ├── base-setup/
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   ├── commands/
+│   │   ├── hooks/
+│   │   ├── agents/
+│   │   ├── skills/
+│   │   ├── .mcp.json
+│   │   ├── CLAUDE.md
+│   │   └── README.md
+│   └── coding-tutor-coach/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
 │       ├── commands/
 │       ├── hooks/
-│       ├── agents/
-│       ├── skills/
-│       ├── .mcp.json
-│       ├── CLAUDE.md
 │       └── README.md
 └── README.md
 ```
