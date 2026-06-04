@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.45](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.44...base-setup-v0.1.45) (2026-06-04)
+
+
+### Features
+
+* **writing-style-guide:** target structural AI tells and add voice fingerprints ([c574d6f](https://github.com/Nagell/claude-marketplace/commit/c574d6f82e25d71ab716e5a10b2333a8c3b9ba71))
+* **writing-style-guide:** target structural AI tells and add voice fingerprints ([b2e3c1c](https://github.com/Nagell/claude-marketplace/commit/b2e3c1cf0638b323d9b8dd7a8a23f394bac85bdc))
+
 ## [0.1.44](https://github.com/Nagell/claude-marketplace/compare/marketplace-v0.1.43...base-setup-v0.1.44) (2026-05-31)
 
 
