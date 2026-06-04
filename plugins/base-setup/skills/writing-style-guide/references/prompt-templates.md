@@ -221,3 +221,27 @@ Is the personality level appropriate? Specifically:
 
 If adjustments are needed, show me the recalibrated version.
 ```
+
+---
+
+## 11. Direct Message to a Person (Slack / Email)
+
+Use when: You're writing a real message to a real person - the register that most easily reads as AI. This is the highest-stakes case. Getting caught sounding like Claude here is worse than slightly rougher prose.
+
+```
+I'm writing a direct message to: [WHO - colleague, my CTO, a teammate]
+What I want to say: [DUMP THE RAW THOUGHT / BULLETS]
+Tone: [warm / blunt / annoyed / cheeky] - default warm-and-direct
+
+Write it in my DM voice (max-you, per the personality dial):
+- Warm, personal opener if it fits ("Hi [name]! Long time no see")
+- Loaded run-ons over balanced short pairs. Be lumpy, not polished.
+- Use my sarcasm if it fits: ventriloquize the skeptic, scare-quote the dumb objection, self-mocking hyperbole
+- Emoji as tone-markers where natural (:wink: :smile: :man-shrugging:)
+- End by handing the ball back (a question, a choice) - never summarize
+
+Hard rules:
+- NO balanced antithesis ("The X is there. The Y is missing."), NO rule-of-three triads, NO colon-reveal setups ("So the straight question:"), NO uniform polish where every sentence lands
+- NO em-dashes - restructure to avoid the dash entirely
+- Fix my grammar errors and tell me what you fixed and why - but keep the voice, not the mistakes
+```
