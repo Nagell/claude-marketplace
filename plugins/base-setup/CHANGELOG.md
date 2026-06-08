@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.47](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.46...base-setup-v0.1.47) (2026-06-08)
+
+
+### Bug Fixes
+
+* **base-setup:** harden git-push gate against global git options ([cd6e1bd](https://github.com/Nagell/claude-marketplace/commit/cd6e1bdcebf788fb5ae2f54b381037e03e550ebb))
+* **base-setup:** harden git-push gate against global git options ([b0e0d6b](https://github.com/Nagell/claude-marketplace/commit/b0e0d6b4468609311f65fba1ef0b90500c4a18e5))
+
 ## [0.1.46](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.45...base-setup-v0.1.46) (2026-06-08)
 
 
