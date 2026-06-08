@@ -82,7 +82,7 @@ fi
 # then strip remaining quoted strings
 BEFORE_HEREDOC=$(echo "$COMMAND" | awk '{if(/<</) {sub(/<<.*/,""); print; exit} print}')
 CMD_STRIPPED=$(echo "$BEFORE_HEREDOC" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
-if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+)?git\s+push'; then
+if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+)?git(\s+-{1,2}[^[:space:]]+(\s+[^[:space:]-][^[:space:]]*)?)*\s+push([^[:alnum:]_-]|$)'; then
   GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$HOME")
   TOKEN_FILE="$GIT_ROOT/.claude-push-token"
   if [ -f "$TOKEN_FILE" ]; then
