@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.46](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.45...base-setup-v0.1.46) (2026-06-08)
+
+
+### Bug Fixes
+
+* **base-setup:** gate rtk-wrapped git push in safety hook ([b65112c](https://github.com/Nagell/claude-marketplace/commit/b65112c4823b7de602374eebc9100a50e0daa082))
+* **base-setup:** gate rtk-wrapped git push in safety hook ([626c19f](https://github.com/Nagell/claude-marketplace/commit/626c19fd6d5b1cd2ce4251c8a8ba08ca6b5c3763))
+
 ## [0.1.45](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.44...base-setup-v0.1.45) (2026-06-04)
 
 
