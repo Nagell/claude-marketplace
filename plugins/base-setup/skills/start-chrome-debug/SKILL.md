@@ -1,5 +1,7 @@
 ---
+name: start-chrome-debug
 description: Start Chrome with remote debugging enabled (port 9222), works on WSL/Linux/macOS/Windows
+disable-model-invocation: true
 ---
 
 # Start Chrome Debug
