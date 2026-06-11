@@ -22,3 +22,5 @@ Thumbs.db
 # AI
 .claude/
 .claude-push-token
+.mcp.json
+.spec-workflow
