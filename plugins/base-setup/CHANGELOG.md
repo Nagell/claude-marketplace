@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.49](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.48...base-setup-v0.1.49) (2026-06-11)
+
+
+### Features
+
+* **base-setup:** migrate slash commands to Skills format ([d820045](https://github.com/Nagell/claude-marketplace/commit/d8200451e54813f564108243eed1c70447260ffd))
+* migrate slash commands to Skills format ([875eecf](https://github.com/Nagell/claude-marketplace/commit/875eecfc8d053fc81cf24d0fee22351bafa8dd11))
+
 ## [0.1.48](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.47...base-setup-v0.1.48) (2026-06-11)
 
 
