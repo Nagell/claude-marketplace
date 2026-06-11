@@ -1,5 +1,7 @@
 ---
+name: plugin-setup
 description: Install all recommended plugins and marketplaces
+disable-model-invocation: true
 ---
 
 # Setup Plugins

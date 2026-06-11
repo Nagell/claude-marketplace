@@ -153,7 +153,6 @@ claude-marketplace/
 │   ├── base-setup/
 │   │   ├── .claude-plugin/
 │   │   │   └── plugin.json
-│   │   ├── commands/
 │   │   ├── hooks/
 │   │   ├── agents/
 │   │   ├── skills/
@@ -163,7 +162,7 @@ claude-marketplace/
 │   └── coding-tutor-coach/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
-│       ├── commands/
+│       ├── skills/
 │       ├── hooks/
 │       └── README.md
 └── README.md

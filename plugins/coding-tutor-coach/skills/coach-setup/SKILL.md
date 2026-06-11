@@ -1,5 +1,7 @@
 ---
+name: coach-setup
 description: Install coding-tutor + register the post-commit learning coach hook.
+disable-model-invocation: true
 ---
 
 # Coach Setup

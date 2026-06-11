@@ -1,6 +1,7 @@
 ---
+name: setup-token-savings
 description: Install RTK (token-saving CLI proxy) and context-mode (context window compression plugin) by fetching the latest instructions from GitHub
-version: "1.0"
+disable-model-invocation: true
 ---
 
 # Setup Token Savings

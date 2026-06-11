@@ -22,16 +22,22 @@ After installing, run:
 
 This installs all recommended official plugins in one command. Restart Claude Code after installation.
 
-## Commands
+## Skills
 
-| Command                           | Description                                                              |
+Some skills you invoke by name; others Claude reaches for on its own.
+
+### You invoke these (`/base-setup:<name>`)
+
+| Skill                             | Description                                                              |
 | --------------------------------- | ------------------------------------------------------------------------ |
 | `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
 | `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
 | `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts |
 | `/base-setup:start-chrome-debug`  | Start Chrome with remote debugging (WSL/Linux/macOS/Windows)             |
 
-## Skills
+These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
+
+### Claude uses these automatically
 
 | Skill                 | Description                                              |
 | --------------------- | -------------------------------------------------------- |
@@ -93,9 +99,6 @@ base-setup/
 │   └── plugin.json
 ├── .mcp.json
 ├── CLAUDE.md
-├── commands/
-│   ├── plugin-setup.md
-│   └── setup-zsh.md
 ├── hooks/
 │   ├── hooks.json
 │   ├── safety-guards.sh

@@ -1,5 +1,7 @@
 ---
+name: setup-zsh
 description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts
+disable-model-invocation: true
 ---
 
 # Setup Zsh Environment
