@@ -1,6 +1,6 @@
 {
     "name": "coding-tutor-coach",
-    "version": "0.1.45",
+    "version": "0.1.46",
     "description": "Commit-triggered coach for the coding-tutor skill. Hook only — calibration lives in coding-tutor's own learner_profile.md.",
     "author": {
         "name": "Dawid Nitka",
