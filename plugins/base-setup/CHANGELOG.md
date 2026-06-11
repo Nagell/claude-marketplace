@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.48](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.47...base-setup-v0.1.48) (2026-06-11)
+
+
+### Features
+
+* **base-setup:** vendor Anthropic's canonical skill-creator ([1a94658](https://github.com/Nagell/claude-marketplace/commit/1a9465801d52799af8a65acf57bb0ba09a0e6b25))
+
 ## [0.1.47](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.46...base-setup-v0.1.47) (2026-06-08)
 
 
