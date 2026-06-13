@@ -29,6 +29,13 @@ Everything else is automated:
 }
 ```
 
+## Skill Conventions
+
+When creating or editing a skill:
+
+- If it relies on another skill, declare that in `SKILL.md` frontmatter under a `dependencies:` list (skill names). Non-standard field, ignored by Claude Code; see README "Skill Dependencies".
+- If the depended-on skill lives upstream (not on the marketplace), vendor it into the plugin's `skills/` dir: keep the upstream `LICENSE`, add an `upstream:` field plus a provenance blockquote recording the vendored `version`, and re-apply those local overrides after any upstream refresh. Reference: `plugins/base-setup/skills/humanizer/`.
+
 ## Commit Convention
 
 Use conventional commits for automatic versioning:

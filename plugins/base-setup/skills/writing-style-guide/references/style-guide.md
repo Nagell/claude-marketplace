@@ -6,6 +6,14 @@ Your job is not to write _for_ Dawid. It's to help him write like the best versi
 
 ---
 
+## 0. Pipeline: humanizer first, then this guide
+
+Generic AI-tell removal is delegated to the [`humanizer` skill](https://github.com/blader/humanizer) (Wikipedia's "Signs of AI writing": inflated symbolism, promotional language, rule-of-three, negative parallelisms / "not X but Y", copula avoidance, vague attributions, filler, excessive hedging, sycophantic tone, em-dash removal, staccato drama, "Here's the thing:" openers, and more). Run that pass **first**.
+
+This guide then layers what humanizer can't: Dawid's voice and structure, non-native English fixes, and three deliberate overrides humanizer doesn't cover - **balanced antithesis** as the #1 structural tell, the **`-` (spaced hyphen) dash fallback**, and the **Oxford-comma ban**. Where this guide and humanizer disagree on those three, this guide wins.
+
+---
+
 ## 1. Voice and Tone
 
 **Core qualities:**
@@ -95,8 +103,7 @@ _Model: Your monorepo series - practical, structured, still has personality in t
 
 ### Don't:
 
-- Don't use filler words: "actually," "basically," "just," "really," "very," "quite" - delete unless doing real work.
-- Don't over-qualify: "I think maybe it could potentially be worth considering" → "It's worth trying."
+- Filler words ("actually/basically/just/really/very/quite") and over-qualification ("I think maybe it could potentially...") are humanizer's job - assume that pass already stripped them; don't re-litigate here.
 - Don't write sentences that say every word even when it's not worth saying. Economy matters. If a phrase doesn't add meaning, cut it. **Exception:** words that mimic spoken rhythm are worth keeping even when technically redundant. "That's it? Well... not exactly." - the "Well" is unnecessary for meaning but essential for voice. Same with "Ok, but here's the thing" or "Let's be honest". These create the feeling of someone actually talking. The test: does the extra word create rhythm or voice? Keep it. Does it just take up space? Cut it.
 
 ### Common non-native patterns to catch and fix:
@@ -159,27 +166,13 @@ _Model: Your monorepo series - practical, structured, still has personality in t
 
 ## 5. Anti-Patterns / Blacklist
 
-| Pattern                                                                        | Solution                                                                               |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| **Balanced antithesis:** "The vision is there. The org move is lagging."        | The #1 AI tell. A disguised "not X but Y". Merge into one sentence or break the symmetry. |
-| **Rule-of-three triads:** "Monorepo, Nix, CI."                                  | Use two or four items, or break the parallel rhythm.                                    |
-| **Colon-reveal setup:** "So the straight question:" / "Here's the thing:"       | Drop the drumroll. Just say the thing.                                                  |
-| **Uniform polish** - every sentence lands cleanly                               | Leave one rough or loaded sentence. Humans are lumpy.                                   |
-| "Not X, but Y" constructions                                                   | State Y directly. Drop the scaffolding.                                                |
-| "In today's rapidly evolving landscape..."                                     | Delete. Start with a specific thing.                                                   |
-| "It's worth noting that..."                                                    | Just note it.                                                                          |
-| "Let's dive in" / "Without further ado"                                        | Delete. Just start.                                                                    |
-| Hedges: "maybe," "perhaps," "I think" (when not genuine uncertainty)           | Commit to the claim or qualify it properly.                                            |
-| Correlative constructions: "not only X, but also Y"                            | Rewrite. These always sound AI-generated.                                              |
-| Summary endings that recap the article                                         | End by extending the idea, posing a question, or calling to action.                    |
-| Hollow transitions: "That being said," "On the other hand," "Moreover"         | Cut or make the connection specific.                                                   |
-| Fake profundity: "This changes everything" / "The implications are profound"   | Cut. If it's profound, the reader will notice.                                         |
-| Boilerplate authority: "studies show" / "experts agree"                        | Name the study or the expert, or delete.                                               |
-| Overly symmetrical sentences: "X enables Y. Z empowers W."                     | Break the pattern. Vary the rhythm.                                                    |
-| Excessive em-dashes in one paragraph                                           | Max 2 per paragraph. After that, restructure.                                          |
-| Typographic em-dashes `—` anywhere                                             | Replace with `-` (hyphen with spaces) or restructure. Em-dashes are an AI fingerprint. |
-| Oxford comma before "and"                                                      | Drop it. Write "red, green and blue" not "red, green, and blue". Another AI tell.      |
-| Sycophantic AI opener: "Great question!" / "That's a really interesting point" | Never. Just answer.                                                                    |
+Generic AI-tells are humanizer's job - don't re-list them here (rule-of-three, "not X but Y" / correlatives, colon-reveal "Here's the thing:", uniform polish, "evolving landscape", "it's worth noting", "let's dive in", hedges, summary-recap endings, hollow transitions, fake profundity, "studies show / experts agree", overly symmetrical pairs, sycophantic openers). This guide keeps only the three humanizer doesn't enforce:
+
+| Pattern                                                                  | Solution                                                                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| **Balanced antithesis:** "The vision is there. The org move is lagging." | Dawid's #1 tell. A disguised "not X but Y" used as the default beat. Merge into one sentence or break the symmetry. |
+| **Typographic em-dash `—` anywhere**                                     | Hard ban. Restructure to avoid the dash; fallback only is `-` (hyphen with spaces). humanizer prefers comma/period, but here the spaced hyphen wins. |
+| **Oxford comma before "and"**                                            | Drop it. "red, green and blue", not "red, green, and blue". humanizer has no rule on this.                         |
 
 ---
 
@@ -286,14 +279,12 @@ Before publishing, check every draft against these questions:
 - [ ] Is any sentence trying to say three things at once? Split it.
 - [ ] Are there filler words that can be deleted without losing meaning?
 
-**AI-tell scan:**
+**AI-tell scan** (humanizer already ran its full scan; these are the Dawid-specific add-ons it doesn't cover):
 
-- [ ] **Structural tells (check first):** balanced antithesis ("The X is there. The Y is missing.")? Rule-of-three triads? Colon-reveal setups ("Here's the thing:")? Break them.
-- [ ] **Uniform polish?** Does every sentence land cleanly? Leave one rough or loaded one in.
+- [ ] **Balanced antithesis?** "The X is there. The Y is missing." used as the default beat? Break the symmetry - merge or leave one side loaded.
 - [ ] **Parenthetical overuse?** Any parens smuggling a full second sentence? Drop the parens or make it its own sentence.
-- [ ] Any typographic em-dashes `—`? Restructure to avoid the dash; only as a fallback use `-`.
-- [ ] Any Oxford commas before "and"? Remove them.
-- [ ] Does the text _feel_ AI-generated? Check for: overly symmetrical sentence pairs, correlative constructions, hollow transitions, suspiciously polished paragraph endings.
+- [ ] Any typographic em-dash `—`? Restructure to avoid it; fallback only is `-` (spaced hyphen).
+- [ ] Any Oxford comma before "and"? Remove it.
 
 **English quality:**
 

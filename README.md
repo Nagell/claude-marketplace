@@ -44,6 +44,7 @@
       </ul>
     </li>
     <li><a href="#plugins">Plugins</a></li>
+    <li><a href="#skill-dependencies">Skill Dependencies</a></li>
     <li>
       <a href="#versioning--releases">Versioning &amp; Releases</a>
       <ul>
@@ -106,10 +107,28 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 
 ## Plugins
 
-| Plugin                                            | Description                                                                         |
-| ------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                      |
-| [coding-tutor-coach](plugins/coding-tutor-coach/) | Commit-triggered learning coach that nudges Claude to offer `coding-tutor` lessons  |
+| Plugin                                            | Description                                                                        |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
+| [coding-tutor-coach](plugins/coding-tutor-coach/) | Commit-triggered learning coach that nudges Claude to offer `coding-tutor` lessons |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- SKILL DEPENDENCIES -->
+
+## Skill Dependencies
+
+This repo adds a small **non-standard convention**: when one skill relies on another, declare it in the frontmatter under a `dependencies` list (skill names). There is no official field for this yet, and `dependencies` does not collide with any current key, so it's ignored by Claude Code.  
+It helps though to understand the relationships between skills during the skill development.
+
+```yaml
+---
+name: writing-style-guide
+description: ...
+dependencies:
+  - humanizer
+---
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

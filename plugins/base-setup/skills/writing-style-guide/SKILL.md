@@ -1,6 +1,8 @@
 ---
 name: writing-style-guide
 description: "Dawid Nitka's personal writing style guide. Use this skill whenever writing, drafting, editing, or reviewing any text that will be read by humans - including articles, blog posts, documentation, README files, PR descriptions, technical write-ups, Slack messages, emails, proposals, or any prose longer than a couple of sentences. Also trigger when the user asks to 'write like me', 'use my voice', 'check my style', 'edit for voice', or mentions their writing style. Even for commit messages or code comments that need personality, consult this skill. If in doubt whether a writing task needs the style guide - use it anyway."
+dependencies:
+  - humanizer
 ---
 
 # Writing Style Guide - Dawid Nitka
@@ -11,6 +13,12 @@ For the full style guide with examples, positive/negative samples, and revision 
 
 - `references/style-guide.md` - Complete style guide
 - `references/prompt-templates.md` - Reusable prompt templates for common writing tasks
+
+## Dependency: humanizer
+
+Generic AI-tell removal (em-dashes, rule-of-three, "not X but Y", filler, hedging, sycophantic openers, inflated symbolism, vague attributions, staccato drama, "Here's the thing:" openers, etc.) is owned by the **`humanizer` skill**, vendored in this plugin at `base-setup:skills/humanizer/` (declared under `dependencies` in the frontmatter). Run humanizer **first** for that pass, then apply this guide to layer Dawid's voice on top.
+
+This guide carries only what humanizer does **not**: Dawid's voice, structure, non-native fixes, and a few deliberate overrides (Oxford comma, dash fallback) below.
 
 ## Quick Reference (always apply these)
 
@@ -31,26 +39,13 @@ For the full style guide with examples, positive/negative samples, and revision 
 - **Tutorials / technical docs**: Restrained (clear, personality only in section openers and asides)
 - **Commit messages / PRs**: Minimal but human (no corporate-speak, keep it real)
 
-### Critical Anti-Patterns (kill on sight)
+### Dawid-Specific Tells & Overrides (humanizer doesn't cover these)
 
-**Structural tells - these are what actually expose AI. Check these first:**
+Generic AI-tells (rule-of-three, "not X but Y", colon-reveal "Here's the thing:", uniform polish/staccato, "evolving landscape", "it's worth noting", hollow transitions, fake profundity, sycophantic openers) are humanizer's job - don't duplicate them here. This guide adds only:
 
-- Balanced antithesis: "The vision is there. The org move is lagging." / "The willing are there. It's the enablement that's missing." This is the #1 tell - a disguised "not X, but Y". Break the symmetry.
-- Rule-of-three triads: "Monorepo, Nix, CI." / "the resources, someone to clear the bottlenecks." Use two or four, or break the parallelism.
-- Colon-reveal setups: "So the straight question:" / "Here's the thing:" Drop the drumroll, just say it.
-- Uniform polish: every sentence landing cleanly. Leave one rough or loaded sentence in.
-
-**Surface tells:**
-
-- "Not X, but Y" / "not only X, but also Y" constructions
-- "In today's rapidly evolving landscape..."
-- "It's worth noting that..." / "Let's dive in" / "Without further ado"
-- Em-dashes `—`: hard ban. First preference - restructure the sentence to avoid the dash entirely. Fallback only: `-` (hyphen with spaces). Almost no human types `—`, so it screams AI.
-- Oxford commas before "and"
-- Summary endings that recap the article
-- Hollow transitions: "That being said," "Moreover," "On the other hand"
-- Fake profundity: "This changes everything"
-- Sycophantic openers: "Great question!"
+- **Balanced antithesis** - "The vision is there. The org move is lagging." / "The willing are there. It's the enablement that's missing." Dawid's #1 structural tell, a disguised "not X, but Y" used as the default beat. Break the symmetry: merge into one sentence or leave one side loaded and rough.
+- **Em-dash override**: hard ban on `—`. First preference - restructure to avoid the dash. Fallback only: `-` (hyphen with spaces). humanizer also kills em-dashes but replaces with comma/period; Dawid prefers the spaced hyphen.
+- **Oxford comma before "and"**: drop it. "red, green and blue", not "red, green, and blue". humanizer has no rule on this.
 
 ### Voice Fingerprints (use these - they make text unmistakably Dawid)
 
