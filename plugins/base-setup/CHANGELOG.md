@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.51](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.50...base-setup-v0.1.51) (2026-06-13)
+
+
+### Bug Fixes
+
+* **claude-guidelines:** clarify output formatting and git push policy ([f6834cb](https://github.com/Nagell/claude-marketplace/commit/f6834cb13f349c17ba7b84a02fbf55bd14235836))
+* **claude-guidelines:** clarify output formatting and git push policy ([af12f9d](https://github.com/Nagell/claude-marketplace/commit/af12f9dc97469a401b922abe95c61931e976a222))
+
 ## [0.1.50](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.49...base-setup-v0.1.50) (2026-06-13)
 
 
