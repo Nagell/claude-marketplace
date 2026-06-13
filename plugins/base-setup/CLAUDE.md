@@ -3,6 +3,17 @@
 When reporting information, be extremely concise and sacrifice grammar for concision.
 Talk in english and produce all documentation in english
 
+## Presenting Choices & Findings
+
+When work produces decisions for me to make (options, review findings to triage, tradeoffs):
+
+- Route every pick through `AskUserQuestion`, not free-text. Recommended option first, labeled "(Recommended)". Batch related decisions (≤4) into one call.
+- Precede each decision with a scannable block: title + severity tag, **What's wrong** (observable consequence), **Proposed fix** (one recommendation, not a menu), one-line **why**. Keep quotes short.
+- Mark confidence: ⭐ when independent sources agree; flag high- vs low-confidence.
+- Fix trivially-safe things silently (typos, count drift, stale refs); only ask about substantive decisions, then state what you auto-applied.
+- After I answer, confirm tersely (applied / skipped + reason / deferred), then proceed.
+- Obvious default? Pick it, say so, move on — don't manufacture a question.
+
 ## Project Defaults
 
 - Default to pnpm if package manager unclear (no lock file)
