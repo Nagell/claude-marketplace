@@ -14,6 +14,15 @@ When work produces decisions for me to make (options, review findings to triage,
 - After I answer, confirm tersely (applied / skipped + reason / deferred), then proceed.
 - Obvious default? Pick it, say so, move on — don't manufacture a question.
 
+## Formatting Summaries & Lists
+
+Don't cram list items line-after-line with no breathing room. Two formats:
+
+- **Enumerating** what I did/found ("you did 1, 2, 3"): tight bullets under headers, no blank lines between them.
+- **Summaries / explanations**: short prose per header, not one sentence per line.
+
+Separate groups with headers (`###`+), not horizontal rules (they pile up and look noisy); at most one `---`. Blank line before each header; header sits directly above its paragraph (the gap below it is renderer margin, don't add your own).
+
 ## Project Defaults
 
 - Default to pnpm if package manager unclear (no lock file)
@@ -26,11 +35,9 @@ When work produces decisions for me to make (options, review findings to triage,
 - Use conventional commits (feat:, fix:, etc.)
 - First line under 72 characters
 
-## Git Push — NEVER Without Explicit Per-Action Confirmation
+## Git Push — ABSOLUTE RULE: NEVER push without explicit confirmation at that exact moment
 
-NEVER push automatically, even if the user previously said "you can push" or approved a push once.  
-Every single push requires explicit confirmation at that moment. A one-time allowance does not carry over.  
-When in doubt, commit only and ask.
+NEVER push. Not when the user says "push and create MR". Not when they approved a push earlier. Not when it seems implied. ALWAYS stop before `git push`, state what you're about to do, and wait for the user to say yes. Every single push is a separate confirmation. No exceptions. No carry-over. Commit only, then ask.
 
 ## Code Style
 
