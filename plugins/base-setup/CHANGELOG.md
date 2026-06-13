@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.1.50](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.49...base-setup-v0.1.50) (2026-06-13)
+
+
+### Features
+
+* **base-setup:** document choice and findings presentation guidance ([a83fea0](https://github.com/Nagell/claude-marketplace/commit/a83fea0814ef628c50e35f66a7bc2d8bd7e9ba7c))
+* **base-setup:** document choice and findings presentation guidance ([0a5cfda](https://github.com/Nagell/claude-marketplace/commit/0a5cfdaf6ac90af064b4a949633f85ba9f83a9ab))
+* **base-setup:** vendor humanizer as writing-style-guide dependency ([6e21c77](https://github.com/Nagell/claude-marketplace/commit/6e21c77a5939da944d8cbfdd8985d52c6c842e11))
+* **base-setup:** vendor humanizer skill as writing-style-guide dependency ([e3ec1fd](https://github.com/Nagell/claude-marketplace/commit/e3ec1fdee8c0fbf4babf3c2c775af306310f4fb4))
+
 ## [0.1.49](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.48...base-setup-v0.1.49) (2026-06-11)
 
 
