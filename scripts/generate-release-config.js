@@ -157,8 +157,8 @@ function generateReleaseConfig(marketplace) {
   const config = {
     '$schema': 'https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json',
     'release-type': 'simple',
-    'bump-minor-pre-major': true,
-    'bump-patch-for-minor-pre-major': true,
+    'bump-minor-pre-major': false,
+    'bump-patch-for-minor-pre-major': false,
     'include-component-in-tag': true,
     'include-v-in-tag': true,
     'pull-request-title-pattern': 'chore(release): ${component} ${version}',
