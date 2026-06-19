@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.2.0...base-setup-v0.2.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **base-setup:** notify agent that push token is auto-removed ([8c45371](https://github.com/Nagell/claude-marketplace/commit/8c453710a6ae759c67b1c270d42ed8f0d1d7a5c5))
+
+
+### Documentation
+
+* **plugin-setup:** drop learning-opportunities, consolidate nuxt-skills ([781e032](https://github.com/Nagell/claude-marketplace/commit/781e0322fde333cb20144bd2a880eecdc9ada153))
+* **plugin-setup:** drop learning-opportunities, consolidate nuxt-skills ([9a1c47e](https://github.com/Nagell/claude-marketplace/commit/9a1c47e14776d0434202407a3ac1287069acd46b))
+
 ## [0.2.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.51...base-setup-v0.2.0) (2026-06-19)
 
 
