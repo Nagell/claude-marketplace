@@ -47,6 +47,19 @@ Want explicit per-domain bars for how often the hook should prompt? Paste this a
 - **Max 1 offer per session**, regardless of commit count.
 ```
 
+## Tell it your level
+
+The onboarding interview captures your background as free prose — there's no built-in per-language skill field. But the tutor reads the whole profile and calibrates teaching depth from it, so you can declare your proficiency explicitly. Paste a block like this anywhere in your `~/coding-tutor-tutorials/learner_profile.md`:
+
+```markdown
+## My proficiency
+- TypeScript / Vue / Nuxt: advanced — go deep, skip the basics
+- Python / Django: beginner — explain fundamentals, more scaffolding
+- Rust: none yet — start from zero
+```
+
+This steers *how* a tutorial is pitched (depth, assumed knowledge), which is separate from the calibration rules above that steer *how often* the hook offers one.
+
 ## Storage
 
 Tutorials and your learner profile live at `~/coding-tutor-tutorials/`, auto-created on first use and shared across all your projects. The hook only **reads** that directory; it never writes to it. Uninstalling this plugin leaves `~/coding-tutor-tutorials/` untouched.
