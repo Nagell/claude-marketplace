@@ -25,6 +25,7 @@ fi
 
 # Collect warnings
 WARNINGS=""
+PUSH_NOTICE=""
 
 add_warning() {
   if [ -n "$WARNINGS" ]; then
@@ -87,6 +88,7 @@ if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+)?git(
   TOKEN_FILE="$GIT_ROOT/.claude-push-token"
   if [ -f "$TOKEN_FILE" ]; then
     rm -f "$TOKEN_FILE"
+    PUSH_NOTICE="Push token consumed; this hook auto-removed .claude-push-token. Do not delete it yourself."
   else
     printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply in this turn. DO NOT create the token or push autonomously. Only after the user explicitly confirms: (1) run `touch .claude-push-token` in the repo root as a separate Bash call, then (2) run the original git push command."}}'
     exit 0
@@ -151,8 +153,12 @@ fi
 # Output warnings as JSON systemMessage
 # ============================================
 
-if [ -n "$WARNINGS" ]; then
+if [ -n "$WARNINGS" ] && [ -n "$PUSH_NOTICE" ]; then
+  echo "{\"systemMessage\": \"SAFETY WARNING: $WARNINGS\", \"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"$PUSH_NOTICE\"}}"
+elif [ -n "$WARNINGS" ]; then
   echo "{\"systemMessage\": \"SAFETY WARNING: $WARNINGS\"}"
+elif [ -n "$PUSH_NOTICE" ]; then
+  echo "{\"hookSpecificOutput\": {\"hookEventName\": \"PreToolUse\", \"additionalContext\": \"$PUSH_NOTICE\"}}"
 fi
 
 exit 0
