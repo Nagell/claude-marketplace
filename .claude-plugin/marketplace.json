@@ -27,16 +27,18 @@
       ]
     },
     {
-      "name": "coding-tutor-coach",
-      "source": "./plugins/coding-tutor-coach",
-      "description": "Commit-triggered coach for the coding-tutor skill. Hook only — calibration lives in coding-tutor's own learner_profile.md.",
-      "version": "0.1.46",
+      "name": "coding-tutor",
+      "source": "./plugins/coding-tutor",
+      "description": "Personalized coding tutorials that use your real codebase for examples, with spaced-repetition quizzes and a commit-triggered learning nudge.",
+      "version": "0.1.0",
       "keywords": [
+        "coding",
+        "programming",
+        "tutorial",
         "learning",
-        "tutor",
+        "spaced-repetition",
         "coaching",
-        "hook",
-        "spaced-repetition"
+        "hook"
       ]
     }
   ]

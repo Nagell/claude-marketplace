@@ -21,14 +21,14 @@ esac
 PROFILE="$HOME/coding-tutor-tutorials/learner_profile.md"
 
 if [ ! -f "$PROFILE" ]; then
-  echo "[coding-tutor-coach] No learner profile at ${PROFILE}. Run /teach-me once to trigger coding-tutor's onboarding interview. The hook will start nudging once the profile exists."
+  echo "[coding-tutor] No learner profile at ${PROFILE}. Run /teach-me once to trigger coding-tutor's onboarding interview. The hook will start nudging once the profile exists."
   exit 0
 fi
 
 FILES=$(git log -1 --name-only --format='' 2>/dev/null | sed '/^$/d' | head -15 | tr '\n' ' ')
 
 cat <<EOF
-[coding-tutor-coach] User just committed. Files: ${FILES}
+[coding-tutor] User just committed. Files: ${FILES}
 
 Read ${PROFILE}. If the user has added calibration rules (per-domain bars, frequency targets), apply them. If the profile only contains coding-tutor's onboarding answers, use general judgement:
 - Skip routine refactors, bugfixes, copy tweaks, tests-only commits, config-only commits.

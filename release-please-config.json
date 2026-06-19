@@ -42,8 +42,8 @@
         }
       ]
     },
-    "plugins/coding-tutor-coach": {
-      "component": "coding-tutor-coach",
+    "plugins/coding-tutor": {
+      "component": "coding-tutor",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
