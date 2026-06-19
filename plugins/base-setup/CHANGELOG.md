@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.51...base-setup-v0.2.0) (2026-06-19)
+
+
+### Features
+
+* add statusline setup to plugin-setup skill ([8dbd9bf](https://github.com/Nagell/claude-marketplace/commit/8dbd9bf10198aafabd8e07c3a3c2fea34ec82cf6))
+* add statusline setup to plugin-setup skill ([24d8377](https://github.com/Nagell/claude-marketplace/commit/24d83773da9ad886baec5ceab795c0287da8f7ec))
+
+
+### Bug Fixes
+
+* move plugin-setup statusline.sh into scripts/ ([4b1b81d](https://github.com/Nagell/claude-marketplace/commit/4b1b81d2cb21fbb20173530482fd41138bc9aa62))
+* move statusline.sh into scripts/ per skill-creator convention ([afa6f75](https://github.com/Nagell/claude-marketplace/commit/afa6f758a7e709dfedcc9e44d56a97f23fb370ed))
+
 ## [0.1.51](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.1.50...base-setup-v0.1.51) (2026-06-13)
 
 
