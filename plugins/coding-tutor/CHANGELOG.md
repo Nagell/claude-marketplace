@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.1](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.2.0...coding-tutor-v0.2.1) (2026-06-19)
+
+
+### Bug Fixes
+
+* **coding-tutor:** surface post-commit nudge via JSON additionalContext ([50a6799](https://github.com/Nagell/claude-marketplace/commit/50a6799dd6dc1f6f5e7f9ebc8f4226dd84d411f2))
+* **coding-tutor:** surface post-commit nudge via JSON additionalContext ([4d6fb3a](https://github.com/Nagell/claude-marketplace/commit/4d6fb3aa705c0deef1de2dc6857eacc9f2c10764))
+
 ## [0.2.0](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.1.0...coding-tutor-v0.2.0) (2026-06-19)
 
 
