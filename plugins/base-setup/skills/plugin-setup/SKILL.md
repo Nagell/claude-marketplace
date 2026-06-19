@@ -74,7 +74,6 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 
 ```bash
 /plugin marketplace add claude-plugins-official
-/plugin marketplace add DrCatHicks/learning-opportunities
 /plugin marketplace add onmax/nuxt-skills
 ```
 
@@ -95,36 +94,11 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 /plugin install ralph-loop@claude-plugins-official
 ```
 
-#### learning-opportunities
-
-```bash
-# Deliberate skill development during AI-assisted coding
-/plugin install learning-opportunities@learning-opportunities
-# Automated learning opportunity detection and suggestions after git commits.
-/plugin install learning-opportunities-auto@learning-opportunities
-```
-
 #### nuxt-skills
 
 ```bash
-# Vue 3 components, composables, and testing patterns
-/plugin install vue@nuxt-skills
-# Nuxt 4+ server routes, routing, middleware, and configuration
-/plugin install nuxt@nuxt-skills
-# Nuxt module creation with defineNuxtModule and Kit utilities
-/plugin install nuxt-modules@nuxt-skills
-# Nuxt Content v3 typed collections, queryCollection API, and MDC
-/plugin install nuxt-content@nuxt-skills
-# Headless Vue components with accessibility and styling patterns
-/plugin install reka-ui@nuxt-skills
-# TypeScript library authoring, exports, build tooling, and releases
-/plugin install ts-library@nuxt-skills
-# Reactive utilities for state, browser APIs, sensors, and animations
-/plugin install vueuse@nuxt-skills
-# Unit/integration testing with Vitest configuration and mocking
-/plugin install vitest@nuxt-skills
-# Vite build config, plugin API, SSR, and Rolldown migration
-/plugin install vite@nuxt-skills
-# pnpm workspace setup, catalogs, CLI commands, and CI config
-/plugin install pnpm@nuxt-skills
+# Vue, Nuxt, and NuxtHub skills (vue, vueuse, nuxt, nuxt-modules, nuxt-content,
+# nuxt-ui, nuxt-seo, nuxt-studio, nuxt-better-auth, nuxthub, reka-ui, vite,
+# vitest, pnpm, tsdown, ts-library, motion, tresjs, and more) as one plugin
+/plugin install nuxt-skills@nuxt-skills
 ```
