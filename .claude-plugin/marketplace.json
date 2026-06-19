@@ -30,7 +30,7 @@
       "name": "coding-tutor",
       "source": "./plugins/coding-tutor",
       "description": "Personalized coding tutorials that use your real codebase for examples, with spaced-repetition quizzes and a commit-triggered learning nudge.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "keywords": [
         "coding",
         "programming",
