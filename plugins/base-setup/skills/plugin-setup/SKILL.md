@@ -55,7 +55,7 @@ Install recommended Claude Code plugins and marketplaces with interactive select
      - "Yes, install (Recommended)" — proceed
      - "No, skip" — do nothing
    - If yes:
-     - Copy this skill's `statusline.sh` to `~/.claude/statusline.sh` and make it executable (`chmod +x ~/.claude/statusline.sh`). The script requires `jq`.
+     - Copy this skill's `scripts/statusline.sh` to `~/.claude/statusline.sh` and make it executable (`chmod +x ~/.claude/statusline.sh`). The script requires `jq`.
      - Read `~/.claude/settings.json` and add the `statusLine` setting (merge into the existing JSON, don't clobber other keys):
 
        ```json
