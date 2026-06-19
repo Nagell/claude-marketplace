@@ -50,6 +50,24 @@ Install recommended Claude Code plugins and marketplaces with interactive select
      - "Replace existing" — overwrite with the proposed content
      - "Skip" — do nothing
 
+6. **Step 4 — Statusline**: Offer to install the bundled statusline (lean single-line: model, folder, branch, context bar, cost).
+   - Use `AskUserQuestion` to ask:
+     - "Yes, install (Recommended)" — proceed
+     - "No, skip" — do nothing
+   - If yes:
+     - Copy this skill's `statusline.sh` to `~/.claude/statusline.sh` and make it executable (`chmod +x ~/.claude/statusline.sh`). The script requires `jq`.
+     - Read `~/.claude/settings.json` and add the `statusLine` setting (merge into the existing JSON, don't clobber other keys):
+
+       ```json
+       "statusLine": {
+         "type": "command",
+         "command": "~/.claude/statusline.sh"
+       }
+       ```
+
+     - If `statusLine` already exists, show the current value and ask before overwriting.
+     - Tell the user to restart Claude Code to see the statusline.
+
 ## Plugin List
 
 ### Marketplaces
