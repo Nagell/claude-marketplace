@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.2.1...coding-tutor-v0.3.0) (2026-06-30)
+
+
+### Features
+
+* **coding-tutor:** bias commit nudge toward offering tutorials ([9cff032](https://github.com/Nagell/claude-marketplace/commit/9cff0325d5aaec7b7eb06fa78fd8188a5a5f5d13))
+* **coding-tutor:** bias commit nudge toward offering tutorials ([c7000f7](https://github.com/Nagell/claude-marketplace/commit/c7000f7852c0fc1cfb36e5131a712e61a5edfa42))
+
 ## [0.2.1](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.2.0...coding-tutor-v0.2.1) (2026-06-19)
 
 
