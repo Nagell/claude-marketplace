@@ -24,7 +24,9 @@ The first `/teach-me` runs coding-tutor's onboarding: it asks 3 short questions 
 
 ## Commit-triggered coaching (the hook)
 
-A `PostToolUse` hook fires after every real `git commit` (it skips `--dry-run` and `--amend`, and returns in a few milliseconds on non-commits). It reads `~/coding-tutor-tutorials/learner_profile.md` and nudges Claude to **consider** offering `/teach-me` based on what changed. Claude decides whether to actually offer — nothing is forced, and it stays silent if it decides not to.
+A `PostToolUse` hook fires after every real `git commit` — it skips `--dry-run`/`--amend`, returns in a few milliseconds on non-commits, and only nudges when `HEAD` actually moved (so failed or no-op commits don't report a previous commit's files). It reads `~/coding-tutor-tutorials/learner_profile.md`, passes Claude the commit's diffstat and any newly added import lines, and nudges Claude to offer `/teach-me`.
+
+The default bias is **offer**, not skip: a tutorial is proposed for most real changes — including small fixes that touch a composable/hook, an unfamiliar API/library, async, reactivity, regex, or type-level code. It skips only the genuinely trivial (formatting/lint-only, lockfile/dependency bumps, generated files, pure renames, reverts). Claude offers up to a few per session (default 3, overridable via the profile), avoids repeating already-tutored topics, and ends with a one-line audit trailer: `↳ tutorial: <topic> — offered | skipped(<reason>)`.
 
 If the profile doesn't exist yet, the hook simply points you at `/teach-me` to create one.
 
