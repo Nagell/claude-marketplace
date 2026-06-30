@@ -1,6 +1,6 @@
 {
   "name": "coding-tutor",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Personalized coding tutorials that use your real codebase for examples, with spaced-repetition quizzes and a commit-triggered learning nudge.",
   "author": {
     "name": "Dawid Nitka",
