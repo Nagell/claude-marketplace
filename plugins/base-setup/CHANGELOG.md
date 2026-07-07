@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.2.1...base-setup-v0.3.0) (2026-07-07)
+
+
+### Features
+
+* **base-setup:** add prefix history search to setup-zsh ([151a518](https://github.com/Nagell/claude-marketplace/commit/151a518c4eb59362c5111b86e43a377a129ff8ce))
+* **base-setup:** add prefix history search to setup-zsh ([5888a68](https://github.com/Nagell/claude-marketplace/commit/5888a68b19efabe762f39fdd1cc6d5a632038079))
+
 ## [0.2.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.2.0...base-setup-v0.2.1) (2026-06-19)
 
 
