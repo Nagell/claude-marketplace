@@ -93,7 +93,7 @@ Explain that `chsh` changes the default shell and takes effect on next login/ter
 - `MesloLGS NF` (recommended — specially designed for Powerlevel10k)
 - `Fira Code Nerd Font` (popular programming font with ligatures)
 
-Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 10 to set the correct VS Code font family name.
+Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 11 to set the correct VS Code font family name.
 
 ---
 
@@ -644,7 +644,43 @@ zle -N _delete_or_delete_region
 bindkey '^[[3~' _delete_or_delete_region
 ```
 
-### 8. Configure WSL Audio (WSL only)
+### 8. Configure Prefix History Search
+
+Bind Up/Down arrows to prefix history search so they cycle through history entries beginning with whatever has already been typed — the same set `zsh-autosuggestions` draws its single grey suggestion from (autosuggestions has no cycling feature of its own).
+
+Read `~/.zshrc` using Read tool. If it already contains `# >>> setup-zsh prefix-history >>>`, the block is already configured — skip this step.
+
+Otherwise, use Edit tool to append the following block **after** the keybindings block from Step 7 — before the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. It must load after zinit and after any other arrow-key bindings so it wins:
+
+```zsh
+# >>> setup-zsh prefix-history >>>
+# Prefix history search: Up/Down cycle through history entries beginning with
+# the already-typed text (matching what zsh-autosuggestions shows in grey).
+autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
+zle -N up-line-or-beginning-search
+zle -N down-line-or-beginning-search
+bindkey '^[[A' up-line-or-beginning-search   # Up, normal cursor mode
+bindkey '^[[B' down-line-or-beginning-search # Down, normal cursor mode
+bindkey '^[OA' up-line-or-beginning-search   # Up, application cursor mode
+bindkey '^[OB' down-line-or-beginning-search # Down, application cursor mode
+# <<< setup-zsh prefix-history <<<
+```
+
+Use `up-line-or-beginning-search`, not `up-line-or-search` — the latter matches only the first word (`docker`) instead of the full typed prefix (`docker compose`), surfacing unrelated history entries.
+
+Bind both `^[[A/B` and `^[OA/OB` — terminals switch between normal and application cursor-key modes, and binding only one leaves arrows broken in the other mode.
+
+History dedup (`hist_ignore_all_dups`, `hist_find_no_dups`) is already set in Step 6's history block — no changes needed there.
+
+Verify:
+
+```bash
+zsh -c 'source ~/.zshrc 2>/dev/null; bindkey "^[[A"'
+```
+
+Should print `"^[[A" up-line-or-beginning-search`.
+
+### 9. Configure WSL Audio (WSL only)
 
 Skip this step entirely if the environment is not WSL.
 
@@ -696,7 +732,7 @@ If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after th
 
 Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
 
-### 9. Port Bash Environment to Zsh
+### 10. Port Bash Environment to Zsh
 
 Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
 
@@ -746,7 +782,7 @@ Report results to the user. If commands like `node` are missing, suggest they ch
 
 If no portable statements are found in bash configs, skip this step and inform the user that no environment setup needed porting.
 
-### 10. VS Code Terminal Font Configuration
+### 11. VS Code Terminal Font Configuration
 
 Use the `FONT_CHOICE` from Step 7 to determine the font family name:
 
@@ -777,7 +813,7 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 11. Fix Powerlevel10k Right Prompt Wrapping (optional)
+### 12. Fix Powerlevel10k Right Prompt Wrapping (optional)
 
 On narrow terminals, right prompt segments on line 1 cause powerline cap symbols to wrap and create graphical artifacts when resizing the terminal window. This fix removes all line 1 right segments and clears the cap symbols that render as invisible artifacts even when no segments are shown.
 
@@ -785,7 +821,7 @@ On narrow terminals, right prompt segments on line 1 cause powerline cap symbols
 
 Use AskUserQuestion to ask: "Do you want to fix p10k right prompt wrapping artifacts on narrow terminals? (Trade-off: all right-side prompt info — exit code, execution time, version managers, etc. — will no longer be visible)" with options "Yes, apply fix" and "No, skip".
 
-If the user skips, proceed to Step 12.
+If the user skips, proceed to Step 13.
 
 If the user accepts:
 
@@ -823,7 +859,7 @@ Run to apply immediately:
 source ~/.p10k.zsh
 ```
 
-### 12. Apply Configuration
+### 13. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
