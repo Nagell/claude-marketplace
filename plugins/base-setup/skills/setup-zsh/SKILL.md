@@ -813,7 +813,42 @@ For **each** `settings.json` found, read it using the Read tool, then:
 
 Report which files were updated and which already had the correct value.
 
-### 12. Fix Powerlevel10k Right Prompt Wrapping (optional)
+### 12. Configure Windows Terminal Shift+Enter (WSL only)
+
+Skip this step entirely if the environment is not WSL.
+
+Windows Terminal submits on plain Enter and does nothing on Shift+Enter by default, which makes multi-line input in CLIs like Claude Code awkward. Add a keybinding so Shift+Enter inserts a newline.
+
+Locate the Windows Terminal `settings.json` (checks stable, preview, and unpackaged locations):
+
+```bash
+WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
+for p in \
+  "/mnt/c/Users/${WINUSER}/AppData/Local/Packages/Microsoft.WindowsTerminal_8wekyb3d8bbwe/LocalState/settings.json" \
+  "/mnt/c/Users/${WINUSER}/AppData/Local/Packages/Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe/LocalState/settings.json" \
+  "/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows Terminal/settings.json"; do
+  [[ -f "$p" ]] && echo "FOUND: $p"
+done
+```
+
+If nothing is found, report that Windows Terminal settings were not located and skip this step.
+
+Read the found `settings.json` with the Read tool. Check whether a `shift+enter` binding already exists (search for `"shift+enter"`). If it does, report it as already configured and skip.
+
+If not, use the Edit tool to add an entry as the **first** element of the top-level `keybindings` array (right after the opening `[`):
+
+```json
+{
+    "command": { "action": "sendInput", "input": "\n" },
+    "keys": "shift+enter"
+},
+```
+
+Preserve the existing indentation and trailing commas. Windows Terminal auto-reloads settings on save — tell the user to open a new tab/window to pick up the change.
+
+If `\n` still submits instead of inserting a newline on the user's terminal build, `\r` is the fallback value.
+
+### 13. Fix Powerlevel10k Right Prompt Wrapping (optional)
 
 On narrow terminals, right prompt segments on line 1 cause powerline cap symbols to wrap and create graphical artifacts when resizing the terminal window. This fix removes all line 1 right segments and clears the cap symbols that render as invisible artifacts even when no segments are shown.
 
@@ -821,7 +856,7 @@ On narrow terminals, right prompt segments on line 1 cause powerline cap symbols
 
 Use AskUserQuestion to ask: "Do you want to fix p10k right prompt wrapping artifacts on narrow terminals? (Trade-off: all right-side prompt info — exit code, execution time, version managers, etc. — will no longer be visible)" with options "Yes, apply fix" and "No, skip".
 
-If the user skips, proceed to Step 13.
+If the user skips, proceed to Step 14.
 
 If the user accepts:
 
@@ -859,7 +894,7 @@ Run to apply immediately:
 source ~/.p10k.zsh
 ```
 
-### 13. Apply Configuration
+### 14. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
