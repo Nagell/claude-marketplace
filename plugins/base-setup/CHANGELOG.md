@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.3.0...base-setup-v0.4.0) (2026-07-17)
+
+
+### Features
+
+* add Windows Terminal Shift+Enter step to setup-zsh ([c1b69ad](https://github.com/Nagell/claude-marketplace/commit/c1b69ad9d15487b25d26722efd4483063a36a10b))
+* add Windows Terminal Shift+Enter step to setup-zsh ([e112045](https://github.com/Nagell/claude-marketplace/commit/e11204590a6e9fd016826790185f2d8e048bd474))
+
 ## [0.3.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.2.1...base-setup-v0.3.0) (2026-07-07)
 
 
