@@ -10,30 +10,15 @@ Returns tutorials ordered by quiz urgency (most urgent first).
 
 import argparse
 import re
-import subprocess
 from datetime import datetime
 from pathlib import Path
+
+from sr_common import calculate_priority, parse_date
 
 
 def get_tutorials_directory():
     """Get the tutorials directory (~/coding-tutor-tutorials/)."""
     return Path.home() / "coding-tutor-tutorials"
-
-# Ideal days between quizzes based on understanding score
-# Lower scores = more frequent review needed
-INTERVALS = {
-    0: 1,    # Never assessed - urgent
-    1: 2,
-    2: 3,
-    3: 5,
-    4: 8,
-    5: 13,
-    6: 21,
-    7: 34,
-    8: 55,
-    9: 89,
-    10: 144  # Fibonacci-ish progression
-}
 
 
 def parse_frontmatter(filepath):
@@ -78,44 +63,15 @@ def parse_frontmatter(filepath):
     return metadata
 
 
-def parse_date(date_value):
-    """Parse date from string DD-MM-YYYY format."""
-    if isinstance(date_value, str):
-        return datetime.strptime(date_value, '%d-%m-%Y').date()
-    return date_value
-
-
-def calculate_priority(tutorial, today):
-    """
-    Calculate quiz priority score. Higher = more urgent.
-
-    Priority logic:
-    1. No last_quizzed = never assessed, use created date + urgency bonus
-    2. Has last_quizzed = calculate days overdue based on score interval
-    3. Missing created date = assume max urgency (100)
-    """
-    score = tutorial.get('understanding_score') or 0  # Default to 0 if null
-    ideal_interval = INTERVALS.get(score, INTERVALS[5])
-
-    last_quizzed = tutorial.get('last_quizzed')
-
-    if not last_quizzed:
-        # Never quizzed - need baseline assessment
-        created = tutorial.get('created')
-        if created:
-            created = parse_date(created)
-            days_since_created = (today - created).days
-            # Bonus ensures never-quizzed items surface early
-            return days_since_created / ideal_interval + 10
-        # No date info at all - max urgency
-        return 100
-
-    # Normal case: has been quizzed before
-    last_quizzed = parse_date(last_quizzed)
-    days_since_quiz = (today - last_quizzed).days
-    days_overdue = days_since_quiz - ideal_interval
-
-    return days_overdue / ideal_interval
+def tutorial_priority(tutorial, today):
+    """Quiz priority for a tutorial. Maps its frontmatter onto the shared
+    spaced-repetition formula in sr_common."""
+    return calculate_priority(
+        tutorial.get('understanding_score'),
+        tutorial.get('last_quizzed'),
+        tutorial.get('created'),
+        today,
+    )
 
 
 def main():
@@ -143,11 +99,11 @@ def main():
         return
 
     for filepath in tutorials_path.glob("*.md"):
-        if filepath.name == "learner_profile.md":
+        if filepath.name in ("learner_profile.md", "training_log.md"):
             continue
         metadata = parse_frontmatter(filepath)
         if metadata:
-            metadata['priority'] = calculate_priority(metadata, today)
+            metadata['priority'] = tutorial_priority(metadata, today)
             tutorials.append(metadata)
 
     if not tutorials:

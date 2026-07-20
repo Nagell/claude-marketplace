@@ -26,7 +26,7 @@ If `~/coding-tutor-tutorials/` does not exist, this is a new learner. Before run
 
 > I'm your personal coding tutor. I create tutorials tailored to you - using real code from your projects, building on what you already know, and tracking your progress over time.
 >
-> All your tutorials live in one central library (`~/coding-tutor-tutorials/`) that works across all your projects. Use `/teach-me` to learn something new, `/quiz-me` to test your retention with spaced repetition.
+> All your tutorials live in one central library (`~/coding-tutor-tutorials/`) that works across all your projects. Use `/teach-me` to learn something new, `/quiz-me` to test your retention with spaced repetition, and `/train-me` to practise by writing code yourself.
 
 Then proceed with setup and onboarding.
 
@@ -225,3 +225,59 @@ Score updated: 5 → 7
 ```
 
 This history helps future quizzes avoid repetition and track progression over time.
+
+## Training Mode (Drill)
+
+Quizzes verify by *talking*. Training verifies by *doing* - the learner re-writes a slice of real code and you judge it against what shipped. Same central library, same spaced repetition, but a separate ledger (training data never goes into tutorial frontmatter).
+
+**Entry points:**
+
+- `/train-me` - an on-demand drill.
+- Choosing **Train** in the post-commit popup.
+- The closing step of a `/teach-me` tutorial (see "Teach ends in training" below).
+
+**Premise - drill code the learner did NOT hand-write.** Re-typing code you authored minutes ago tests short-term recall, not the ability to write code from scratch (the skill they want to rebuild). So target machine-written slices and downweight or skip hunks the learner clearly wrote themselves. If a change is entirely hand-written, prefer resurfacing an overdue past drill over a fresh one.
+
+**Mechanic (live drill in a throwaway copy):**
+
+1. **Pick the file + slice.** From the last commit: `git show HEAD --stat` for the changed set, `git show HEAD:<path>` for reference content. Multi-file commits: pick ONE target file (the most instructive) and drill a single file per session. Record the short commit SHA + file path for the ledger.
+2. **Copy it** to `<basename>.training.<ext>` in the same directory - a throwaway; it's git-ignored globally and you delete it at the end.
+3. **Blank one coherent slice** - a function body or block with real logic, ~5-20 lines. If the whole change is small, blank the whole changed hunk. Leave everything else intact so imports resolve and the linter/type-checker run live while they type. Mark the hole clearly, e.g. `// ▓▓▓ your turn ▓▓▓`.
+4. **Hand it over.** Tell the learner to fill the hole in their editor, then reply `done`. Wait for that reply before reading the file back - don't judge a half-written slice.
+5. **Compare against the committed reference:** judge whether the behaviour and approach match what shipped, not whether the text is identical. Give specific, encouraging feedback; name idiomatic or edge-case differences (a missing null guard, a cleaner approach) rather than "not identical".
+6. **Update the ledger** (see below): find the concept's row - reuse the closest existing concept label, read the ledger first, don't invent new phrasing for the same concept - and set `last_trained`, `training_score` (1-10, same scale as quiz), `commit`, `file`, and a one-line `notes`. Create the row if the concept is new.
+7. **Delete** `<basename>.training.<ext>` - always, including on abandon or error. The global git-ignore only stops accidental staging; deletion is the real cleanup.
+
+**Edge cases:**
+
+- **Popup dismissed / no answer** → treat as Skip: no drill, no re-prompt on that commit.
+- **Empty fill or "I give up"** → reveal the reference, record a low score with a "gave up" note (so the weakness still enters spaced repetition), and offer an immediate retry.
+- **No usable reference** (`git show` fails: deleted, binary, or rename-only file) → fall back to the next candidate file; if none, say there's nothing to drill and offer Skip - before they commit to Train, not after.
+
+**Slice-selection heuristic:** prefer the most instructive coherent unit in the commit - real logic, a composable/hook, an unfamiliar API, async, reactivity, regex, type-level code - favouring machine-written hunks (see Premise).
+
+**Resurfacing overdue drills.** Before offering a *fresh* drill you may run:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/coding-tutor/scripts/train_priority.py
+```
+
+It reads the ledger and orders concepts by drill urgency (never-trained first, then most overdue), using the same spaced-repetition schedule as quiz. If a past drill is overdue, offer to re-drill it instead ("You fumbled X 8 days ago - want to re-drill it?"). Rebuild the original slice from that row's `commit` + `file` (`git show <commit>:<file>`); if the ref is gone, fall back to a fresh drill on the same concept.
+
+**Teach ends in training.** At the end of any `/teach-me` tutorial, offer a closing drill on the concept just taught. A tutorial reached via `/teach-me` has no commit-backed file, so synthesize a small blanked snippet from the tutorial's own example code rather than from `git show HEAD`. Record the result in the ledger (leave `commit`/`file` blank), not in the tutorial frontmatter.
+
+### The Training Ledger
+
+Training records live in ONE file - `~/coding-tutor-tutorials/training_log.md` - a markdown table, one row per concept. This is the sole source of truth for training spaced repetition; tutorial frontmatter and quiz scores are never touched. Create it on first use if absent (a header plus the table header rows):
+
+```markdown
+# Training log
+
+Spaced-repetition record for `/train-me` drills. One row per concept.
+Only `train_priority.py` reads this file. Dates are DD-MM-YYYY.
+
+| concept | source_repo | created | last_trained | training_score | commit | file | tutorial | notes |
+| ------- | ----------- | ------- | ------------ | -------------- | ------ | ---- | -------- | ----- |
+```
+
+Columns: **concept** (slug, the dedupe key) · **source_repo** · **created** (first drilled) · **last_trained** (DD-MM-YYYY, blank until first drill) · **training_score** (blank until first drill, then 1-10) · **commit** + **file** (the drilled commit's short SHA and path - needed to rebuild a resurfaced drill) · **tutorial** (filename if one covers this concept, else `—`) · **notes** (one line on the latest drill). Keep `notes` to the latest note only, and avoid literal `|` characters in it - they break the table.

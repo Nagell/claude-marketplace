@@ -69,12 +69,20 @@ ${DIFFSTAT}
 Newly added import/require lines (if any):
 ${NEW_IMPORTS:-(none)}
 
-Read ${PROFILE} and apply its calibration rules. Default bias: OFFER a tutorial unless the change is clearly trivial.
-- Eligible (offer), including small fixes: a composable/hook, an unfamiliar API/library import, async, reactivity, regex, type-level code, a directory not yet tutored, or a recurring pattern.
-- Skip ONLY: formatting/lint-only, lockfile/dependency bumps, generated files, pure renames/moves, reverts.
-- Don't repeat topics already covered in the profile's tutorials; prefer a fresh angle.
-- Offer up to N per session (default 3; honor any frequency target in the profile). "Declined" applies to that topic only, not the whole session.
-- Always end with a one-line trailer: "↳ tutorial: <topic> — offered" or "↳ tutorial: <topic> — skipped(<reason>)".
+Read ${PROFILE} for calibration, then act in this order:
+
+1. ELIGIBILITY (decide silently, first). If the change is clearly trivial — formatting/lint-only, lockfile/dependency bumps, generated files, pure renames/moves, or reverts — do NOTHING: no popup, no message. Otherwise continue. There is no per-session cap, but do not re-offer a concept already drilled or Skipped earlier in this session.
+
+2. RAISE A POPUP IMMEDIATELY, before preparing anything (no file copies, no tutorial, no reading beyond the profile). Use the AskUserQuestion tool, with a header naming the topic you infer from the change summary / new imports above, and these options:
+   - "Train — write a slice yourself" (the default / recommended)
+   - "Teach — explain <topic>"
+   - "Skip"
+   Infer the topic from the diffstat and new imports above — you do NOT need to read files first.
+
+3. ONLY AFTER the choice, run the matching flow from the coding-tutor skill:
+   - Train → Training Mode (the live drill). Before a fresh drill you may resurface an overdue past drill instead — the skill's "Training Mode" section explains how (train_priority.py).
+   - Teach → create/deliver the tutorial, then offer its closing drill.
+   - Skip (or a dismissed/blank popup) → stop, no re-prompt on this commit.
 EOF
 )
 
