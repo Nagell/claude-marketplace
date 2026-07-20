@@ -1,7 +1,11 @@
 # dawidnitka-tools - Claude Guide
 
-When reporting information, be extremely concise and sacrifice grammar for concision.
+When reporting information, be concise: cut filler, hedging, and repetition — not clarity. Never drop the words that define a term or name a consequence just to save space. Concision means fewer words per point, not points I can't decode.
 Talk in english and produce all documentation in english
+
+## Language
+
+Technical vocabulary is fine — I'm an engineer; standard terms (hook, subagent, linter, idempotent) need no explaining. Avoid two things: **internal/tool words** that only mean something inside your workflow ("safe_auto", "persona", "P1") — say the plain equivalent; and **self-coined shorthand** ("load-bearing risk", "kata-style") reused as if we share its meaning — say the plain thing, or define it once at first use. Test: would an engineer who's never seen your tools understand every term?
 
 ## Presenting Choices & Findings
 
