@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.4.0...base-setup-v0.4.1) (2026-07-20)
+
+
+### Documentation
+
+* **base-setup:** soften concision rule and add language guidance ([4ec9423](https://github.com/Nagell/claude-marketplace/commit/4ec9423a23e7a52f7a3412a25e6064402fdd6924))
+* **base-setup:** soften concision rule and add language guidance ([0000273](https://github.com/Nagell/claude-marketplace/commit/0000273721c9956b7c25c571e30a40dcc8f163ae))
+
 ## [0.4.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.3.0...base-setup-v0.4.0) (2026-07-17)
 
 
