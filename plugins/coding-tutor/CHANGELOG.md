@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.0](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.3.0...coding-tutor-v0.4.0) (2026-07-20)
+
+
+### Features
+
+* **coding-tutor:** add hands-on training/drill mode ([7305aa3](https://github.com/Nagell/claude-marketplace/commit/7305aa3a42f7549a913fb15c1931dfc7a431c031))
+* **coding-tutor:** hands-on training/drill mode + hook-signal relay ([fd99b2d](https://github.com/Nagell/claude-marketplace/commit/fd99b2d9c227ccdac80331845af1b98f596011ae))
+
 ## [0.3.0](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.2.1...coding-tutor-v0.3.0) (2026-06-30)
 
 
