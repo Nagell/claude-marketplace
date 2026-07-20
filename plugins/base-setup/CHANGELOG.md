@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.4.1...base-setup-v0.5.0) (2026-07-20)
+
+
+### Features
+
+* **base-setup:** relay hook additionalContext to main loop ([f69548c](https://github.com/Nagell/claude-marketplace/commit/f69548c95acc7d52aa0dcae095e547dcb2b6a8f1))
+* **coding-tutor:** hands-on training/drill mode + hook-signal relay ([fd99b2d](https://github.com/Nagell/claude-marketplace/commit/fd99b2d9c227ccdac80331845af1b98f596011ae))
+
 ## [0.4.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.4.0...base-setup-v0.4.1) (2026-07-20)
 
 
