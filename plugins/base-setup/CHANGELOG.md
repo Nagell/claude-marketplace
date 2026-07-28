@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.5.0...base-setup-v0.6.0) (2026-07-28)
+
+
+### Features
+
+* **base-setup:** add pr-descriptions skill ([ec645a0](https://github.com/Nagell/claude-marketplace/commit/ec645a0aa2619c9433bbbb579e752df3b917dcf4))
+
 ## [0.5.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.4.1...base-setup-v0.5.0) (2026-07-20)
 
 
