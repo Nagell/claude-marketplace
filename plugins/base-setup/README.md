@@ -44,6 +44,8 @@ These set `disable-model-invocation: true`, so they run only when you call them,
 | `skill-creator`       | Guide for creating effective skills                      |
 | `writing-style-guide` | Dawid Nitka's personal writing style guide               |
 | `html-doc`            | Convert markdown into styled HTML reports or slide decks |
+| `pr-descriptions`     | Write PR/MR descriptions in a consistent house style     |
+| `humanizer`           | Strip AI-writing tells from prose (vendored upstream)    |
 
 ## Safety Features
 
