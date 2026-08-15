@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.6.0...base-setup-v0.7.0) (2026-08-15)
+
+
+### Features
+
+* **setup-zsh:** add optional glow install step ([d2d5663](https://github.com/Nagell/claude-marketplace/commit/d2d5663715a9d9359cde2daf85f2a547607cbfab))
+* **setup-zsh:** add optional glow install step ([05e42c1](https://github.com/Nagell/claude-marketplace/commit/05e42c1e9de458f35646eaca19dc63ba5bc079d8))
+
 ## [0.6.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.5.0...base-setup-v0.6.0) (2026-07-28)
 
 
