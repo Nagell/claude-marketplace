@@ -57,6 +57,10 @@ which glow 2>/dev/null && echo "INSTALLED" || echo "MISSING"
 ```
 
 ```bash
+which btop 2>/dev/null && echo "INSTALLED" || echo "MISSING"
+```
+
+```bash
 test -d "$HOME/.local/share/zinit/zinit.git" && echo "INSTALLED" || echo "MISSING"
 ```
 
@@ -788,7 +792,7 @@ If no portable statements are found in bash configs, skip this step and inform t
 
 ### 11. VS Code Terminal Font Configuration
 
-Use the `FONT_CHOICE` from Step 7 to determine the font family name:
+Use the `FONT_CHOICE` from Step 4 to determine the font family name:
 
 - `FONT_CHOICE = "meslo"` → font family: `"MesloLGS NF"`
 - `FONT_CHOICE = "fira"` → font family: `"FiraCode Nerd Font"`
@@ -1036,7 +1040,36 @@ zsh -i -c 'glow /tmp/glowtest.md' | sed 's/\x1b\[[0-9;]*m//g' \
 
 Compare that number against `tput cols`. They should match. If it prints 78 or 80, the function is not loaded or `command glow` is picking up a `width: 80` from `glow.yml`.
 
-### 15. Install herdr, herdr-spin, and agent notifications (optional)
+### 15. Install btop
+
+btop is a resource monitor (CPU, memory, disks, network, process list) with a much nicer terminal UI than `top`/`htop`. Standalone tool, no `.zshrc` wiring needed.
+
+Skip this step if `which btop` returned INSTALLED in Step 2.
+
+**If MACOS, or LINUX/WSL with linuxbrew available:**
+
+```bash
+brew install btop
+```
+
+**If LINUX or WSL without brew:**
+
+**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+
+```bash
+# Please run this command manually, then confirm when done:
+sudo apt install btop -y
+```
+
+Use AskUserQuestion to ask "Have you finished installing btop?" with options "Yes, done" and "Skip".
+
+Verify:
+
+```bash
+btop --version
+```
+
+### 16. Install herdr, herdr-spin, and agent notifications (optional)
 
 [herdr](https://herdr.dev) is a terminal workspace manager for running AI coding agents
 (Claude Code, Codex, etc.) in one window, with a sidebar that tracks each agent's status.
@@ -1055,7 +1088,7 @@ that tracks each agent's status. Install it now?" with options "Yes, install her
 "No, skip this step".
 
 - If the user says no, skip the rest of this step (including herdr-spin and
-  notifications below) and move on to Step 16.
+  notifications below) and move on to Step 17.
 - If yes, install it with herdr's official installer — this works the same on Linux,
   macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
   `~/.local/bin`):
@@ -1089,7 +1122,7 @@ they installed via Homebrew/mise/Nix), then don't offer herdr-spin below — not
 have no version requirement and can still be offered.
 
 Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
-check passed). If both are already configured, report that and skip to Step 16.
+check passed). If both are already configured, report that and skip to Step 17.
 
 Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
 installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
@@ -1098,7 +1131,7 @@ this plugin restores one glyph per agent state in the sidebar) and "Agent notifi
 (a toast when a background agent finishes or needs input, so you don't have to keep
 glancing at the sidebar).
 
-If the user picks neither, skip to Step 16.
+If the user picks neither, skip to Step 17.
 
 **4. If "Animated agent spinner (herdr-spin)" was picked:**
 
@@ -1198,7 +1231,7 @@ Apply:
 herdr server reload-config
 ```
 
-### 16. Apply Configuration
+### 17. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
