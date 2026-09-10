@@ -1,0 +1,9 @@
+id = "local.spin"
+name = "Agent spinner"
+version = "0.1.0"
+min_herdr_version = "0.8.2"
+description = "Animated braille spinner on working agents, drawn as the $spin sidebar token"
+platforms = ["linux", "macos"]
+
+[[startup]]
+command = ["/usr/bin/python3", "spin.py"]

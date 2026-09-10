@@ -1036,7 +1036,169 @@ zsh -i -c 'glow /tmp/glowtest.md' | sed 's/\x1b\[[0-9;]*m//g' \
 
 Compare that number against `tput cols`. They should match. If it prints 78 or 80, the function is not loaded or `command glow` is picking up a `width: 80` from `glow.yml`.
 
-### 15. Apply Configuration
+### 15. Install herdr, herdr-spin, and agent notifications (optional)
+
+[herdr](https://herdr.dev) is a terminal workspace manager for running AI coding agents
+(Claude Code, Codex, etc.) in one window, with a sidebar that tracks each agent's status.
+Nothing else in this skill depends on it — this step only sets it up (and two optional
+extras) for people who use or want to try it.
+
+**1. Check whether herdr is installed, using the official docs' own check.**
+
+```bash
+which herdr 2>/dev/null && herdr --version || echo "NOT INSTALLED"
+```
+
+**2. If `NOT INSTALLED`**, use AskUserQuestion: "herdr isn't installed — it's a terminal
+workspace manager for running AI coding agents (Claude Code, Codex, etc.) with a sidebar
+that tracks each agent's status. Install it now?" with options "Yes, install herdr" and
+"No, skip this step".
+
+- If the user says no, skip the rest of this step (including herdr-spin and
+  notifications below) and move on to Step 16.
+- If yes, install it with herdr's official installer — this works the same on Linux,
+  macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
+  `~/.local/bin`):
+
+  ```bash
+  curl -fsSL https://herdr.dev/install.sh | sh
+  ```
+
+  Verify:
+
+  ```bash
+  herdr --version
+  ```
+
+  If the install or verification fails, report the exact error to the user and skip
+  the rest of this step — do not retry automatically (see Error Handling below).
+
+**3. herdr is now installed** (either just now, or already). Check its version against
+herdr-spin's minimum (0.8.2), and check what's already configured:
+
+```bash
+herdr --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
+test -f "$HOME/.config/herdr-spin/spin.py" && echo "herdr-spin: INSTALLED" || echo "herdr-spin: MISSING"
+grep -q '\[ui\.toast\]' "$HOME/.config/herdr/config.toml" 2>/dev/null && echo "notifications: CONFIGURED" || echo "notifications: MISSING"
+```
+
+Compare the version against `0.8.2` (e.g. `printf '%s\n0.8.2\n' "$VERSION" | sort -V | head -1` —
+if that prints `0.8.2`, the installed version is new enough). If it's older, tell the
+user herdr-spin needs 0.8.2+ and suggest `herdr update` (or their package manager, if
+they installed via Homebrew/mise/Nix), then don't offer herdr-spin below — notifications
+have no version requirement and can still be offered.
+
+Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
+check passed). If both are already configured, report that and skip to Step 16.
+
+Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
+installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
+its built-in spinner in 0.8.0 for performance reasons, with no setting to bring it back —
+this plugin restores one glyph per agent state in the sidebar) and "Agent notifications"
+(a toast when a background agent finishes or needs input, so you don't have to keep
+glancing at the sidebar).
+
+If the user picks neither, skip to Step 16.
+
+**4. If "Animated agent spinner (herdr-spin)" was picked:**
+
+a. Copy this skill's `assets/herdr-spin/spin.py` and `assets/herdr-spin/herdr-plugin.toml`
+   (in the same skill directory as this file) into `~/.config/herdr-spin/`:
+
+   ```bash
+   mkdir -p ~/.config/herdr-spin
+   cp <this-skill-dir>/assets/herdr-spin/spin.py <this-skill-dir>/assets/herdr-spin/herdr-plugin.toml ~/.config/herdr-spin/
+   ```
+
+b. Register the plugin with herdr:
+
+   ```bash
+   herdr plugin link ~/.config/herdr-spin
+   herdr plugin list
+   ```
+
+   Confirm the output lists `local.spin ... enabled`. If it doesn't, report the output
+   to the user and stop this sub-step.
+
+c. Update herdr's sidebar config. Read `~/.config/herdr/config.toml` with the Read tool.
+   This edit is additive — never overwrite an existing config file with a fresh one:
+
+   - If the file has no `[ui.sidebar.agents]` table, use Edit to append one.
+   - If it already has one, merge `rows` into it instead of adding a second table.
+
+   Target shape:
+
+   ```toml
+   [ui.sidebar.agents]
+   rows = [
+     [
+       { token = "$w", fg = "#fabd2f", bold = true, dim = false },
+       { token = "$b", fg = "#fb4934", bold = true, dim = false },
+       { token = "$d", fg = "#b8bb26", dim = false },
+       { token = "$i", fg = "#b8bb26", dim = false },
+       "workspace",
+       "tab",
+     ],
+     ["agent"],
+   ]
+   ```
+
+   This drops `state_icon` (herdr's default first column) in favor of four metadata
+   tokens, one per agent state — a metadata token carries a single fixed colour, so the
+   plugin needs one per state rather than one shared column. The hex values are herdr's
+   gruvbox palette; on another theme, swap them for that theme's yellow/red/green.
+
+d. Apply the config and start the animator:
+
+   ```bash
+   herdr server reload-config
+   python3 ~/.config/herdr-spin/spin.py
+   ```
+
+   Herdr only fires the plugin's `[[startup]]` hook when its server starts, not when a
+   plugin is linked, so this first run has to be by hand.
+
+e. Verify:
+
+   ```bash
+   test -f "/tmp/herdr-spin-$UID/spin.lock" && echo "animator running" || echo "animator not running"
+   ```
+
+   If not running, check `/tmp/herdr-spin-$UID/spin.log` for errors.
+
+   Tell the user: restart after editing the script with
+   `python3 ~/.config/herdr-spin/spin.py --restart`, and see this skill's
+   `references/herdr-spin.md` for tuning the frame rate, troubleshooting a blank icon
+   column, and uninstalling.
+
+**5. If "Agent notifications" was picked:**
+
+Read `~/.config/herdr/config.toml` with the Read tool — same additive-merge caution as
+above. Use Edit to append (or Write to create the file if it doesn't exist):
+
+```toml
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "bottom-right"
+```
+
+`delivery = "herdr"` is an in-app toast. Mention the alternatives to the user: `"terminal"`
+also works over SSH (an outer-terminal notification instead of an in-app one), and
+`"system"` uses the OS notification service — on macOS this needs
+`brew install terminal-notifier` for full functionality (click-to-focus); without it,
+herdr falls back to `osascript`, which shows up as "Script Editor" in Notification Center
+and can't focus the terminal.
+
+Apply:
+
+```bash
+herdr server reload-config
+```
+
+### 16. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
