@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.8.0...base-setup-v0.9.0) (2026-09-10)
+
+
+### Features
+
+* **setup-zsh:** add optional btop install step ([d7a380f](https://github.com/Nagell/claude-marketplace/commit/d7a380f90a853a38d08094e637a54695aa659282))
+
+
+### Bug Fixes
+
+* **setup-zsh:** correct FONT_CHOICE step cross-reference ([4b2e8fc](https://github.com/Nagell/claude-marketplace/commit/4b2e8fc2b0d4fc20c438171dc29ec330d5fa10e4))
+
 ## [0.8.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.7.0...base-setup-v0.8.0) (2026-09-10)
 
 
