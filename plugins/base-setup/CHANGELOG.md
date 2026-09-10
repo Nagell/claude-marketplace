@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.7.0...base-setup-v0.8.0) (2026-09-10)
+
+
+### Features
+
+* **chrome-debug-skill:** Revamp launcher for remote debugging ([bfec6e4](https://github.com/Nagell/claude-marketplace/commit/bfec6e405fce4a33deea0b51e6b4418f0050f23a))
+* **chrome-debug-skill:** Revamp launcher for remote debugging ([997fa25](https://github.com/Nagell/claude-marketplace/commit/997fa252df7b9be3aad68a21143ada7104b22951))
+* **setup-zsh:** add optional herdr agent-status spinner install ([0db8030](https://github.com/Nagell/claude-marketplace/commit/0db803085e9220c6a9aeb126c97cf3f9be2d259c))
+
+
+### Bug Fixes
+
+* **hooks:** remove invalid $schema key from hooks.json ([2b6d9c7](https://github.com/Nagell/claude-marketplace/commit/2b6d9c73f3f470231c07ce88abbb4f5ea6cc55ef))
+
 ## [0.7.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.6.0...base-setup-v0.7.0) (2026-08-15)
 
 
