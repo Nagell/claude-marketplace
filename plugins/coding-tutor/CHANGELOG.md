@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.4.0...coding-tutor-v0.4.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* **hooks:** remove invalid $schema key from hooks.json ([2b6d9c7](https://github.com/Nagell/claude-marketplace/commit/2b6d9c73f3f470231c07ce88abbb4f5ea6cc55ef))
+
 ## [0.4.0](https://github.com/Nagell/claude-marketplace/compare/coding-tutor-v0.3.0...coding-tutor-v0.4.0) (2026-07-20)
 
 
