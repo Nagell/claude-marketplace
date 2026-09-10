@@ -788,7 +788,7 @@ If no portable statements are found in bash configs, skip this step and inform t
 
 ### 11. VS Code Terminal Font Configuration
 
-Use the `FONT_CHOICE` from Step 7 to determine the font family name:
+Use the `FONT_CHOICE` from Step 4 to determine the font family name:
 
 - `FONT_CHOICE = "meslo"` → font family: `"MesloLGS NF"`
 - `FONT_CHOICE = "fira"` → font family: `"FiraCode Nerd Font"`
