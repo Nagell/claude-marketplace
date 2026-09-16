@@ -1,6 +1,6 @@
 # herdr-spin reference
 
-Details for Step 15 (installing herdr-spin) that don't need to be in the main skill
+Details for Step 17 (installing herdr-spin) that don't need to be in the main skill
 flow: what the plugin actually does, how to troubleshoot it, and how to remove it.
 
 ## How it works
