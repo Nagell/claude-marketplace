@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.10.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.9.0...base-setup-v0.10.0) (2026-09-16)
+
+
+### Features
+
+* **setup-zsh:** add optional mdv markdown viewer step ([1caeff5](https://github.com/Nagell/claude-marketplace/commit/1caeff5e3f85df03ad6a9d8682d80ab6c7042992))
+* **setup-zsh:** add optional mdv markdown viewer step ([e38af48](https://github.com/Nagell/claude-marketplace/commit/e38af489e7a05590bc73e38b0e80ba079b71d0f2))
+
 ## [0.9.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.8.0...base-setup-v0.9.0) (2026-09-10)
 
 
