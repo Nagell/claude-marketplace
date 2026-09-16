@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# mdv - view Markdown in Neovim with live reload, search and mouse.
+# Config lives in ~/.config/mdv (NVIM_APPNAME=mdv), isolated from ~/.config/nvim.
+set -euo pipefail
+
+NVIM="${HOME}/.local/bin/nvim"
+
+if [[ ! -x "${NVIM}" ]]; then
+  echo "mdv: neovim not found at ${NVIM}" >&2
+  exit 1
+fi
+
+if [[ $# -eq 0 ]]; then
+  if [[ -t 0 ]]; then
+    echo "usage: mdv FILE.md   |   some-command | mdv" >&2
+    exit 1
+  fi
+  exec env NVIM_APPNAME=mdv "${NVIM}" -R -c 'setfiletype markdown' -
+fi
+
+exec env NVIM_APPNAME=mdv "${NVIM}" -R "$@"
