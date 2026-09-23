@@ -32,7 +32,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | --------------------------------- | ------------------------------------------------------------------------ |
 | `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
 | `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
-| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts |
+| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts; optional mdv and LazyVim editor |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
