@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.11.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.10.0...base-setup-v0.11.0) (2026-09-23)
+
+
+### Features
+
+* split skill-creator and chrome debugging into dev-extras ([416c75c](https://github.com/Nagell/claude-marketplace/commit/416c75c69ac544cb4f1b6cf94e784a59eaad3231))
+* split skill-creator and chrome debugging into dev-extras ([d2f71d9](https://github.com/Nagell/claude-marketplace/commit/d2f71d9234e55bfe9186e53603b091f6a26790ff))
+
 ## [0.10.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.9.0...base-setup-v0.10.0) (2026-09-16)
 
 
