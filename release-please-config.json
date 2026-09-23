@@ -52,6 +52,17 @@
           "jsonpath": "$.version"
         }
       ]
+    },
+    "plugins/dev-extras": {
+      "component": "dev-extras",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }

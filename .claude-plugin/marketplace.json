@@ -40,6 +40,20 @@
         "coaching",
         "hook"
       ]
+    },
+    {
+      "name": "dev-extras",
+      "source": "./plugins/dev-extras",
+      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, plus Chrome remote debugging wired to the chrome-devtools MCP server.",
+      "version": "0.1.0",
+      "keywords": [
+        "skills",
+        "skill-creator",
+        "chrome",
+        "devtools",
+        "mcp",
+        "debugging"
+      ]
     }
   ]
 }
