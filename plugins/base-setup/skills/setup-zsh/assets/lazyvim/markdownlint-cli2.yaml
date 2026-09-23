@@ -1,0 +1,5 @@
+# Global markdownlint rules, used by Neovim (nvim-lint + conform) via --config
+config:
+  MD013:
+    line_length: 120 # default 80
+  MD033: false # allow inline HTML (<details>, <br>, …)
