@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.11.0...base-setup-v0.12.0) (2026-09-23)
+
+
+### Features
+
+* **setup-zsh:** add optional LazyVim editor step ([10c2a51](https://github.com/Nagell/claude-marketplace/commit/10c2a51cd53d48d6cfa87064cda03964fa7c351b))
+* **setup-zsh:** add optional LazyVim editor step ([1386fac](https://github.com/Nagell/claude-marketplace/commit/1386fac086f3d7dc9b7da8a734487669c50ba792))
+
 ## [0.11.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.10.0...base-setup-v0.11.0) (2026-09-23)
 
 
