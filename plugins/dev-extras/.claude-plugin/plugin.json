@@ -1,0 +1,18 @@
+{
+    "name": "dev-extras",
+    "version": "0.1.0",
+    "description": "Optional developer tooling split out of base-setup: skill authoring with evals, plus Chrome remote debugging wired to the chrome-devtools MCP server.",
+    "author": {
+        "name": "Dawid Nitka",
+        "email": "contact@dawidnitka.com"
+    },
+    "keywords": [
+        "skills",
+        "skill-creator",
+        "chrome",
+        "devtools",
+        "mcp",
+        "debugging"
+    ],
+    "repository": "https://github.com/Nagell/claude-marketplace"
+}

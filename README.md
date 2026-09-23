@@ -111,6 +111,7 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
 | [coding-tutor](plugins/coding-tutor/)             | Codebase-driven tutorials, spaced-repetition quizzes, plus a commit-time nudge     |
+| [dev-extras](plugins/dev-extras/)                 | Optional extras: skill-creator, Chrome remote debugging + chrome-devtools MCP      |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -178,13 +179,19 @@ claude-marketplace/
 │   │   ├── .mcp.json
 │   │   ├── CLAUDE.md
 │   │   └── README.md
-│   └── coding-tutor/
+│   ├── coding-tutor/
+│   │   ├── .claude-plugin/
+│   │   │   └── plugin.json
+│   │   ├── commands/
+│   │   ├── skills/
+│   │   ├── hooks/
+│   │   ├── LICENSE
+│   │   └── README.md
+│   └── dev-extras/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
-│       ├── commands/
 │       ├── skills/
-│       ├── hooks/
-│       ├── LICENSE
+│       ├── .mcp.json
 │       └── README.md
 └── README.md
 ```

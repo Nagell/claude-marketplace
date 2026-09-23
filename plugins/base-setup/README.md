@@ -33,7 +33,6 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
 | `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
 | `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts |
-| `/base-setup:start-chrome-debug`  | Start Chrome with remote debugging (WSL/Linux/macOS/Windows)             |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
@@ -41,7 +40,6 @@ These set `disable-model-invocation: true`, so they run only when you call them,
 
 | Skill                 | Description                                              |
 | --------------------- | -------------------------------------------------------- |
-| `skill-creator`       | Guide for creating effective skills                      |
 | `writing-style-guide` | Dawid Nitka's personal writing style guide               |
 | `html-doc`            | Convert markdown into styled HTML reports or slide decks |
 | `pr-descriptions`     | Write PR/MR descriptions in a consistent house style     |
@@ -81,7 +79,6 @@ This plugin includes pre-configured MCP servers:
 | context7        | HTTP  | Up-to-date library documentation |
 | nuxt-remote     | HTTP  | Nuxt.js documentation            |
 | playwright      | stdio | Browser automation and testing   |
-| chrome-devtools | stdio | Chrome DevTools automation       |
 
 ## CLAUDE.md
 
