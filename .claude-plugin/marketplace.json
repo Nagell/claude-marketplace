@@ -44,7 +44,7 @@
     {
       "name": "dev-extras",
       "source": "./plugins/dev-extras",
-      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, plus Chrome remote debugging wired to the chrome-devtools MCP server.",
+      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, PR/MR descriptions kept current by a push hook (GitHub and GitLab), and Chrome remote debugging wired to the chrome-devtools MCP server.",
       "version": "0.2.0",
       "keywords": [
         "skills",
@@ -52,7 +52,9 @@
         "chrome",
         "devtools",
         "mcp",
-        "debugging"
+        "debugging",
+        "pull-request",
+        "merge-request"
       ]
     }
   ]
