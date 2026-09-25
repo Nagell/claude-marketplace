@@ -1,6 +1,6 @@
 ---
 name: writing-style-guide
-description: "Dawid Nitka's personal writing style guide. Use this skill whenever writing, drafting, editing, or reviewing any text that will be read by humans - including articles, blog posts, documentation, README files, PR descriptions, technical write-ups, Slack messages, emails, proposals, or any prose longer than a couple of sentences. Also trigger when the user asks to 'write like me', 'use my voice', 'check my style', 'edit for voice', or mentions their writing style. Even for commit messages or code comments that need personality, consult this skill. If in doubt whether a writing task needs the style guide - use it anyway."
+description: "Dawid Nitka's personal writing style guide. ALWAYS use this skill for any text that goes out in Dawid's name or voice, however short: Slack messages and replies, emails, Notion pages and notes, comments, chat messages, DMs, PR/MR descriptions, docs, READMEs, articles and posts. Trigger before sending, posting, drafting or saving such text through any tool or connector (Slack, Gmail, Notion, GitHub, GitLab and the like), and when Dawid pastes a draft to send, asks to reply to someone, or asks to write, rewrite, shorten or polish a message. Also trigger on 'write like me', 'use my voice', 'check my style' or 'edit for voice'. One-line messages count. If in doubt, use it."
 dependencies:
   - humanizer
 ---
