@@ -7,6 +7,10 @@ Talk in english and produce all documentation in english
 
 Technical vocabulary is fine — I'm an engineer; standard terms (hook, subagent, linter, idempotent) need no explaining. Avoid two things: **internal/tool words** that only mean something inside your workflow ("safe_auto", "persona", "P1") — say the plain equivalent; and **self-coined shorthand** ("load-bearing risk", "kata-style") reused as if we share its meaning — say the plain thing, or define it once at first use. Test: would an engineer who's never seen your tools understand every term?
 
+## Writing in My Voice
+
+Any text that goes out in my name - Slack messages, emails, Notion pages, comments, PR/MR descriptions, docs - goes through the `writing-style-guide` skill (which runs `humanizer` first) before you send, post or save it. This covers one-liners and text sent straight from chat through a connector. No exceptions for "just a quick message".
+
 ## Presenting Choices & Findings
 
 When work produces decisions for me to make (options, review findings to triage, tradeoffs):

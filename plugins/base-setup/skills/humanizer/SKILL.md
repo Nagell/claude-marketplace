@@ -7,7 +7,10 @@ description: |
   comprehensive "Signs of AI writing" guide. Detects and fixes patterns including:
   inflated symbolism, promotional language, superficial -ing analyses, vague
   attributions, em dash overuse, rule of three, AI vocabulary words, passive
-  voice, negative parallelisms, and filler phrases.
+  voice, negative parallelisms, and filler phrases. ALWAYS use it on text that
+  goes out in the user's name before it is sent, posted or saved: Slack
+  messages, emails, Notion notes, comments, PR descriptions and docs, however
+  short. The writing-style-guide skill runs it as its first pass.
 license: MIT
 upstream: https://github.com/blader/humanizer
 compatibility: claude-code opencode
@@ -25,9 +28,9 @@ allowed-tools:
 > whether a newer release exists at <https://github.com/blader/humanizer> and offer to refresh the
 > vendored copy.
 >
-> **Local override — re-apply after any upstream update:** this blockquote and the `upstream` field are
-> local additions not present upstream. When copying in a newer version, preserve them and bump `version`
-> to match.
+> **Local override — re-apply after any upstream update:** this blockquote, the `upstream` field and the
+> last sentences of `description` (from "ALWAYS use it on text that goes out...") are local additions not
+> present upstream. When copying in a newer version, preserve them and bump `version` to match.
 
 # Humanizer: Remove AI Writing Patterns
 
