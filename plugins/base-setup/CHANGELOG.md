@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.0.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.12.0...base-setup-v1.0.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* pr-descriptions is no longer shipped with base-setup; install dev-extras to keep it.
+
+### Features
+
+* **base-setup:** trigger writing-style-guide and humanizer on every outgoing message ([44c10ac](https://github.com/Nagell/claude-marketplace/commit/44c10ac9b8c50dac6846c97410f544aa6480bfd5))
+* **base-setup:** trigger writing-style-guide and humanizer on every outgoing message ([d7eb009](https://github.com/Nagell/claude-marketplace/commit/d7eb00907f9896e10090b8293d5f2f7dae794a80))
+* move pr-descriptions skill from base-setup to dev-extras ([9852558](https://github.com/Nagell/claude-marketplace/commit/9852558ba17438e53d01f0f0d77c6f54817a8ee1))
+
+
+### Bug Fixes
+
+* **base-setup:** drop the 'leaving the Projects directory' warning ([5ef9657](https://github.com/Nagell/claude-marketplace/commit/5ef965738e7379a7fd6d3e2952cf0d46bc805363))
+* **base-setup:** drop the "leaving the Projects directory" warning ([96d8222](https://github.com/Nagell/claude-marketplace/commit/96d8222da8cdae6bb0fe078fea8af38ff39bfe82))
+
 ## [0.12.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.11.0...base-setup-v0.12.0) (2026-09-23)
 
 
