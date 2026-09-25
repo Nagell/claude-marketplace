@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v0.2.0...dev-extras-v1.0.0) (2026-09-25)
+
+
+### ⚠ BREAKING CHANGES
+
+* pr-descriptions is no longer shipped with base-setup; install dev-extras to keep it.
+
+### Features
+
+* **dev-extras:** add open-pr skill and PR/MR description refresh hook ([d715a39](https://github.com/Nagell/claude-marketplace/commit/d715a39f27a0d24c892b2e539f49c142790dd629))
+* move pr-descriptions skill from base-setup to dev-extras ([9852558](https://github.com/Nagell/claude-marketplace/commit/9852558ba17438e53d01f0f0d77c6f54817a8ee1))
+
 ## [0.2.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v0.1.0...dev-extras-v0.2.0) (2026-09-23)
 
 
