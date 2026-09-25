@@ -14,8 +14,9 @@ Optional developer tooling split out of `base-setup`, so work setups that alread
 | --------------------------------- | ------------------------------------------------------------ |
 | `/dev-extras:start-chrome-debug`  | Start Chrome with remote debugging (WSL/Linux/macOS/Windows) |
 | `skill-creator`                   | Create, edit, eval, and benchmark skills                     |
+| `pr-descriptions`                 | Write PR/MR descriptions in a consistent house style         |
 
-Call either by name, or let Claude reach for them when the task fits.
+Call any of them by name, or let Claude reach for them when the task fits.
 
 ## MCP Servers
 
