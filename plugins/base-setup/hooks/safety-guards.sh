@@ -142,14 +142,6 @@ if echo "$COMMAND" | grep -qiE '(DROP\s+TABLE|DROP\s+DATABASE|TRUNCATE|DELETE\s+
 fi
 
 # ============================================
-# WARN: Leaving projects directory
-# ============================================
-
-if echo "$COMMAND" | grep -qE 'cd\s+(/|~|\.\.|C:\\Users)' && ! echo "$COMMAND" | grep -qiE 'Projects'; then
-  add_warning "You may be leaving the Projects directory context"
-fi
-
-# ============================================
 # Output warnings as JSON systemMessage
 # ============================================
 
