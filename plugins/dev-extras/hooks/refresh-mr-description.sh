@@ -21,7 +21,13 @@ set -euo pipefail
 readonly START_TAG='<!-- mr-desc:start'
 readonly END_TAG='<!-- mr-desc:end -->'
 readonly MODEL="${MR_DESC_MODEL:-haiku}"
-readonly MAX_DIFF_CHARS="${MR_DESC_MAX_DIFF_CHARS:-120000}"
+# A single call runs to completion before the budget is checked, so an input that costs more
+# than the budget is paid for and its answer thrown away. Haiku costs about $0.0007 per 1000
+# input characters uncached; with every section at its cap a run measured $0.19, under half
+# the budget.
+readonly MAX_DIFF_CHARS="${MR_DESC_MAX_DIFF_CHARS:-200000}"
+readonly MAX_BUDGET_USD=0.50
+readonly MAX_SECTION_CHARS=20000
 readonly MAX_BLOCK_CHARS=20000
 readonly REMOTE_POLL_TRIES=20
 readonly REMOTE_POLL_SECONDS=3
@@ -200,31 +206,101 @@ put_description() { # put_description <file>
   fi
 }
 
-build_input() { # build_input <current block> <remote> <target branch> <head> <out file>
-  local block="$1" remote="$2" target="$3" head="$4" out="$5" base diff truncated=no
+clip() { # clip <max chars> <text>: prints the text, cut to max chars with a note when cut
+  if ((${#2} > $1)); then
+    printf '%s\n[cut at %s characters]' "${2:0:$1}" "$1"
+  else
+    printf '%s' "$2"
+  fi
+}
+
+# Lockfiles, generated, vendored and binary files: their diff bodies say nothing a
+# description needs, so they are the first thing dropped from an oversized diff.
+bulk_paths() { # bulk_paths <base> <head>: prints one path per line
+  local added path attrs
+  while IFS=$'\t' read -r -d '' added _ path; do
+    case "$path" in
+    *.lock | *package-lock.json | *pnpm-lock.yaml | *.min.* | dist/* | */dist/* | vendor/* | \
+      */vendor/* | manifest.yaml | */manifest.yaml) ;;
+    *)
+      attrs=$(git check-attr linguist-generated gitlab-generated linguist-vendored -- "$path")
+      [[ "$added" == - || "$attrs" == *': true'* ]] || continue
+      ;;
+    esac
+    printf '%s\n' "$path"
+  done < <(git diff --numstat --no-renames -z "$1" "$2")
+}
+
+fitted_diff() { # fitted_diff <from> <to> <max chars>: prints the diff, cut to max chars
+  local from="$1" to="$2" max="$3" diff path excludes=()
+  diff=$(git diff "$from" "$to")
+  if ((${#diff} > max)); then
+    while IFS= read -r path; do
+      excludes+=(":(exclude,literal)$path")
+    done < <(bulk_paths "$from" "$to")
+    ((${#excludes[@]})) && diff=$(git diff "$from" "$to" -- :/ "${excludes[@]}")
+  fi
+  clip "$max" "$diff"
+  if ((${#excludes[@]})); then
+    printf '\n[%s lockfile, generated, vendored or binary files left out; they are in' \
+      "${#excludes[@]}"
+    printf ' <diff_stat>]'
+  fi
+}
+
+# Prints the model input. <since sha> is the commit the current block was written for; its
+# diff to HEAD is what triggered this refresh. Empty, or not an ancestor of HEAD after a
+# rebase, leaves that section out.
+build_input() { # build_input <current block> <remote> <target branch> <head> <since sha>
+  local block="$1" remote="$2" target="$3" head="$4" since="$5" base history
   git fetch --quiet "$remote" "$target"
   base=$(git merge-base FETCH_HEAD "$head")
-  diff=$(git diff "$base" "$head")
-  if ((${#diff} > MAX_DIFF_CHARS)); then
-    diff="${diff:0:MAX_DIFF_CHARS}"
-    truncated=yes
+  history=$(git log --reverse --format='- %s%n%w(0,2,2)%b' "$base..$head")
+  printf '<current_block>\n%s\n</current_block>\n\n' "${block:-(empty: write it from scratch)}"
+  printf '<commit_history use="why only, never what">\n%s\n</commit_history>\n\n' \
+    "$(clip "$MAX_SECTION_CHARS" "$history")"
+  if [[ -n "$since" && "$since" != "$head" ]] &&
+    git merge-base --is-ancestor "$since" "$head" 2>/dev/null; then
+    printf '<since_last_refresh>\n%s\n</since_last_refresh>\n\n' \
+      "$(fitted_diff "$since" "$head" "$MAX_SECTION_CHARS")"
   fi
-  {
-    printf '<current_block>\n%s\n</current_block>\n\n' "${block:-(empty: write it from scratch)}"
-    printf '<commits>\n%s\n</commits>\n\n' "$(git log --reverse --format='- %s' "$base..$head")"
-    printf '<diff_stat>\n%s\n</diff_stat>\n\n' "$(git diff --stat "$base" "$head")"
-    printf '<diff truncated="%s">\n%s\n</diff>\n' "$truncated" "$diff"
-  } >"$out"
+  printf '<diff_stat>\n%s\n</diff_stat>\n\n' \
+    "$(clip "$MAX_SECTION_CHARS" "$(git diff --stat "$base" "$head")")"
+  printf '<diff>\n%s\n</diff>\n\n' "$(fitted_diff "$base" "$head" "$MAX_DIFF_CHARS")"
+  # Repeated after the diff: with the rule in the system prompt alone, Haiku still wrote up
+  # fixes that commit bodies explained in about a third of test runs.
+  printf 'Describe the end state in <diff> only. Say nothing about a fix, typo or rework of'
+  printf ' code this branch adds, however the commit messages put it.\n'
 }
 
 write_system_prompt() { # write_system_prompt <out file>
   [[ -f "$STYLE_FILE" ]] || die "house style file missing: $STYLE_FILE"
   {
     cat <<'EOF'
-You maintain one block of a pull request / merge request description. You get the current block,
-the branch's commits, and its diff against the target branch. Return the block rewritten
-so it describes the diff as it is now.
+You maintain one block of a pull request / merge request description. The block tells a
+reviewer how the branch differs from the target branch: its end state, never how it got there.
 
+The input has these sections:
+- <current_block>: the block as it stands.
+- <commit_history>: the branch's commit messages, oldest first. A source of why a change
+  was made, never a list of changes to describe.
+- <since_last_refresh>: only on a refresh. The diff from the commit the current block was
+  written for to now: what triggered this refresh, not what the block is about.
+- <diff_stat>: every file the branch changes and how much.
+- <diff>: the branch's full diff against the target branch. This is what the block describes.
+
+- Describe the net diff. A commit that fixes, reworks or reverts something added earlier in
+  the same branch is not a change a reviewer sees: never mention it or give it a bullet.
+  Test every sentence: would a reviewer comparing the target branch with the end state see
+  this as a change? A bug or typo in code the target branch never had fails that test, so
+  write only the final behaviour, with no "fixed", "corrected" or "previously" about it.
+  Example: the branch adds an endpoint, then a later commit fixes a misspelt field name in
+  its response. Say nothing about the misspelling or its correction: the reviewer never saw
+  it, and the field is simply spelt right.
+- Give each change space in proportion to its share of the diff stat. A handful of changed
+  lines never gets more weight than the main change.
+- With <since_last_refresh>, return the current block word for word unless the full diff
+  now contradicts it or has grown beyond what it covers.
 - Keep wording that is still true. Change only what the diff contradicts or adds, and
   drop claims about changes that are no longer in the diff.
 - Never make the block longer than the diff needs. Add no callout, section or bullet the
@@ -233,7 +309,8 @@ so it describes the diff as it is now.
   process handling, state paths or implementation details, in bullets or the file map.
 - Keep links, ticket references and alerts from the current block that still apply.
   Never invent tickets, links, test results or numbers that are not in the input.
-- If the diff is marked truncated, describe only what you can see and do not guess.
+- A section ending in "[cut at N characters]" is incomplete: describe only what you can
+  see and do not guess.
 - Never add a `## ` title heading or an author's note quote: those sit above the block.
 - Output only the block's Markdown. No preamble, no code fence around it, and never the
   text "<!-- mr-desc:", not even quoted or in code; call them "the markers".
@@ -241,23 +318,30 @@ so it describes the diff as it is now.
 Follow this house style:
 
 EOF
-    # The skill's YAML frontmatter is for the skill loader, not the model.
-    awk 'NR == 1 && /^---$/ { fm = 1; next } fm && /^---$/ { fm = 0; next } !fm' "$STYLE_FILE"
+    awk 'NR == 1 && $0 == "---" { fm = 1; next } fm { if ($0 == "---") fm = 0; next } 1' \
+      "$STYLE_FILE"
   } >"$1"
 }
 
 # Prints the new block on stdout. Runs a tool-less, settings-less child session: it is a
 # pure text transform, and MR_DESC_REFRESH stops this plugin's hook from recursing.
 generate_block() { # generate_block <input file> <system prompt file> <work dir>
-  local input="$1" system="$2" work="$3" block
+  local input="$1" system="$2" work="$3" block rc=0 subtype
   # Thinking off: with it, Haiku took ~70 s instead of ~6 s on a 50k-char input.
   MR_DESC_REFRESH=1 MAX_THINKING_TOKENS=0 claude -p --model "$MODEL" --tools "" \
     --setting-sources "" --strict-mcp-config --disable-slash-commands \
-    --no-session-persistence --max-budget-usd 0.25 --output-format json \
+    --no-session-persistence --max-budget-usd "$MAX_BUDGET_USD" --output-format json \
     --system-prompt-file "$system" "Rewrite the MR description block from the input on stdin." \
-    <"$input" >"$work/claude.json" || die "claude -p failed: $(head -c 500 "$work/claude.json")"
-  block=$(jq -r 'if .is_error then error(.result) else .result end' "$work/claude.json") ||
-    die "claude returned an error (see $work/claude.json)"
+    <"$input" >"$work/claude.json" || rc=$?
+  # Over budget, claude exits 1 with is_error set and no result, the call already paid for.
+  subtype=$(jq -r '.subtype // empty' "$work/claude.json" 2>/dev/null || true)
+  if [[ "$subtype" == error_max_budget_usd ]]; then
+    die "claude -p cost \$$(jq -r '.total_cost_usd' "$work/claude.json"), over the" \
+      "\$$MAX_BUDGET_USD budget, and returned no text; lower MR_DESC_MAX_DIFF_CHARS"
+  fi
+  ((rc == 0)) || die "claude -p failed (exit $rc): $(head -c 500 "$work/claude.json")"
+  block=$(jq -r 'if .is_error then error(.result // .subtype) else .result end' \
+    "$work/claude.json") || die "claude returned an error (see $work/claude.json)"
   log "model=$MODEL cost_usd=$(jq -r '.total_cost_usd // "?"' "$work/claude.json")"
   # Guard against a fenced answer despite the instruction; the fence would render literally.
   block="$(normalize "$block")"
@@ -322,7 +406,7 @@ run_refresh() {
   set -E
   trap 'log "error: line $LINENO: $BASH_COMMAND"' ERR
   require_tools git jq claude
-  local branch head remote desc block
+  local branch head remote desc block since=""
   git rev-parse --git-dir >/dev/null || die "not a git repository: $PWD"
   branch=$(git symbolic-ref --quiet --short HEAD) || die "detached HEAD in $PWD"
   head=$(git rev-parse HEAD)
@@ -346,6 +430,7 @@ run_refresh() {
       return 0
     fi
     block="$DESC_BLOCK"
+    since="$MARK_SHA"
   elif ((adopt)); then
     split_head "$desc"
     block="$(normalize "$DESC_REST")"
@@ -357,7 +442,7 @@ run_refresh() {
   work=$(mktemp -d)
   # shellcheck disable=SC2064 # expand now: $work is local and gone by the time EXIT fires
   trap "rm -rf '$work'" EXIT
-  build_input "$block" "$remote" "$PR_TARGET" "$head" "$work/input.md"
+  build_input "$block" "$remote" "$PR_TARGET" "$head" "$since" >"$work/input.md"
   write_system_prompt "$work/system.md"
   block=$(generate_block "$work/input.md" "$work/system.md" "$work")
   if ((dry_run)); then

@@ -29,7 +29,7 @@ After each push Claude makes, the hook refreshes the open GitHub PR (via `gh`) o
 
 - Only the text between `<!-- mr-desc:start … -->` and `<!-- mr-desc:end -->` is rewritten. Descriptions without the markers are left alone.
 - A block edited by hand is skipped until you run the script with `run --force`.
-- Each run calls `claude -p` on Haiku, capped at $0.25, and saves the previous description to `~/.local/state/mr-desc-refresh/backups/`.
+- Each run calls `claude -p` on Haiku, capped at $0.50, and saves the previous description to `~/.local/state/mr-desc-refresh/backups/`.
 - Log: `~/.local/state/mr-desc-refresh/refresh.log`.
 
 ## MCP Servers
