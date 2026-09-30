@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v1.0.0...dev-extras-v1.1.0) (2026-09-30)
+
+
+### Features
+
+* **dev-extras:** describe the branch end state in PR/MR refreshes ([082e325](https://github.com/Nagell/claude-marketplace/commit/082e325569ef412f47db69947044582743171761))
+* **dev-extras:** describe the branch end state in PR/MR refreshes ([75dcb5e](https://github.com/Nagell/claude-marketplace/commit/75dcb5ef2dfea3572e73af3ebdf95fb5ca116da8))
+
 ## [1.0.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v0.2.0...dev-extras-v1.0.0) (2026-09-25)
 
 
