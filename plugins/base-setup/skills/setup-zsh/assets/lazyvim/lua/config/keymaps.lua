@@ -16,14 +16,25 @@ end
 -- Windows-style editing; selecting with Shift+arrows comes from keymodel/selectmode in options.lua.
 -- These replace Vim's Ctrl+V block selection (use Ctrl+Q), Ctrl+A/X number increment/decrement,
 -- Ctrl+Y scroll and Ctrl+Z suspend.
-map("v", "<C-c>", '"+y', { desc = "Copy (Windows)" })
+-- Copy without leaving the selection or its mode, like VS Code: a selection made from Insert
+-- mode stays "(insert) SELECT", so the next arrow or keystroke continues in Insert mode.
+-- ("+y would end the selection and, after Ctrl+A, drop into Normal mode.)
+local regtype = { v = "c", V = "l", ["\22"] = "b" }
+map("v", "<C-c>", function()
+  local mode = ({ s = "v", S = "V", ["\19"] = "\22" })[vim.fn.mode()] or vim.fn.mode()
+  local lines = vim.fn.getregion(vim.fn.getpos("v"), vim.fn.getpos("."), { type = mode })
+  vim.fn.setreg("+", lines, regtype[mode])
+end, { desc = "Copy (Windows)" })
 map("v", "<C-x>", '"+d', { desc = "Cut (Windows)" })
 map("v", "<C-v>", '"+P', { desc = "Paste over selection (Windows)" })
 map("v", "<BS>", '"_d', { desc = "Delete selection (Windows)" })
 map("i", "<C-v>", "<C-r><C-o>+", { desc = "Paste (Windows)" })
 map("n", "<C-v>", '"+P', { desc = "Paste (Windows)" })
-map({ "n", "v" }, "<C-a>", "<Esc>ggVG", { desc = "Select All (Windows)" })
-map("i", "<C-a>", "<Esc>ggVG", { desc = "Select All (Windows)" })
+-- Select all in Select mode (typing replaces it). From Insert mode, <C-o> keeps the
+-- "(insert)" flag, so ending the selection returns to Insert mode instead of Normal.
+map("n", "<C-a>", "ggVG<C-g>", { desc = "Select All (Windows)" })
+map("v", "<C-a>", "<C-\\><C-n>ggVG<C-g>", { desc = "Select All (Windows)" })
+map("i", "<C-a>", "<C-o>gg<C-o>VG<C-g>", { desc = "Select All (Windows)" })
 map("n", "<C-z>", "u", { desc = "Undo (Windows)" })
 map("i", "<C-z>", "<C-o>u", { desc = "Undo (Windows)" })
 map("n", "<C-y>", "<C-r>", { desc = "Redo (Windows)" })
