@@ -12,3 +12,19 @@ for _, key in ipairs({ "<C-/>", "<C-_>" }) do
   map("n", key, "gcc", { remap = true, desc = "Toggle Comment (VS Code)" })
   map("x", key, "gc", { remap = true, desc = "Toggle Comment (VS Code)" })
 end
+
+-- Windows-style editing; selecting with Shift+arrows comes from keymodel/selectmode in options.lua.
+-- These replace Vim's Ctrl+V block selection (use Ctrl+Q), Ctrl+A/X number increment/decrement,
+-- Ctrl+Y scroll and Ctrl+Z suspend.
+map("v", "<C-c>", '"+y', { desc = "Copy (Windows)" })
+map("v", "<C-x>", '"+d', { desc = "Cut (Windows)" })
+map("v", "<C-v>", '"+P', { desc = "Paste over selection (Windows)" })
+map("v", "<BS>", '"_d', { desc = "Delete selection (Windows)" })
+map("i", "<C-v>", "<C-r><C-o>+", { desc = "Paste (Windows)" })
+map("n", "<C-v>", '"+P', { desc = "Paste (Windows)" })
+map({ "n", "v" }, "<C-a>", "<Esc>ggVG", { desc = "Select All (Windows)" })
+map("i", "<C-a>", "<Esc>ggVG", { desc = "Select All (Windows)" })
+map("n", "<C-z>", "u", { desc = "Undo (Windows)" })
+map("i", "<C-z>", "<C-o>u", { desc = "Undo (Windows)" })
+map("n", "<C-y>", "<C-r>", { desc = "Redo (Windows)" })
+map("i", "<C-y>", "<C-o><C-r>", { desc = "Redo (Windows)" })

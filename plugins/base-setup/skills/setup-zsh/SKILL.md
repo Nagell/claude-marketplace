@@ -26,7 +26,7 @@ Possible results:
 
 - **WSL** - Windows Subsystem for Linux. Zsh via apt, fonts to Windows host.
 - **LINUX** - Native Linux. Zsh via apt, fonts to `~/.local/share/fonts`.
-- **MACOS** - macOS. Zsh is pre-installed (default shell since Catalina). Fonts to `~/Library/Fonts`.
+- **MACOS** - macOS. Zsh is pre-installed (default shell since Catalina). Fonts to `~/Library/Fonts`. Best run after `/base-setup:setup-macos` (Finder, Spaces hotkeys, Karabiner).
 
 ### 2. Check Prerequisites
 
@@ -458,7 +458,7 @@ which fzf && fzf --version
 
 ### 6. Configure ~/.zshrc
 
-Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured — skip to Step 6.
+Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured: only make sure `bindkey -e` (with its comment, as in the block below) sits right after the `source "${ZINIT_HOME}/zinit.zsh"` line, adding it with the Edit tool if missing, then skip to Step 7.
 
 Otherwise, read the existing `~/.zshrc` with the Read tool to identify any PATH exports, NVM setup, custom functions, or keybindings to preserve. Then use the Write tool to create `~/.zshrc` with the following structure, incorporating any preserved content after the aliases block.
 
@@ -472,6 +472,9 @@ if [ ! -d "$ZINIT_HOME" ]; then
   git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
 fi
 source "${ZINIT_HOME}/zinit.zsh"
+
+# Emacs keymap explicitly: zsh picks vi mode when $EDITOR/$VISUAL contain "vi" (nvim).
+bindkey -e
 
 # Powerlevel10k
 zinit ice depth=1; zinit light romkatv/powerlevel10k
@@ -529,26 +532,82 @@ eval "$(fzf --zsh)"
 
 Do NOT include `export ZSH`, `ZSH_THEME`, `plugins=(...)`, or `source $ZSH/oh-my-zsh.sh` — there is no Oh My Zsh. Zinit handles everything.
 
+`bindkey -e` is required on every platform: when `$EDITOR` or `$VISUAL` contains "vi" (e.g. `nvim`), zsh starts in vi mode, and every Esc-prefixed key sequence breaks — Ctrl+Shift+→ ends in `C`, which vi mode reads as "change to end of line" and deletes text.
+
 ### 7. Configure Keybindings
 
-Read `~/.zshrc` using Read tool. Check if a keybindings block already exists by searching for `_select_all`. If found, skip this step.
+**If MACOS** — first check that macOS itself leaves Ctrl+arrows alone. By default "Move left/right a space" sits on Ctrl+←/→ (plus hidden Ctrl+Shift+←/→ variants), so those keys never reach the terminal:
 
-If not found, use Edit tool to append the following block **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise.
+```bash
+defaults export com.apple.symbolichotkeys - | python3 -c '
+import plistlib, sys
+hk = plistlib.loads(sys.stdin.buffer.read()).get("AppleSymbolicHotKeys", {})
+FN, CTRL = 0x800000, 0x40000
+problems = []
+for i in ("79", "81"):  # Move left/right a space: must not sit on plain Ctrl+arrow
+    e = hk.get(i)
+    if e is None or (e.get("enabled") and e["value"]["parameters"][2] & ~FN == CTRL):
+        problems.append(i)
+for i in ("80", "82"):  # hidden Ctrl+Shift+arrow variants: must be disabled
+    if hk.get(i, {}).get("enabled", True):
+        problems.append(i)
+print("hotkeys: OK" if not problems else "hotkeys: NOT SET (" + ", ".join(problems) + ")")
+'
+```
+
+If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ will switch Spaces instead of moving or selecting by word in the terminal until they run `/base-setup:setup-macos` (its Spaces hotkeys step moves them to Ctrl+Option+←/→). Continue with the rest of this step either way.
+
+Then read `~/.zshrc` using Read tool and check two things:
+
+- **`_select_all` with `zle -K shift-select`** — the current select-all. If `_select_all` exists but uses `set-mark-command` instead, it is the earlier version that leaves arrows unable to deselect: replace just that function with the one below and keep the rest of the block.
+- **`# >>> setup-zsh keys >>>`** — the navigation keys block. If present, leave it.
+
+If both are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Both blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates.
 
 **All environments** — append this base block:
 
 ```zsh
 # Windows-like keybindings
 _select_all() {
-  zle beginning-of-line
-  zle set-mark-command
-  zle end-of-line
+  MARK=0
+  CURSOR=${#BUFFER}
+  REGION_ACTIVE=1
+  # zsh-shift-select's keymap: arrows deselect, Backspace/Delete remove the selection.
+  zle -K shift-select
 }
 zle -N _select_all
 bindkey '^A' _select_all
 bindkey '^Z' undo
 bindkey '^Y' redo
 ```
+
+Ctrl+A selects the whole buffer and switches to zsh-shift-select's keymap, so the selection behaves like one made with Shift+arrows: a plain arrow deselects, Backspace/Delete remove it.
+
+Then the navigation keys block, also for all environments:
+
+```zsh
+# >>> setup-zsh keys >>>
+# zsh-shift-select binds Option+Shift on macOS and Ctrl+Shift elsewhere; bind Ctrl+Shift
+# explicitly so it selects by word / to the buffer ends on every platform.
+for _seq _widget in '^[[1;6D' backward-word '^[[1;6C' forward-word \
+                    '^[[1;6H' beginning-of-buffer '^[[1;6F' end-of-buffer; do
+  bindkey -M emacs "$_seq" shift-select::$_widget
+  bindkey -M shift-select "$_seq" shift-select::$_widget
+done
+unset _seq _widget
+
+# Keys zsh's emacs keymap leaves unbound; each has several sequences depending on the terminal.
+for _seq in '^[[H' '^[[1~' '^[OH'; do bindkey -M emacs "$_seq" beginning-of-line; done
+for _seq in '^[[F' '^[[4~' '^[OF'; do bindkey -M emacs "$_seq" end-of-line; done
+bindkey -M emacs '^[[1;5D' backward-word     # Ctrl+Left (on macOS only if Spaces doesn't take it)
+bindkey -M emacs '^[[1;5C' forward-word      # Ctrl+Right
+bindkey -M emacs '^[[3;5~' kill-word         # Ctrl+Delete
+bindkey -M emacs '^[[3;3~' kill-word         # Alt/Option+Delete
+unset _seq
+# <<< setup-zsh keys <<<
+```
+
+Where zsh-shift-select already binds Ctrl+Shift (Linux, WSL), the first loop rebinds the same widgets and changes nothing.
 
 Then append clipboard bindings depending on the environment detected in Step 1:
 
@@ -797,6 +856,17 @@ zsh -c 'source ~/.zshrc 2>/dev/null; for cmd in node npm pnpm git; do which $cmd
 Report results to the user. If commands like `node` are missing, suggest they check NVM was ported correctly or run `nvm install --lts` in a new zsh session.
 
 If no portable statements are found in bash configs, skip this step and inform the user that no environment setup needed porting.
+
+#### Default editor (optional)
+
+If `EDITOR` and `VISUAL` are not already exported (in `~/.zshenv`, `~/.zshrc` or the ported block above), use AskUserQuestion: "Set a default editor for git, crontab and other tools that open one?" with options "nvim", "vim", "nano" and "Skip". If one is picked, append to `~/.zshenv` (create it if missing; `~/.zshenv` is read by every zsh, including non-interactive ones that tools spawn):
+
+```zsh
+export EDITOR=nvim
+export VISUAL=nvim
+```
+
+With `nvim` or `vim` this relies on the `bindkey -e` line from Step 6 — without it zsh switches the prompt to vi mode.
 
 ### 11. VS Code Terminal Font Configuration
 
@@ -1150,7 +1220,7 @@ Copies travel as OSC 52 through the terminal, so they reach the Windows clipboar
 
 ### 16. Set up Neovim as an editor with LazyVim (optional)
 
-Turns `nvim` into a VS Code-like editor: [LazyVim](https://www.lazyvim.org) with a file tree, fuzzy file search, TypeScript (vtsls), ESLint, Prettier, JSON/YAML/Markdown support, lazygit, Catppuccin Mocha with a transparent background (the same theme mdv uses), and a few VS Code shortcuts. It lives in `~/.config/nvim`; mdv keeps its own `~/.config/mdv` (`NVIM_APPNAME=mdv`), so neither affects the other.
+Turns `nvim` into a VS Code-like editor: [LazyVim](https://www.lazyvim.org) with a file tree, fuzzy file search, TypeScript (vtsls), ESLint, Prettier, JSON/YAML/Markdown support, lazygit, Catppuccin Mocha with a transparent background (the same theme mdv uses), a few VS Code shortcuts, and Windows-style selection, copy/paste and undo/redo. It lives in `~/.config/nvim`; mdv keeps its own `~/.config/mdv` (`NVIM_APPNAME=mdv`), so neither affects the other.
 
 Use AskUserQuestion to ask "Set up Neovim as a code editor (LazyVim with file tree, TypeScript, ESLint/Prettier, VS Code-style shortcuts)?" with options "Yes" and "Skip". If skipped, continue with Step 17.
 
@@ -1206,7 +1276,7 @@ cp -r "$TMP/starter/init.lua" "$TMP/starter/lua" "$TMP/starter/stylua.toml" "$TM
 
 A=<this-skill-dir>/assets/lazyvim
 cp "$A/lazyvim.json" "$A/lazy-lock.json" ~/.config/nvim/
-cp "$A/lua/config/keymaps.lua" ~/.config/nvim/lua/config/
+cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" ~/.config/nvim/lua/config/
 cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" ~/.config/nvim/lua/plugins/
 ```
 
@@ -1219,7 +1289,8 @@ What each asset does:
 | `lazyvim.json` | Turns on the extras: `lang.typescript`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml`, `lang.markdown` |
 | `lazy-lock.json` | Plugin commits known to work together |
 | `lua/plugins/colorscheme.lua` | Catppuccin Mocha with `transparent_background`, plus One Dark / One Dark Pro kept lazy for previewing |
-| `lua/config/keymaps.lua` | `Ctrl+P` find file, `Ctrl+B` file tree, `Ctrl+/` comment (LazyVim already has `Ctrl+S`) |
+| `lua/config/keymaps.lua` | `Ctrl+P` find file, `Ctrl+B` file tree, `Ctrl+/` comment (LazyVim already has `Ctrl+S`); Windows-style `Ctrl+C`/`X`/`V` copy, cut, paste, `Ctrl+Z`/`Y` undo, redo, `Ctrl+A` select all |
+| `lua/config/options.lua` | Windows-style selection: Shift (+Ctrl) + arrows/Home/End select, a plain arrow ends the selection, typing replaces it (`keymodel=startsel,stopsel`, `selectmode=key`) |
 | `lua/plugins/explorer.lua` | File tree (neo-tree) shows everything except `.git`, including dotfiles and git-ignored files like `.claude/`; file finder (fzf-lua) includes dotfiles but skips git-ignored files |
 | `lua/plugins/markdownlint.lua` | Points the Markdown linter and formatter at `~/.markdownlint-cli2.yaml` |
 
@@ -1274,6 +1345,9 @@ Neovim is set up (LazyVim). Run nvim in a project folder.
   Space /                search in files  gd / K             definition / type info
   Space ca               code actions     Space gg           lazygit
   Space ft               terminal         Space uC           preview colour schemes
+  Shift+arrows           select           Ctrl+C / X / V     copy / cut / paste
+  Ctrl+Z / Ctrl+Y        undo / redo      Ctrl+A             select all
+  Ctrl+Q                 block selection (Ctrl+V pastes)
   Space (and wait)       menu of every key
 After editing ~/.config/nvim, run :restart — lazy.nvim reloads plugin specs on change but not the colour scheme.
 ```
@@ -1309,7 +1383,85 @@ Verify:
 btop --version
 ```
 
-### 18. Install herdr, herdr-spin, and agent notifications (optional)
+### 18. Set up the terminal (macOS: Ghostty, WSL: Windows Terminal profile)
+
+Skip this step on native Linux.
+
+#### Work directory
+
+Several settings below open a projects folder. Look for an existing one first:
+
+```bash
+for d in ~/Development ~/Projects ~/projects ~/Code ~/code ~/dev ~/src ~/repos ~/workspace; do [[ -d $d ]] && echo "$d"; done
+```
+
+**If MACOS**, `defaults read com.apple.finder NewWindowTargetPath 2>/dev/null` may already name one (Finder's new-window folder); offer it first.
+
+Use AskUserQuestion: "Which folder holds your projects?" with the folders found as options (first one marked "(Recommended)"). If none were found, offer `~/Development` (Recommended) and let the user type another. Store it as `WORK_DIR` (a path relative to `$HOME`, e.g. `Development`); create it with `mkdir -p` if it does not exist yet.
+
+#### If MACOS: Ghostty
+
+Ghostty is the recommended terminal on macOS: it restores tabs, splits and their folders after Cmd+Q, and its keybinds can hand Shift/Ctrl+arrows to zsh. Check and install:
+
+```bash
+test -d /Applications/Ghostty.app && echo "Ghostty: INSTALLED" || echo "Ghostty: MISSING"
+```
+
+If MISSING, use AskUserQuestion: "Install Ghostty as your terminal?" with options "Yes, install Ghostty (Recommended)" and "No, keep my terminal". If yes:
+
+```bash
+brew install --cask ghostty
+```
+
+The config lives at `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`. Read it with the Read tool if it exists and back it up first (`cp "$F" "$F.bak-$(date +%Y%m%d-%H%M%S)"`); add only the lines whose key/keybind is not already set, and never overwrite the file with a fresh one. Create the directory and file if missing.
+
+```ghostty
+window-save-state = always
+
+# Leave Shift+arrows to zsh (zsh-shift-select) instead of adjusting the terminal selection.
+keybind = shift+arrow_left=unbind
+keybind = shift+arrow_right=unbind
+
+# Ctrl+Left/Right jump by word in zsh and in Claude's prompt (both read Esc b / Esc f as word moves).
+keybind = ctrl+arrow_left=esc:b
+keybind = ctrl+arrow_right=esc:f
+```
+
+`window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 19 covers herdr).
+
+Optional, ask before adding (AskUserQuestion, multiSelect) — these are taste, not needed for anything else:
+
+```ghostty
+# New windows start in the work directory instead of the home folder.
+working-directory = ~/<WORK_DIR>
+tab-inherit-working-directory = false
+
+# Translucent, blurred background (the LazyVim theme from Step 16 shows it through).
+background-opacity = 0.8
+background-blur = true
+```
+
+Ghostty picks up config changes after Cmd+Shift+, (reload config) or a restart.
+
+#### If WSL: Windows Terminal profile for herdr
+
+There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts herdr (installed in Step 19) instead. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into herdr?" — "Yes (Recommended)" / "No, I won't use herdr". If no, skip the rest of this step.
+
+Locate `settings.json` with the same loop as Step 12, read it with the Read tool, back it up (`cp`, `.bak-<timestamp>` suffix), and if no profile named `herdr` exists, add one to `profiles.list` with the Edit tool. Generate the GUID with `cat /proc/sys/kernel/random/uuid`.
+
+```json
+{
+    "guid": "{<new GUID>}",
+    "name": "herdr",
+    "commandline": "wsl.exe -d <distro> --cd <linux home>/<WORK_DIR> -- zsh -lic herdr"
+},
+```
+
+`<distro>` is `$WSL_DISTRO_NAME` (e.g. `Ubuntu`) and `<linux home>` the absolute `$HOME` inside WSL (e.g. `/home/alice`). `zsh -lic` runs a login, interactive shell so herdr sees the same `PATH` as a normal tab. Copy `font`/`colorScheme` from the distro's existing profile if it sets them, so the herdr tab looks the same.
+
+Then ask (AskUserQuestion): "Make herdr the default Windows Terminal profile?" — "Yes" / "No". If yes, set the top-level `"defaultProfile"` to the new GUID. Windows Terminal reloads `settings.json` on save.
+
+### 19. Install herdr, herdr-spin, and agent notifications (optional)
 
 [herdr](https://herdr.dev) is a terminal workspace manager for running AI coding agents
 (Claude Code, Codex, etc.) in one window, with a sidebar that tracks each agent's status.
@@ -1328,7 +1480,7 @@ that tracks each agent's status. Install it now?" with options "Yes, install her
 "No, skip this step".
 
 - If the user says no, skip the rest of this step (including herdr-spin and
-  notifications below) and move on to Step 19.
+  notifications below) and move on to Step 20.
 - If yes, install it with herdr's official installer — this works the same on Linux,
   macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
   `~/.local/bin`):
@@ -1346,7 +1498,42 @@ that tracks each agent's status. Install it now?" with options "Yes, install her
   If the install or verification fails, report the exact error to the user and skip
   the rest of this step — do not retry automatically (see Error Handling below).
 
-**3. herdr is now installed** (either just now, or already). Check its version against
+**3. If MACOS and Ghostty is the terminal: start herdr with Ghostty.** Ghostty restores
+tabs after Cmd+Q but not the programs in them; this block reopens herdr in the first
+Ghostty tab or window only — never in a second tab, never inside herdr itself. Skip if
+`~/.zshrc` already contains `_herdr_client_running`. Otherwise use AskUserQuestion: "Start
+herdr automatically when Ghostty opens?" — "Yes (Recommended)" / "No".
+
+If yes, back up `~/.zshrc` and use the Edit tool to put this block at the **very top of
+`~/.zshrc`, above the p10k instant-prompt block** (`# Enable Powerlevel10k instant prompt`).
+p10k's instant prompt takes over the terminal during startup, and a TUI started after it
+freezes the tab. If `command -v herdr` is not `~/.local/bin/herdr`, use that path instead.
+
+```zsh
+# Ghostty doesn't restore running programs: reopen herdr in one tab only, across all windows.
+# Above p10k's instant prompt, which takes over the terminal and freezes a TUI started later.
+_herdr_client_running() {
+  ps -axo tty=,command= | awk '$1 != "??" && $2 ~ /(^|\/)herdr$/ {found=1} END {exit !found}'
+}
+_herdr_unlock() { rm -f "$1/pid"; rmdir "$1" 2>/dev/null; }
+if [[ -o interactive && "$TERM_PROGRAM" == ghostty && -z "$HERDR_ENV" ]] && ! _herdr_client_running; then
+  _herdr_lock="${TMPDIR:-/tmp}/herdr-autostart.lock"
+  # A lock left by a shell that died (crash, closed tab) is stale; clear it.
+  [[ -d $_herdr_lock ]] && ! kill -0 "$(<$_herdr_lock/pid)" 2>/dev/null && _herdr_unlock "$_herdr_lock"
+  # mkdir is atomic, so only one of several tabs restoring at once gets the lock.
+  if mkdir "$_herdr_lock" 2>/dev/null; then
+    print $$ > "$_herdr_lock/pid"
+    "$HOME/.local/bin/herdr"
+    _herdr_unlock "$_herdr_lock"
+  fi
+  unset _herdr_lock
+fi
+```
+
+Quitting herdr drops back to the normal zsh prompt in that tab. On WSL, the Windows
+Terminal profile from Step 18 does this job instead; nothing goes into `~/.zshrc`.
+
+**4. herdr is now installed** (either just now, or already). Check its version against
 herdr-spin's minimum (0.8.2), and check what's already configured:
 
 ```bash
@@ -1362,7 +1549,7 @@ they installed via Homebrew/mise/Nix), then don't offer herdr-spin below — not
 have no version requirement and can still be offered.
 
 Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
-check passed). If both are already configured, report that and skip to Step 19.
+check passed). If both are already configured, report that and skip to Step 20.
 
 Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
 installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
@@ -1371,9 +1558,9 @@ this plugin restores one glyph per agent state in the sidebar) and "Agent notifi
 (a toast when a background agent finishes or needs input, so you don't have to keep
 glancing at the sidebar).
 
-If the user picks neither, skip to Step 19.
+If the user picks neither, skip to Step 20.
 
-**4. If "Animated agent spinner (herdr-spin)" was picked:**
+**5. If "Animated agent spinner (herdr-spin)" was picked:**
 
 a. Copy this skill's `assets/herdr-spin/spin.py` and `assets/herdr-spin/herdr-plugin.toml`
    (in the same skill directory as this file) into `~/.config/herdr-spin/`:
@@ -1444,7 +1631,7 @@ e. Verify:
    `references/herdr-spin.md` for tuning the frame rate, troubleshooting a blank icon
    column, and uninstalling.
 
-**5. If "Agent notifications" was picked:**
+**6. If "Agent notifications" was picked:**
 
 Read `~/.config/herdr/config.toml` with the Read tool — same additive-merge caution as
 above. Use Edit to append (or Write to create the file if it doesn't exist):
@@ -1471,7 +1658,7 @@ Apply:
 herdr server reload-config
 ```
 
-### 19. Apply Configuration
+### 20. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
