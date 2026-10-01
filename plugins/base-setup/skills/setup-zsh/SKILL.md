@@ -557,12 +557,13 @@ print("hotkeys: OK" if not problems else "hotkeys: NOT SET (" + ", ".join(proble
 
 If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ will switch Spaces instead of moving or selecting by word in the terminal until they run `/base-setup:setup-macos` (its Spaces hotkeys step moves them to Ctrl+Option+←/→). Continue with the rest of this step either way.
 
-Then read `~/.zshrc` using Read tool and check two things:
+Then read `~/.zshrc` using Read tool and check these:
 
 - **`_select_all` with `zle -K shift-select`** — the current select-all. If `_select_all` exists but uses `set-mark-command` instead, it is the earlier version that leaves arrows unable to deselect: replace just that function with the one below and keep the rest of the block.
 - **`# >>> setup-zsh keys >>>`** — the navigation keys block. If present, leave it.
+- **WSL only: `_to_win_clipboard`** — the UTF-8-safe clipboard helper. If the clipboard functions exist but pipe straight into `clip.exe` or run a bare `powershell.exe Get-Clipboard`, they are the earlier version that mangles non-ASCII text: replace `_cut_to_clipboard` and `_paste_from_clipboard` with the WSL versions below, add `_to_win_clipboard`, and switch the `clip.exe` calls in `_backspace_or_delete_region` / `_delete_or_delete_region` to `| _to_win_clipboard`.
 
-If both are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Both blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates.
+If all are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Both blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates.
 
 **All environments** — append this base block:
 
@@ -614,15 +615,19 @@ Then append clipboard bindings depending on the environment detected in Step 1:
 **If WSL** — append:
 
 ```zsh
+# clip.exe reads UTF-16LE and PowerShell writes the console code page by default;
+# convert both ways or non-ASCII text (ä, ż, —) gets mangled.
+_to_win_clipboard() { iconv -f UTF-8 -t UTF-16LE | clip.exe 2>/dev/null }
+
 _cut_to_clipboard() {
   zle kill-region
-  echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+  echo -n "$CUTBUFFER" | _to_win_clipboard
 }
 zle -N _cut_to_clipboard
 
 _paste_from_clipboard() {
   local paste
-  paste=$(powershell.exe Get-Clipboard 2>/dev/null | tr -d '\r')
+  paste=$(powershell.exe -NoLogo -NoProfile -Command '[Console]::OutputEncoding = [Text.Encoding]::UTF8; [Console]::Out.Write(([string](Get-Clipboard -Raw)) -replace "`r", "")' 2>/dev/null)
   LBUFFER+=$paste
 }
 zle -N _paste_from_clipboard
@@ -633,7 +638,7 @@ bindkey '^V' _paste_from_clipboard
 _backspace_or_delete_region() {
   if (( REGION_ACTIVE )); then
     zle kill-region
-    echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+    echo -n "$CUTBUFFER" | _to_win_clipboard
   else
     zle backward-delete-char
   fi
@@ -644,7 +649,7 @@ bindkey '^?' _backspace_or_delete_region
 _delete_or_delete_region() {
   if (( REGION_ACTIVE )); then
     zle kill-region
-    echo -n "$CUTBUFFER" | clip.exe 2>/dev/null
+    echo -n "$CUTBUFFER" | _to_win_clipboard
   else
     zle delete-char
   fi
@@ -1290,7 +1295,7 @@ What each asset does:
 | `lazy-lock.json` | Plugin commits known to work together |
 | `lua/plugins/colorscheme.lua` | Catppuccin Mocha with `transparent_background`, plus One Dark / One Dark Pro kept lazy for previewing |
 | `lua/config/keymaps.lua` | `Ctrl+P` find file, `Ctrl+B` file tree, `Ctrl+/` comment (LazyVim already has `Ctrl+S`); Windows-style `Ctrl+C`/`X`/`V` copy, cut, paste, `Ctrl+Z`/`Y` undo, redo, `Ctrl+A` select all |
-| `lua/config/options.lua` | Windows-style selection: Shift (+Ctrl) + arrows/Home/End select, a plain arrow ends the selection, typing replaces it (`keymodel=startsel,stopsel`, `selectmode=key`) |
+| `lua/config/options.lua` | Windows-style selection: Shift (+Ctrl) + arrows/Home/End select, a plain arrow ends the selection, typing replaces it (`keymodel=startsel,stopsel`, `selectmode=key`); on WSL, `Ctrl+V` reads the Windows clipboard through PowerShell, since Windows Terminal ignores OSC 52 reads |
 | `lua/plugins/explorer.lua` | File tree (neo-tree) shows everything except `.git`, including dotfiles and git-ignored files like `.claude/`; file finder (fzf-lua) includes dotfiles but skips git-ignored files |
 | `lua/plugins/markdownlint.lua` | Points the Markdown linter and formatter at `~/.markdownlint-cli2.yaml` |
 

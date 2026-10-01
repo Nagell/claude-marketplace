@@ -49,6 +49,18 @@ replaces the selected text. `keymaps.lua` adds the clipboard and undo keys on to
 | `Ctrl+Z` | Undo (Normal, Insert) | `Ctrl+Z` suspend |
 | `Ctrl+Y` | Redo (Normal, Insert) | `Ctrl+Y` scroll one line |
 
+### Clipboard on WSL
+
+WSL usually has no clipboard tool Neovim detects (win32yank, xclip, wl-paste), so Neovim
+falls back to OSC 52. Windows Terminal honours OSC 52 writes but ignores reads, so `Ctrl+V`
+would paste Neovim's own last yank instead of the Windows clipboard. `options.lua`
+therefore sets `vim.g.clipboard` on WSL: copy stays on OSC 52 (Unicode-safe), paste runs
+`powershell.exe Get-Clipboard` with UTF-8 output. Each paste costs about 0.35 s for
+PowerShell to start. `Ctrl+Shift+V` (Windows Terminal's own paste) bypasses all of this.
+
+Check it: `:lua print(vim.fn["provider#clipboard#Executable"]())` should print
+`wsl-osc52-powershell`.
+
 ## Hidden files
 
 Current LazyVim uses **neo-tree** for the file tree (`<Space>e`, `Ctrl+B`) and **fzf-lua**
