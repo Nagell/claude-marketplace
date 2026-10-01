@@ -1,14 +1,14 @@
 ---
 name: setup-macos
-description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), Spaces hotkeys moved off Ctrl+arrows, and Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals
+description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, and Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals
 disable-model-invocation: true
 ---
 
 # Setup macOS
 
-Operating-system settings for a Mac: Finder, the Spaces hotkeys, and Karabiner-Elements. Run
+Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, and Karabiner-Elements. Run
 this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
-keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 4 to be done.
+keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 5 to be done.
 
 Every step is idempotent and can be re-run. Each one backs up the preferences or file it changes
 to `~/.local/share/setup-macos/backup-<timestamp>/` first; restore a domain with
@@ -116,14 +116,37 @@ Finder is set up.
   Cmd+Shift+.    toggle hidden files
 ```
 
-### 4. Spaces hotkeys
+### 4. Screenshots to the clipboard
+
+macOS saves screenshots (Cmd+Shift+3/4/5) as files on the Desktop, so they never reach the
+clipboard; pasting one into a chat or into Claude Code means opening the file and copying it first.
+Use AskUserQuestion: "Copy screenshots straight to the clipboard, like Windows' Win+Shift+S?" —
+"Yes (Recommended)" / "No, keep saving files". If no, skip this step.
+
+```bash
+BK=<backup folder>
+defaults export com.apple.screencapture - > "$BK/com.apple.screencapture.plist" 2>/dev/null || true
+defaults write com.apple.screencapture target clipboard
+killall SystemUIServer
+defaults read com.apple.screencapture target
+```
+
+Then tell the user:
+
+```
+Screenshots now go to the clipboard instead of the Desktop.
+  Keep one as a file: in Preview, Cmd+N (new from clipboard), then save.
+  Switch back: Cmd+Shift+5 -> Options -> Save to: Desktop.
+```
+
+### 5. Spaces hotkeys
 
 macOS puts "Move left/right a space" on Ctrl+←/→, plus hidden Ctrl+Shift+←/→ variants, so those
 keys never reach apps or the terminal — word jumps and word selection don't work. This step moves
 the Space switch to Ctrl+Option+←/→ and disables the Ctrl+Shift variants.
 
 Use AskUserQuestion: "Move 'switch Space' from Ctrl+←/→ to Ctrl+Option+←/→, so Ctrl+arrows jump by
-word like on Windows?" — "Yes (Recommended)" / "No". If no, skip to Step 5.
+word like on Windows?" — "Yes (Recommended)" / "No". If no, skip to Step 6.
 
 The hotkeys live in `com.apple.symbolichotkeys`, keyed by number: 79/81 move left/right a space,
 80/82 are the Ctrl+Shift variants. `parameters` is `[65535, key code, modifier flags]` with arrow
@@ -176,14 +199,14 @@ Expect `79 True [65535, 123, 9175040]`, `80 False [65535, 123, 8781824]`,
 `81 True [65535, 124, 9175040]`, `82 False [65535, 124, 8781824]`. System Settings → Keyboard →
 Keyboard Shortcuts → Mission Control shows the new keys.
 
-### 5. Karabiner-Elements: Windows-style shortcuts
+### 6. Karabiner-Elements: Windows-style shortcuts
 
 [Karabiner-Elements](https://karabiner-elements.pqrs.org) remaps keys system-wide. The rules from
 this skill make Windows habits work in every app except terminals and VS Code, which keep Ctrl
 for themselves (Ctrl+C interrupts a program; VS Code has its own Ctrl keymap).
 
 Use AskUserQuestion: "Set up Karabiner-Elements for Windows-style shortcuts (Ctrl+C/V/X/Z/Y/A,
-Ctrl+arrows, Option+F4, Option+E)?" — "Yes (Recommended)" / "No". If no, skip to Step 6.
+Ctrl+arrows, Option+F4, Option+E)?" — "Yes (Recommended)" / "No". If no, skip to Step 7.
 
 #### Install
 
@@ -281,7 +304,7 @@ keyboard added with `--device`, expect `<name> (device_id:…) hid device events
 Then ask the user to try Ctrl+C / Ctrl+V in a text field (Notes, Safari) and Ctrl+C in Ghostty or
 Terminal, where it must still interrupt a running command.
 
-### 6. Done
+### 7. Done
 
 Report what was applied and where the backups are (`$BK`, plus `karabiner.json.bak-*`). Then tell
 the user:
