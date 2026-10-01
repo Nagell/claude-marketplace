@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.1.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.0.0...base-setup-v1.1.0) (2026-10-01)
+
+
+### Features
+
+* **base-setup:** add screenshots-to-clipboard step to setup-macos ([1d36b4c](https://github.com/Nagell/claude-marketplace/commit/1d36b4c7447e99647dcdb5c6c8acd21ac1dd017d))
+* **base-setup:** add setup-macos skill ([ab8f3ce](https://github.com/Nagell/claude-marketplace/commit/ab8f3ce6c01637d7c7c827fb5c7eaec3b0eb339a))
+* **base-setup:** Ctrl+V and Option+V paste in Claude Code via Ghostty ([85d05cc](https://github.com/Nagell/claude-marketplace/commit/85d05cc98df584b9d9447bd46caa3e96dc82a750))
+* **base-setup:** improve setup-zsh keybindings, herdr and LazyVim ([b25a18b](https://github.com/Nagell/claude-marketplace/commit/b25a18bec0998fda9092b89a58e2188e38bfb247))
+* **base-setup:** macOS setup skill and setup-zsh fixes ([39d776f](https://github.com/Nagell/claude-marketplace/commit/39d776fdc3b27b17edadb8590e9698411b54bcaf))
+* **base-setup:** map Ctrl(+Shift)+R to reload in Karabiner rules ([8ea7e96](https://github.com/Nagell/claude-marketplace/commit/8ea7e96055efb13534e1b8acc8b52f1638c8e280))
+
+
+### Bug Fixes
+
+* **base-setup:** add Ctrl+Left/Right word jumps to LazyVim keymaps ([90d8c5f](https://github.com/Nagell/claude-marketplace/commit/90d8c5fa7e7b62c2b2995e997574033eab8d517a))
+* **base-setup:** require push confirmation for rtk proxy git push ([527d171](https://github.com/Nagell/claude-marketplace/commit/527d17117139779df2130c453b5401bf74c0fca6))
+* **base-setup:** require push confirmation for rtk proxy git push ([05c96f2](https://github.com/Nagell/claude-marketplace/commit/05c96f21492bd297b21bcca5162e755c8ceb3f87))
+
 ## [1.0.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v0.12.0...base-setup-v1.0.0) (2026-09-25)
 
 
