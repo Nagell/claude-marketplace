@@ -32,9 +32,12 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | --------------------------------- | ------------------------------------------------------------------------ |
 | `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
 | `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
-| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts; optional mdv and LazyVim editor |
+| `/base-setup:setup-macos`         | macOS only: Finder defaults, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts |
+| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
+
+On a Mac, run `/base-setup:setup-macos` first, then `/base-setup:setup-zsh`: the zsh keybindings need the Spaces hotkeys moved off Ctrl+arrows. On Linux and WSL, `setup-zsh` is all you need.
 
 ### Claude uses these automatically
 
