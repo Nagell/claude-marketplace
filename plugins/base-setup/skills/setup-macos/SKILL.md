@@ -250,6 +250,7 @@ The rules:
 | Ctrl+A | Cmd+A | not in terminals, VS Code |
 | Ctrl+X / C / V | Cmd+X / C / V | not in terminals, VS Code |
 | Ctrl+Z / Ctrl+Y | Cmd+Z undo / Cmd+Shift+Z redo | not in terminals, VS Code |
+| Ctrl(+Shift)+R | Cmd(+Shift)+R (reload / hard reload) | not in terminals, VS Code |
 
 The excluded apps are the `EXCLUDED_APPS` bundle IDs at the top of the script: Ghostty
 (`com.mitchellh.ghostty`), Terminal (`com.apple.Terminal`) and VS Code (`com.microsoft.VSCode`).

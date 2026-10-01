@@ -105,6 +105,11 @@ def build_rules(work_dir):
              remap("c", ctrl, "c", ["command"]),
              remap("v", ctrl, "v", ["command"]),
          ]},
+        {"description": f"Windows: Ctrl(+Shift)+R reload / hard reload {EXCEPT}",
+         "manipulators": [
+             remap("r", ctrl, "r", ["command"]),
+             remap("r", ctrl_shift, "r", ["command", "shift"]),
+         ]},
     ]
 
 
