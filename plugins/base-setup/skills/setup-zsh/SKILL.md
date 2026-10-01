@@ -1425,9 +1425,34 @@ keybind = shift+arrow_right=unbind
 # Ctrl+Left/Right jump by word in zsh and in Claude's prompt (both read Esc b / Esc f as word moves).
 keybind = ctrl+arrow_left=esc:b
 keybind = ctrl+arrow_right=esc:f
+
+# Option+V reaches Claude as Alt+V (its image/text paste) instead of typing a character.
+keybind = alt+v=esc:v
 ```
 
 `window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 19 covers herdr).
+
+Don't bind `ctrl+v` in Ghostty: zsh (`_paste_from_clipboard`, Step 7) and nvim (the LazyVim keymaps) handle Ctrl+V themselves, and Claude Code needs to receive it (below). Only `alt+v` is remapped; changing `macos-option-as-alt` instead would break the Option characters of non-US layouts.
+
+**If Claude Code is installed** (`command -v claude`): make Ctrl+V and Option+V paste in its prompt. Both keys run Claude's image paste, which attaches an image from the clipboard and falls back to pasting text when there is none. Read `~/.claude/keybindings.json` first and merge into it; only create it if it does not exist:
+
+```json
+{
+  "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
+  "$docs": "https://code.claude.com/docs/en/keybindings",
+  "bindings": [
+    {
+      "context": "Chat",
+      "bindings": {
+        "ctrl+v": "chat:imagePaste",
+        "meta+v": "chat:imagePaste"
+      }
+    }
+  ]
+}
+```
+
+Claude Code reads the file at start, so restart it afterwards. A macOS screenshot only reaches the clipboard if screenshots are set to copy there (`/base-setup:setup-macos`) or taken with Cmd+Ctrl+Shift+4.
 
 Optional, ask before adding (AskUserQuestion, multiSelect) — these are taste, not needed for anything else:
 
