@@ -40,6 +40,7 @@ replaces the selected text. `keymaps.lua` adds the clipboard and undo keys on to
 | Key | Action | Replaces Vim's |
 | --- | --- | --- |
 | `Shift`(+`Ctrl`)+arrows, `Shift+Home/End` | Select | Shift+arrow word/page motions |
+| `Ctrl+Left/Right` (also `Alt+B/F`, which Ghostty sends for them) | Jump by word, ending any selection | — |
 | `Ctrl+C` (selection) | Copy to the system clipboard | — |
 | `Ctrl+X` (selection) | Cut to the system clipboard | `Ctrl+X` decrement number |
 | `Ctrl+V` | Paste (Normal, Insert; over a selection) | `Ctrl+V` block selection — use `Ctrl+Q` |

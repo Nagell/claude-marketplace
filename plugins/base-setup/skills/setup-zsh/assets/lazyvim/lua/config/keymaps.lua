@@ -28,3 +28,12 @@ map("n", "<C-z>", "u", { desc = "Undo (Windows)" })
 map("i", "<C-z>", "<C-o>u", { desc = "Undo (Windows)" })
 map("n", "<C-y>", "<C-r>", { desc = "Redo (Windows)" })
 map("i", "<C-y>", "<C-o><C-r>", { desc = "Redo (Windows)" })
+-- Ctrl+Left/Right jump by word without selecting. Ghostty sends them as Esc b / Esc f
+-- (Alt+B/F), other terminals as <C-Left>/<C-Right>; in a selection the jump ends it.
+for _, keys in ipairs({ { "<C-Left>", "<M-b>", "b" }, { "<C-Right>", "<M-f>", "w" } }) do
+  for _, key in ipairs({ keys[1], keys[2] }) do
+    map("n", key, keys[3], { desc = "Word jump (Windows)" })
+    map("i", key, "<C-o>" .. keys[3], { desc = "Word jump (Windows)" })
+    map("v", key, "<Esc>" .. keys[3], { desc = "Word jump (Windows)" })
+  end
+end
