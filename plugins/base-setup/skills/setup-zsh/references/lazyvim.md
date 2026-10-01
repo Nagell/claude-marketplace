@@ -7,10 +7,11 @@ file does, changing the theme, known quirks, and how to remove it.
 
 | Installed path | Source | Purpose |
 | --- | --- | --- |
-| `~/.config/nvim/init.lua`, `lua/config/{lazy,options,autocmds}.lua` | LazyVim starter | Bootstraps lazy.nvim and LazyVim |
+| `~/.config/nvim/init.lua`, `lua/config/{lazy,autocmds}.lua` | LazyVim starter | Bootstraps lazy.nvim and LazyVim |
 | `~/.config/nvim/lazyvim.json` | `assets/lazyvim/lazyvim.json` | Enabled extras (TypeScript, ESLint, Prettier, JSON, YAML, Markdown) |
 | `~/.config/nvim/lazy-lock.json` | `assets/lazyvim/lazy-lock.json` | Plugin commits that `Lazy! restore` checks out |
-| `~/.config/nvim/lua/config/keymaps.lua` | `assets/lazyvim/lua/config/keymaps.lua` | VS Code-style shortcuts |
+| `~/.config/nvim/lua/config/keymaps.lua` | `assets/lazyvim/lua/config/keymaps.lua` | VS Code- and Windows-style shortcuts |
+| `~/.config/nvim/lua/config/options.lua` | `assets/lazyvim/lua/config/options.lua` | Windows-style selection (`keymodel`, `selectmode`); replaces the starter's copy |
 | `~/.config/nvim/lua/plugins/colorscheme.lua` | `assets/lazyvim/lua/plugins/colorscheme.lua` | Catppuccin Mocha, transparent; One Dark themes for previewing |
 | `~/.config/nvim/lua/plugins/explorer.lua` | `assets/lazyvim/lua/plugins/explorer.lua` | Tree shows all files; finder includes dotfiles |
 | `~/.config/nvim/lua/plugins/markdownlint.lua` | `assets/lazyvim/lua/plugins/markdownlint.lua` | Passes `--config ~/.markdownlint-cli2.yaml` to lint and format |
@@ -29,6 +30,24 @@ file does, changing the theme, known quirks, and how to remove it.
 | `Ctrl+B` | Toggle file tree | Mapped to `<Space>e`, so it follows whichever explorer LazyVim uses |
 | `Ctrl+S` | Save | LazyVim default, not added by this skill |
 | `Ctrl+/` | Toggle comment | Replaces LazyVim's `Ctrl+/` terminal toggle; use `<Space>ft`. Also bound to `Ctrl+_`, which many terminals send for `Ctrl+/` |
+
+## Windows-style editing
+
+`options.lua` sets `keymodel=startsel,stopsel` and `selectmode=key`: Shift (+Ctrl) +
+arrows/Home/End start a selection in Select mode, a plain arrow ends it, and typing
+replaces the selected text. `keymaps.lua` adds the clipboard and undo keys on top.
+
+| Key | Action | Replaces Vim's |
+| --- | --- | --- |
+| `Shift`(+`Ctrl`)+arrows, `Shift+Home/End` | Select | Shift+arrow word/page motions |
+| `Ctrl+Left/Right` (also `Alt+B/F`, which Ghostty sends for them) | Jump by word, ending any selection | — |
+| `Ctrl+C` (selection) | Copy to the system clipboard | — |
+| `Ctrl+X` (selection) | Cut to the system clipboard | `Ctrl+X` decrement number |
+| `Ctrl+V` | Paste (Normal, Insert; over a selection) | `Ctrl+V` block selection — use `Ctrl+Q` |
+| `Backspace` (selection) | Delete the selection without copying it | — |
+| `Ctrl+A` | Select all | `Ctrl+A` increment number |
+| `Ctrl+Z` | Undo (Normal, Insert) | `Ctrl+Z` suspend |
+| `Ctrl+Y` | Redo (Normal, Insert) | `Ctrl+Y` scroll one line |
 
 ## Hidden files
 
