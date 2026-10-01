@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.0...base-setup-v1.1.1) (2026-10-01)
+
+
+### Bug Fixes
+
+* **base-setup:** make WSL clipboard paste work in nvim and zsh ([6173707](https://github.com/Nagell/claude-marketplace/commit/61737074269548dd6dbb974328258ef0155d4aef))
+* **base-setup:** make WSL clipboard paste work in nvim and zsh ([374b456](https://github.com/Nagell/claude-marketplace/commit/374b456331e1392506cfbd6af587edb12241bbb9))
+
 ## [1.1.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.0.0...base-setup-v1.1.0) (2026-10-01)
 
 
