@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.3...base-setup-v1.2.0) (2026-10-02)
+
+
+### Features
+
+* **base-setup:** make Cmd+Q type @ instead of quitting ([11b9909](https://github.com/Nagell/claude-marketplace/commit/11b9909d635bcaa417528f6273635d7b5a3b5219))
+* **base-setup:** make Cmd+Q type @ instead of quitting in Karabiner rules ([074068d](https://github.com/Nagell/claude-marketplace/commit/074068d47126f0d7d70ec5d7e9a944b1d883ea30))
+
 ## [1.1.3](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.2...base-setup-v1.1.3) (2026-10-02)
 
 
