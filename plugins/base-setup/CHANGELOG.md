@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.2.0...base-setup-v1.3.0) (2026-10-02)
+
+
+### Features
+
+* **base-setup:** reopen mdv files after a herdr restart ([900e66f](https://github.com/Nagell/claude-marketplace/commit/900e66f9c97802c20bc17316ef24986e5e73033e))
+* **base-setup:** reopen mdv files after a herdr restart ([61b2753](https://github.com/Nagell/claude-marketplace/commit/61b275385397f7edb67e28db05bc567afe11cd43))
+
 ## [1.2.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.3...base-setup-v1.2.0) (2026-10-02)
 
 
