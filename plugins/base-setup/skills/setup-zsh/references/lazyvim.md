@@ -41,11 +41,11 @@ replaces the selected text. `keymaps.lua` adds the clipboard and undo keys on to
 | --- | --- | --- |
 | `Shift`(+`Ctrl`)+arrows, `Shift+Home/End` | Select | Shift+arrow word/page motions |
 | `Ctrl+Left/Right` (also `Alt+B/F`, which Ghostty sends for them) | Jump by word, ending any selection | — |
-| `Ctrl+C` (selection) | Copy to the system clipboard | — |
+| `Ctrl+C` (selection) | Copy to the system clipboard; the selection and mode stay, so a selection made from Insert mode returns there | — |
 | `Ctrl+X` (selection) | Cut to the system clipboard | `Ctrl+X` decrement number |
-| `Ctrl+V` | Paste (Normal, Insert; over a selection) | `Ctrl+V` block selection — use `Ctrl+Q` |
+| `Ctrl+V` | Paste (Normal, Insert; over a selection). Typing over a selection leaves the clipboard alone, so it still pastes the last copy | `Ctrl+V` block selection — use `Ctrl+Q` |
 | `Backspace` (selection) | Delete the selection without copying it | — |
-| `Ctrl+A` | Select all | `Ctrl+A` increment number |
+| `Ctrl+A` | Select all in Select mode (typing replaces it); from Insert mode, ending the selection returns to Insert | `Ctrl+A` increment number |
 | `Ctrl+Z` | Undo (Normal, Insert) | `Ctrl+Z` suspend |
 | `Ctrl+Y` | Redo (Normal, Insert) | `Ctrl+Y` scroll one line |
 
