@@ -1282,7 +1282,7 @@ cp -r "$TMP/starter/init.lua" "$TMP/starter/lua" "$TMP/starter/stylua.toml" "$TM
 A=<this-skill-dir>/assets/lazyvim
 cp "$A/lazyvim.json" "$A/lazy-lock.json" ~/.config/nvim/
 cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" ~/.config/nvim/lua/config/
-cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" ~/.config/nvim/lua/plugins/
+cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" "$A/lua/plugins/blink.lua" ~/.config/nvim/lua/plugins/
 ```
 
 Leave `$TMP` for the OS to clean up.
@@ -1298,6 +1298,7 @@ What each asset does:
 | `lua/config/options.lua` | Windows-style selection: Shift (+Ctrl) + arrows/Home/End select, a plain arrow ends the selection, typing replaces it (`keymodel=startsel,stopsel`, `selectmode=key`); on WSL, `Ctrl+V` reads the Windows clipboard through PowerShell, since Windows Terminal ignores OSC 52 reads |
 | `lua/plugins/explorer.lua` | File tree (neo-tree) shows everything except `.git`, including dotfiles and git-ignored files like `.claude/`; file finder (fzf-lua) includes dotfiles but skips git-ignored files |
 | `lua/plugins/markdownlint.lua` | Points the Markdown linter and formatter at `~/.markdownlint-cli2.yaml` |
+| `lua/plugins/blink.lua` | Frees `Ctrl+Y` for redo in Insert mode: LazyVim maps it to accept a completion (Enter still does) |
 
 #### Markdown lint rules
 
