@@ -274,6 +274,13 @@ The rules:
 | Ctrl+X / C / V | Cmd+X / C / V | not in terminals, VS Code |
 | Ctrl+Z / Ctrl+Y | Cmd+Z undo / Cmd+Shift+Z redo | not in terminals, VS Code |
 | Ctrl(+Shift)+R | Cmd(+Shift)+R (reload / hard reload) | not in terminals, VS Code |
+| Cmd+Q | `@` (Option+L on German, Shift+2 on other layouts) instead of quitting the app | all apps |
+
+Cmd+Q is where Windows' AltGr+Q (`@` on German keyboards) lands on a Mac, so it quits apps by
+accident; quit from the app menu or the Dock instead. Ask before applying it (AskUserQuestion:
+"Make Cmd+Q type @ instead of quitting apps?" — "Yes (Recommended)" / "No") and drop the rule from
+`build_rules()` if the user says no. Layouts whose `@` is elsewhere (e.g. Swiss German, Option+G)
+go into `AT_SIGN_KEYS` at the top of the script.
 
 The excluded apps are the `EXCLUDED_APPS` bundle IDs at the top of the script: Ghostty
 (`com.mitchellh.ghostty`), Terminal (`com.apple.Terminal`) and VS Code (`com.microsoft.VSCode`).

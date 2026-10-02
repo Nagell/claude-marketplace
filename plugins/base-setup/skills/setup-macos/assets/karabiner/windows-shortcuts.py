@@ -33,6 +33,12 @@ QWERTZ_LAYOUTS = [
     "com.apple.keylayout.German",
 ]
 
+# Cmd+Q types "@" (Windows' AltGr+Q on German keyboards) instead of quitting the app. The key
+# that types "@" depends on the layout; every other layout gets Shift+2 (U.S., Polish Pro).
+AT_SIGN_KEYS = {
+    "com.apple.keylayout.German": ("l", ["option"]),
+}
+
 DEFAULT_CONFIG = Path.home() / ".config/karabiner/karabiner.json"
 KARABINER_CLI = "/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli"
 OPEN_DIR_PREFIX = "Windows: Option+E opens Finder in "
@@ -110,7 +116,29 @@ def build_rules(work_dir):
              remap("r", ctrl, "r", ["command"]),
              remap("r", ctrl_shift, "r", ["command", "shift"]),
          ]},
+        {"description": "Windows: Cmd+Q types @ instead of quitting (all apps)",
+         "manipulators": at_sign_manipulators()},
     ]
+
+
+def at_sign_manipulators():
+    """Cmd+Q -> the layout's "@" key: one manipulator per listed layout, Shift+2 otherwise."""
+    def cmd_q(to_key, to_mods, condition):
+        return {
+            "type": "basic",
+            "from": {"key_code": "q", "modifiers": {"mandatory": ["command"]}},
+            "to": [{"key_code": to_key, "modifiers": to_mods}],
+            "conditions": [condition],
+        }
+
+    def sources(ids):
+        return [{"input_source_id": s} for s in anchored(ids)]
+
+    per_layout = [cmd_q(key, mods, {"type": "input_source_if", "input_sources": sources([layout_id])})
+                  for layout_id, (key, mods) in AT_SIGN_KEYS.items()]
+    fallback = cmd_q("2", ["shift"], {"type": "input_source_unless",
+                                      "input_sources": sources(AT_SIGN_KEYS)})
+    return [*per_layout, fallback]
 
 
 def is_owned(description, owned):
