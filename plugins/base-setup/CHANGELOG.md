@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.2](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.1...base-setup-v1.1.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **base-setup:** keep Insert mode after Ctrl+A and Ctrl+C in LazyVim ([3ff25ff](https://github.com/Nagell/claude-marketplace/commit/3ff25ff49a5d6cf651d52fac0f45731872e92035))
+* **base-setup:** keep Insert mode and the clipboard in LazyVim Windows keys ([000ec28](https://github.com/Nagell/claude-marketplace/commit/000ec287a0ed6920247310b5d3169dc123f0457d))
+* **base-setup:** keep the clipboard when typing over a selection ([bccca5d](https://github.com/Nagell/claude-marketplace/commit/bccca5d0721dd4c1d9b847ecb93e88f01a891c1c))
+
 ## [1.1.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.0...base-setup-v1.1.1) (2026-10-01)
 
 
