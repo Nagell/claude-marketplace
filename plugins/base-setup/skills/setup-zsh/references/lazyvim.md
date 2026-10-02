@@ -15,6 +15,7 @@ file does, changing the theme, known quirks, and how to remove it.
 | `~/.config/nvim/lua/plugins/colorscheme.lua` | `assets/lazyvim/lua/plugins/colorscheme.lua` | Catppuccin Mocha, transparent; One Dark themes for previewing |
 | `~/.config/nvim/lua/plugins/explorer.lua` | `assets/lazyvim/lua/plugins/explorer.lua` | Tree shows all files; finder includes dotfiles |
 | `~/.config/nvim/lua/plugins/markdownlint.lua` | `assets/lazyvim/lua/plugins/markdownlint.lua` | Passes `--config ~/.markdownlint-cli2.yaml` to lint and format |
+| `~/.config/nvim/lua/plugins/blink.lua` | `assets/lazyvim/lua/plugins/blink.lua` | Drops blink.cmp's `Ctrl+Y` accept so `Ctrl+Y` redoes in Insert mode |
 | `~/.markdownlint-cli2.yaml` | `assets/lazyvim/markdownlint-cli2.yaml` | Line length 120, inline HTML allowed |
 | `~/.local/share/nvim/lazy/` | `Lazy! restore` | Plugins |
 | `~/.local/share/nvim/mason/` | Mason | Language servers, linters, formatters |
@@ -47,7 +48,7 @@ replaces the selected text. `keymaps.lua` adds the clipboard and undo keys on to
 | `Backspace` (selection) | Delete the selection without copying it | — |
 | `Ctrl+A` | Select all in Select mode (typing replaces it); from Insert mode, ending the selection returns to Insert | `Ctrl+A` increment number |
 | `Ctrl+Z` | Undo (Normal, Insert) | `Ctrl+Z` suspend |
-| `Ctrl+Y` | Redo (Normal, Insert) | `Ctrl+Y` scroll one line |
+| `Ctrl+Y` | Redo (Normal, Insert) | `Ctrl+Y` scroll one line; blink.cmp's `Ctrl+Y` accept (Enter still accepts) |
 
 ### Clipboard on WSL
 
