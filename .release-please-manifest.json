@@ -1,5 +1,5 @@
 {
-  "plugins/base-setup": "1.1.2",
+  "plugins/base-setup": "1.1.3",
   "plugins/coding-tutor": "0.4.1",
   "plugins/dev-extras": "1.1.0"
 }
