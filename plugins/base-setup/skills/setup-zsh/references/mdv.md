@@ -48,6 +48,15 @@ code page and turns `ż` into `┼╝`. Paste is a stub that returns the last co
 never pastes, and Windows Terminal does not answer OSC 52 reads, so the built-in paste
 would block for up to ten seconds.
 
+**Reopened after a herdr restart.** Inside a herdr pane (`HERDR_PANE_ID` set), the wrapper
+reports `mdv <absolute paths>` to herdr as the pane's resume command through `herdr pane
+report-agent`, in the background so herdr can never slow it down, and releases the pane on
+quit. After a herdr server restart, herdr reopens the pane in its folder and runs that command,
+the same mechanism Claude Code uses. While open, the pane shows as "mdv" (idle) in herdr's
+sidebar. Not covered: `some-command | mdv` (no file to reopen) and paths containing an
+apostrophe, which herdr rejects as resume arguments. `[session] resume_agents_on_restore =
+false` in herdr's config turns all resume off, Claude Code's included.
+
 ## Keys
 
 Also shown by `g?` inside mdv.

@@ -18,4 +18,27 @@ if [[ $# -eq 0 ]]; then
   exec env NVIM_APPNAME=mdv "${NVIM}" -R -c 'setfiletype markdown' -
 fi
 
-exec env NVIM_APPNAME=mdv "${NVIM}" -R "$@"
+# Inside herdr, report "mdv <absolute paths>" as the pane's resume command so a herdr restart
+# reopens the same files, and release the pane on quit. Best effort: herdr being slow or absent
+# never blocks mdv. herdr rejects resume arguments containing an apostrophe, so those skip it.
+herdr_report() {
+  [[ -n "${HERDR_PANE_ID:-}" && -x "${HERDR_BIN_PATH:-}" ]] || return 0
+  local args=() a
+  for a in "$@"; do
+    [[ "$a" != -* && -e "$a" ]] && a="$(cd "$(dirname "$a")" && pwd)/$(basename "$a")"
+    [[ "$a" == *"'"* ]] && return 0
+    args+=("$a")
+  done
+  "$HERDR_BIN_PATH" pane report-agent "$HERDR_PANE_ID" --source mdv --agent mdv --state idle \
+    -- mdv "${args[@]}" >/dev/null 2>&1 &
+}
+herdr_release() {
+  [[ -n "${HERDR_PANE_ID:-}" && -x "${HERDR_BIN_PATH:-}" ]] || return 0
+  "$HERDR_BIN_PATH" pane release-agent "$HERDR_PANE_ID" --source mdv --agent mdv >/dev/null 2>&1 || true
+}
+
+herdr_report "$@"
+status=0
+env NVIM_APPNAME=mdv "${NVIM}" -R "$@" || status=$?
+herdr_release
+exit "$status"
