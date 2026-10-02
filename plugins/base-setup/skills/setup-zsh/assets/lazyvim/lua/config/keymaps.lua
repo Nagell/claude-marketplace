@@ -28,6 +28,23 @@ end, { desc = "Copy (Windows)" })
 map("v", "<C-x>", '"+d', { desc = "Cut (Windows)" })
 map("v", "<C-v>", '"+P', { desc = "Paste over selection (Windows)" })
 map("v", "<BS>", '"_d', { desc = "Delete selection (Windows)" })
+-- Typing over a Select-mode selection deletes it into the unnamed register, which
+-- clipboard=unnamedplus mirrors to the system clipboard, so the next Ctrl+V pasted the replaced
+-- text. Detach the clipboard while Select mode is active; the Ctrl+C/X/V maps name "+ directly.
+vim.api.nvim_create_autocmd("ModeChanged", {
+  pattern = "*:[sS\19]",
+  callback = function()
+    if vim.o.clipboard == "" then return end
+    local saved = vim.o.clipboard
+    vim.o.clipboard = ""
+    vim.api.nvim_create_autocmd("ModeChanged", {
+      pattern = "[sS\19]:*",
+      once = true,
+      -- Scheduled: the replace deletes after the mode switch, and must not reach the clipboard.
+      callback = vim.schedule_wrap(function() vim.o.clipboard = saved end),
+    })
+  end,
+})
 map("i", "<C-v>", "<C-r><C-o>+", { desc = "Paste (Windows)" })
 map("n", "<C-v>", '"+P', { desc = "Paste (Windows)" })
 -- Select all in Select mode (typing replaces it). From Insert mode, <C-o> keeps the
