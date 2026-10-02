@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.3](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.2...base-setup-v1.1.3) (2026-10-02)
+
+
+### Bug Fixes
+
+* **base-setup:** free Ctrl+Y for redo in LazyVim Insert mode ([cc122f7](https://github.com/Nagell/claude-marketplace/commit/cc122f7c30fa76ad9b96c08d40d7a38b701ea790))
+* **base-setup:** free Ctrl+Y for redo in LazyVim Insert mode ([9095a89](https://github.com/Nagell/claude-marketplace/commit/9095a8935aef748f7df35404517497f1af47586e))
+
 ## [1.1.2](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.1.1...base-setup-v1.1.2) (2026-10-02)
 
 
