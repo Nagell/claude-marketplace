@@ -560,7 +560,8 @@ If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ w
 Then read `~/.zshrc` using Read tool and check these:
 
 - **`_select_all` with `zle -K shift-select`** — the current select-all. If `_select_all` exists but uses `set-mark-command` instead, it is the earlier version that leaves arrows unable to deselect: replace just that function with the one below and keep the rest of the block.
-- **`# >>> setup-zsh keys >>>`** — the navigation keys block. If present, leave it.
+- **`# >>> setup-zsh keys >>>`** — the navigation keys block. If present but without the `'^U' backward-kill-line` line, add that line before `unset _seq`; otherwise leave it.
+- **`# >>> setup-zsh select-replace >>>`** — typing or pasting over a selection replaces it. If present, leave it.
 - **WSL only: `_to_win_clipboard`** — the UTF-8-safe clipboard helper. If the clipboard functions exist but pipe straight into `clip.exe` or run a bare `powershell.exe Get-Clipboard`, they are the earlier version that mangles non-ASCII text: replace `_cut_to_clipboard` and `_paste_from_clipboard` with the WSL versions below, add `_to_win_clipboard`, and switch the `clip.exe` calls in `_backspace_or_delete_region` / `_delete_or_delete_region` to `| _to_win_clipboard`.
 
 If all are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Both blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates.
@@ -604,11 +605,39 @@ bindkey -M emacs '^[[1;5D' backward-word     # Ctrl+Left (on macOS only if Space
 bindkey -M emacs '^[[1;5C' forward-word      # Ctrl+Right
 bindkey -M emacs '^[[3;5~' kill-word         # Ctrl+Delete
 bindkey -M emacs '^[[3;3~' kill-word         # Alt/Option+Delete
+bindkey -M emacs '^U' backward-kill-line     # Cmd+Backspace (Ghostty sends ^U): to line start, as on macOS
 unset _seq
 # <<< setup-zsh keys <<<
 ```
 
 Where zsh-shift-select already binds Ctrl+Shift (Linux, WSL), the first loop rebinds the same widgets and changes nothing.
+
+Then the select-replace block, also for all environments:
+
+```zsh
+# >>> setup-zsh select-replace >>>
+# Typing or pasting over a Shift-selection replaces it, as in a GUI text field;
+# zsh-shift-select alone deselects and inserts, and drops non-ASCII keys.
+_shift_select_replace() {
+  zle kill-region -w
+  zle -K main
+  zle -U "$KEYS"
+}
+zle -N _shift_select_replace
+bindkey -M shift-select -R ' '-'~' _shift_select_replace
+bindkey -M shift-select -R '\M-^@'-'\M-^?' _shift_select_replace
+
+_shift_select_paste() {
+  zle kill-region -w
+  zle -K main
+  zle bracketed-paste -w
+}
+zle -N _shift_select_paste
+bindkey -M shift-select '^[[200~' _shift_select_paste
+# <<< setup-zsh select-replace <<<
+```
+
+zsh-shift-select on its own deselects and inserts when you type over a selection, and drops non-ASCII characters (ä, ż) because its fallback covers only ASCII. This block makes typed text and bracketed pastes replace the selection; plain arrows still deselect.
 
 Then append clipboard bindings depending on the environment detected in Step 1:
 
@@ -1424,9 +1453,18 @@ The config lives at `~/Library/Application Support/com.mitchellh.ghostty/config.
 ```ghostty
 window-save-state = always
 
-# Leave Shift+arrows to zsh (zsh-shift-select) instead of adjusting the terminal selection.
+# Leave Shift+arrows and Shift+Home/End to zsh (zsh-shift-select) instead of adjusting the terminal selection.
 keybind = shift+arrow_left=unbind
 keybind = shift+arrow_right=unbind
+keybind = shift+home=unbind
+keybind = shift+end=unbind
+
+# Cmd+Left/Right send Home/End instead of Ctrl+A/Ctrl+E (Ctrl+A is select-all in zsh, Step 7);
+# Shift+Cmd+Left/Right select to the line start/end.
+keybind = super+arrow_left=csi:H
+keybind = super+arrow_right=csi:F
+keybind = super+shift+arrow_left=csi:1;2H
+keybind = super+shift+arrow_right=csi:1;2F
 
 # Ctrl+Left/Right jump by word in zsh and in Claude's prompt (both read Esc b / Esc f as word moves).
 keybind = ctrl+arrow_left=esc:b
