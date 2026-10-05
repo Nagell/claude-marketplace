@@ -27,6 +27,13 @@ EXCLUDED_APPS = [
     "com.microsoft.VSCode",
 ]
 
+# Browsers where Ctrl+Shift+I opens the developer tools, as it does on Windows.
+BROWSERS = [
+    "com.google.Chrome",
+    "org.mozilla.firefox",
+    "com.apple.Safari",
+]
+
 # Karabiner matches physical key positions in US terms, so on QWERTZ layouts the Z and Y
 # rules swap. Add every enabled QWERTZ layout (Swiss German, Austrian, Czech, ...) here.
 QWERTZ_LAYOUTS = [
@@ -51,6 +58,10 @@ def anchored(values):
 
 def not_in_excluded_apps():
     return {"type": "frontmost_application_unless", "bundle_identifiers": anchored(EXCLUDED_APPS)}
+
+
+def in_browsers():
+    return {"type": "frontmost_application_if", "bundle_identifiers": anchored(BROWSERS)}
 
 
 def layout(condition_type):
@@ -116,6 +127,14 @@ def build_rules(work_dir):
              remap("r", ctrl, "r", ["command"]),
              remap("r", ctrl_shift, "r", ["command", "shift"]),
          ]},
+        {"description": f"Windows: Ctrl+B/I/U bold, italic, underline {EXCEPT}",
+         "manipulators": [
+             remap("b", ctrl, "b", ["command"]),
+             remap("i", ctrl, "i", ["command"]),
+             remap("u", ctrl, "u", ["command"]),
+         ]},
+        {"description": "Windows: Ctrl+Shift+I opens developer tools (browsers)",
+         "manipulators": [remap("i", ctrl_shift, "i", ["command", "option"], in_browsers())]},
         {"description": "Windows: Cmd+Q types @ instead of quitting (all apps)",
          "manipulators": at_sign_manipulators()},
     ]
