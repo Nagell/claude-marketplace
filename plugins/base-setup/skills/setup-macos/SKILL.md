@@ -277,7 +277,7 @@ The rules:
 | Ctrl(+Shift)+R | Cmd(+Shift)+R (reload / hard reload) | not in terminals, VS Code |
 | Ctrl+B / I / U | Cmd+B / I / U (bold, italic, underline) | not in terminals, VS Code |
 | Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Chrome for Testing, Firefox, Safari |
-| Cmd+Q | `@` (Option+L on German, Shift+2 on other layouts) instead of quitting the app | all apps |
+| Cmd+Q | `@` (Option+L on German, Option+Q on German – Standard, Shift+2 on other layouts) instead of quitting the app | all apps |
 
 Cmd+Q is where Windows' AltGr+Q (`@` on German keyboards) lands on a Mac, so it quits apps by
 accident; quit from the app menu or the Dock instead. Ask before applying it (AskUserQuestion:
@@ -293,9 +293,12 @@ Add others there and re-run; find an app's ID with
 > **Keyboard layouts.** Karabiner matches physical key positions in US terms, whatever layout is
 > active. On QWERTZ layouts Z and Y swap places, so the Z/Y rules check the input source: they use
 > `input_source_if` / `input_source_unless` on the layouts in `QWERTZ_LAYOUTS` at the top of the
-> script (`^com\.apple\.keylayout\.German$` by default). Verified with German, U.S. and Polish Pro
-> enabled. Any other QWERTZ layout the user has enabled (Swiss German, Austrian, Czech, …) must be
-> added to `QWERTZ_LAYOUTS`, or Ctrl+Z and Ctrl+Y are swapped while it is active — check with
+> script: German (`com.apple.keylayout.German`) and German – Standard
+> (`com.apple.keylayout.German-DIN-2137`) by default. The two look alike in System Settings and
+> are easy to swap by mistake; both are QWERTZ, but `@` is Option+L on German and Option+Q on
+> German – Standard. Verified with German, U.S. and Polish Pro enabled. Any other QWERTZ layout
+> the user has enabled (Swiss German, Austrian, Czech, …) must be added to `QWERTZ_LAYOUTS`, or
+> Ctrl+Z and Ctrl+Y are swapped while it is active — check with
 > `defaults read com.apple.HIToolbox AppleEnabledInputSources`. Removing a layout is safe: the
 > QWERTY rules take over. X, C, V, A and E sit in the same place on all of these layouts.
 

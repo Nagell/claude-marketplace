@@ -39,12 +39,14 @@ BROWSERS = [
 # rules swap. Add every enabled QWERTZ layout (Swiss German, Austrian, Czech, ...) here.
 QWERTZ_LAYOUTS = [
     "com.apple.keylayout.German",
+    "com.apple.keylayout.German-DIN-2137",  # "German – Standard" in System Settings
 ]
 
 # Cmd+Q types "@" (Windows' AltGr+Q on German keyboards) instead of quitting the app. The key
 # that types "@" depends on the layout; every other layout gets Shift+2 (U.S., Polish Pro).
 AT_SIGN_KEYS = {
     "com.apple.keylayout.German": ("l", ["option"]),
+    "com.apple.keylayout.German-DIN-2137": ("q", ["option"]),
 }
 
 DEFAULT_CONFIG = Path.home() / ".config/karabiner/karabiner.json"
