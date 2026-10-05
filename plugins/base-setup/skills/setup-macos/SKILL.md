@@ -205,8 +205,9 @@ Keyboard Shortcuts → Mission Control shows the new keys.
 this skill make Windows habits work in every app except terminals and VS Code, which keep Ctrl
 for themselves (Ctrl+C interrupts a program; VS Code has its own Ctrl keymap).
 
-Use AskUserQuestion: "Set up Karabiner-Elements for Windows-style shortcuts (Ctrl+C/V/X/Z/Y/A,
-Ctrl+arrows, Option+F4, Option+E)?" — "Yes (Recommended)" / "No". If no, skip to Step 7.
+Use AskUserQuestion: "Set up Karabiner-Elements for Windows-style shortcuts
+(Ctrl+C/V/X/Z/Y/A/B/I/U, Ctrl+arrows, Option+F4, Option+E)?" — "Yes (Recommended)" / "No". If no,
+skip to Step 7.
 
 #### Install
 
@@ -274,6 +275,8 @@ The rules:
 | Ctrl+X / C / V | Cmd+X / C / V | not in terminals, VS Code |
 | Ctrl+Z / Ctrl+Y | Cmd+Z undo / Cmd+Shift+Z redo | not in terminals, VS Code |
 | Ctrl(+Shift)+R | Cmd(+Shift)+R (reload / hard reload) | not in terminals, VS Code |
+| Ctrl+B / I / U | Cmd+B / I / U (bold, italic, underline) | not in terminals, VS Code |
+| Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Firefox, Safari |
 | Cmd+Q | `@` (Option+L on German, Shift+2 on other layouts) instead of quitting the app | all apps |
 
 Cmd+Q is where Windows' AltGr+Q (`@` on German keyboards) lands on a Mac, so it quits apps by
