@@ -30,6 +30,7 @@ EXCLUDED_APPS = [
 # Browsers where Ctrl+Shift+I opens the developer tools, as it does on Windows.
 BROWSERS = [
     "com.google.Chrome",
+    "com.google.chrome.for.testing",
     "org.mozilla.firefox",
     "com.apple.Safari",
 ]
