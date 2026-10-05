@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.5.1...base-setup-v1.6.0) (2026-10-05)
+
+
+### Features
+
+* **base-setup:** set fast key repeat in setup-macos ([31d7253](https://github.com/Nagell/claude-marketplace/commit/31d7253e8e15c196c1caef25c77782a362e3119f))
+* **base-setup:** set fast key repeat in setup-macos ([343c22b](https://github.com/Nagell/claude-marketplace/commit/343c22be1354903ff406cac0471426f2c1e298e2))
+
 ## [1.5.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.5.0...base-setup-v1.5.1) (2026-10-05)
 
 
