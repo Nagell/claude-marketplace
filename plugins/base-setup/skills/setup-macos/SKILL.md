@@ -276,6 +276,7 @@ The rules:
 | Ctrl+Z / Ctrl+Y | Cmd+Z undo / Cmd+Shift+Z redo | not in terminals, VS Code |
 | Ctrl(+Shift)+R | Cmd(+Shift)+R (reload / hard reload) | not in terminals, VS Code |
 | Ctrl+B / I / U | Cmd+B / I / U (bold, italic, underline) | not in terminals, VS Code |
+| Ctrl+T / Ctrl+Shift+T | Cmd+T new tab / Cmd+Shift+T reopen closed tab | Chrome, Chrome for Testing, Firefox, Safari |
 | Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Chrome for Testing, Firefox, Safari |
 | Cmd+Q | `@` (Option+L on German, Shift+2 on other layouts) instead of quitting the app | all apps |
 

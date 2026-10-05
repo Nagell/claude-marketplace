@@ -27,7 +27,7 @@ EXCLUDED_APPS = [
     "com.microsoft.VSCode",
 ]
 
-# Browsers where Ctrl+Shift+I opens the developer tools, as it does on Windows.
+# Browsers that get the Windows tab and developer-tools shortcuts.
 BROWSERS = [
     "com.google.Chrome",
     "com.google.chrome.for.testing",
@@ -133,6 +133,11 @@ def build_rules(work_dir):
              remap("b", ctrl, "b", ["command"]),
              remap("i", ctrl, "i", ["command"]),
              remap("u", ctrl, "u", ["command"]),
+         ]},
+        {"description": "Windows: Ctrl+T new tab, Ctrl+Shift+T reopen closed tab (browsers)",
+         "manipulators": [
+             remap("t", ctrl, "t", ["command"], in_browsers()),
+             remap("t", ctrl_shift, "t", ["command", "shift"], in_browsers()),
          ]},
         {"description": "Windows: Ctrl+Shift+I opens developer tools (browsers)",
          "manipulators": [remap("i", ctrl_shift, "i", ["command", "option"], in_browsers())]},
