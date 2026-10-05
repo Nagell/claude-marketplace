@@ -1,12 +1,13 @@
 ---
 name: setup-macos
-description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, and Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals
+description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, and fast key repeat
 disable-model-invocation: true
 ---
 
 # Setup macOS
 
-Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, and Karabiner-Elements. Run
+Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, Karabiner-Elements and
+key repeat. Run
 this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
 keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 5 to be done.
 
@@ -318,7 +319,24 @@ keyboard added with `--device`, expect `<name> (device_id:…) hid device events
 Then ask the user to try Ctrl+C / Ctrl+V in a text field (Notes, Safari) and Ctrl+C in Ghostty or
 Terminal, where it must still interrupt a running command.
 
-### 7. Done
+### 7. Key repeat
+
+macOS's default key repeat is much slower than Windows', so holding Backspace or an arrow key
+crawls. Use AskUserQuestion: "Make key repeat as fast as System Settings allows?" — "Yes
+(Recommended)" / "No, keep the current speed". If no, skip this step.
+
+```bash
+BK=<backup folder>
+defaults export NSGlobalDomain - > "$BK/NSGlobalDomain.plist"
+defaults write -g KeyRepeat -int 2          # 30 ms between repeats: the fastest slider position
+defaults write -g InitialKeyRepeat -int 15  # 225 ms before repeating starts: the shortest delay
+defaults read -g KeyRepeat; defaults read -g InitialKeyRepeat
+```
+
+Both take effect after logging out and back in. Tell the user that, and that System Settings →
+Keyboard → "Key repeat rate" / "Delay until repeat" moves them back.
+
+### 8. Done
 
 Report what was applied and where the backups are (`$BK`, plus `karabiner.json.bak-*`). Then tell
 the user:
