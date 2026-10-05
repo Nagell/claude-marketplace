@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.5.0...base-setup-v1.5.1) (2026-10-05)
+
+
+### Bug Fixes
+
+* **base-setup:** treat German – Standard as QWERTZ in Karabiner rules ([88fe405](https://github.com/Nagell/claude-marketplace/commit/88fe405b65f82780f3acfb9081dee6841d1c0ee7))
+* **base-setup:** treat German – Standard as QWERTZ in Karabiner rules ([328b82a](https://github.com/Nagell/claude-marketplace/commit/328b82af681abda6ef401c6a212b9b921cad9e10))
+
 ## [1.5.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.4.0...base-setup-v1.5.0) (2026-10-05)
 
 
