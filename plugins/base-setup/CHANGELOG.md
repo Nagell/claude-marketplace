@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.4.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.3.0...base-setup-v1.4.0) (2026-10-05)
+
+
+### Features
+
+* **base-setup:** add Ctrl+B/I/U and Ctrl+Shift+I to Karabiner rules ([c299052](https://github.com/Nagell/claude-marketplace/commit/c299052f511719ecf8b85c13502f4c1de91ad404))
+* **base-setup:** add Ctrl+B/I/U and Ctrl+Shift+I to Karabiner rules ([2a1aea1](https://github.com/Nagell/claude-marketplace/commit/2a1aea1a49a06a0d93cbfa77b88b86df9cebfa83))
+* **base-setup:** open dev tools with Ctrl+Shift+I in Chrome for Testing ([d05645a](https://github.com/Nagell/claude-marketplace/commit/d05645a077c28063343b7b26bb3c317b959289d1))
+* **base-setup:** open dev tools with Ctrl+Shift+I in Chrome for Testing ([490bd65](https://github.com/Nagell/claude-marketplace/commit/490bd6501cf9e5bad7ab967aeb23174462f92fd9))
+* **base-setup:** replace a zsh selection when typing over it ([a254b1c](https://github.com/Nagell/claude-marketplace/commit/a254b1ccc85d9c7c29ea67be5adcb41415af14bd))
+* **base-setup:** replace a zsh selection when typing over it ([16050f7](https://github.com/Nagell/claude-marketplace/commit/16050f71737248241622f613f1aaa0269aae8760))
+
 ## [1.3.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.2.0...base-setup-v1.3.0) (2026-10-02)
 
 
