@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.4.0...base-setup-v1.5.0) (2026-10-05)
+
+
+### Features
+
+* **base-setup:** add Ctrl+T and Ctrl+Shift+T to browser shortcuts ([fd706a5](https://github.com/Nagell/claude-marketplace/commit/fd706a5be652753d993a28892e9b69c5371ab390))
+* **base-setup:** add Ctrl+T and Ctrl+Shift+T to browser shortcuts ([539099c](https://github.com/Nagell/claude-marketplace/commit/539099c15b3193ae41b8fa6e5cc7c4f2f827f023))
+
 ## [1.4.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.3.0...base-setup-v1.4.0) (2026-10-05)
 
 
