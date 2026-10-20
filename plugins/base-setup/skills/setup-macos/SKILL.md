@@ -497,9 +497,12 @@ compressed memory as used and sits near 80% on a healthy Mac.
 ### 13. Rectangle
 
 macOS's own edge snapping fills the whole screen and covers the bar. Rectangle snaps with gaps.
-It reads its settings at launch, so write them before the first start. The top gap clears the
-bar: `GAP` above it, its 30 px groups, `GAP` below. On a notched screen macOS already reserves the
-notch strip, so subtract it (that screen's `safeAreaInsets.top`):
+It reads its settings at launch, so write them before the first start. Its window gap
+(`gapSize`) also applies at the screen edges, on top of the screen-edge gaps, so all spacing goes
+into `gapSize` and the edges stay 0 — that gives `GAP` at the edges and between windows. The top
+edge additionally clears the bar: `GAP` above it plus its 30 px groups (the window gap adds the
+`GAP` below). On a notched screen macOS already reserves the notch strip, so subtract it (that
+screen's `safeAreaInsets.top`):
 
 ```bash
 brew install --cask rectangle
@@ -509,13 +512,13 @@ for (var i=0;i<s.count;i++){var c=s.objectAtIndex(i); o.push(ObjC.unwrap(c.local
 
 ```bash
 R=com.knollsoft.Rectangle
-TOP=$((2 * GAP + 30))
+TOP=$((GAP + 30))
+defaults write $R gapSize -float "$GAP"
 defaults write $R screenEdgeGapTop -int "$TOP"
 defaults write $R screenEdgeGapTopNotch -int $((TOP - <notch inset, e.g. 32>))  # only with a notched screen
-defaults write $R screenEdgeGapBottom -int "$GAP"
-defaults write $R screenEdgeGapLeft -int "$GAP"
-defaults write $R screenEdgeGapRight -int "$GAP"
-defaults write $R gapSize -float "$GAP"
+defaults write $R screenEdgeGapBottom -int 0
+defaults write $R screenEdgeGapLeft -int 0
+defaults write $R screenEdgeGapRight -int 0
 # Caps Lock (Ctrl+Option+Cmd = 262144 + 524288 + 1048576) with arrow keys 123-126.
 M=1835008
 defaults write $R leftHalf -dict-add keyCode -float 123 modifierFlags -float $M
