@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.7.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.6.0...base-setup-v1.7.0) (2026-10-20)
+
+
+### Features
+
+* **base-setup:** add numbered workspaces to setup-macos ([a56674d](https://github.com/Nagell/claude-marketplace/commit/a56674d0b7035f1d353db0d815975f6c2493034d))
+* **base-setup:** add numbered workspaces to setup-macos ([54f48c6](https://github.com/Nagell/claude-marketplace/commit/54f48c6f1f2b8a71f669f6ffb784ebf1a71e6cf6))
+* **base-setup:** scroll one line per wheel notch in Ghostty and herdr ([fe0ba46](https://github.com/Nagell/claude-marketplace/commit/fe0ba462738dea59ea0e5f690e24f0127efe4149))
+
+
+### Bug Fixes
+
+* **base-setup:** keep SketchyBar responsive while FlashSpace is down ([60de6de](https://github.com/Nagell/claude-marketplace/commit/60de6dee9cb4213dfd71a7c0009a3544ba812f71))
+* **base-setup:** stop doubling Rectangle's gaps at the screen edges ([b87bda0](https://github.com/Nagell/claude-marketplace/commit/b87bda0315e927e1c7d0acc1148b57fd944deb9e))
+
+
+### Documentation
+
+* **base-setup:** list the workspace setup in the README ([cda0f70](https://github.com/Nagell/claude-marketplace/commit/cda0f70e79498d788365e3c8d2ab8a639c38008b))
+
 ## [1.6.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.5.1...base-setup-v1.6.0) (2026-10-05)
 
 
