@@ -5,7 +5,8 @@ Rules go into the selected profile; a rule with the same description is replaced
 duplicated. The file is backed up before it is written. Python 3 standard library only.
 
 Usage:
-    windows-shortcuts.py [--config PATH] [--work-dir DIR] [--device VID:PID ...] [--dry-run]
+    windows-shortcuts.py [--config PATH] [--work-dir DIR] [--device VID:PID ...]
+                         [--caps-lock-hyper] [--hide-menu-bar-icon] [--dry-run]
     windows-shortcuts.py --list-devices
 """
 
@@ -81,7 +82,19 @@ def remap(from_key, from_mods, to_key, to_mods, *extra_conditions):
     }
 
 
-def build_rules(work_dir):
+CAPS_LOCK_HYPER = {
+    "description": "Caps Lock sends Ctrl+Option+Cmd (workspace and window hotkeys)",
+    "manipulators": [{
+        "type": "basic",
+        "from": {"key_code": "caps_lock", "modifiers": {"optional": ["any"]}},
+        # Cmd goes down first, so the chord never passes through bare Ctrl+Option, a common
+        # push-to-talk key in dictation apps.
+        "to": [{"key_code": "left_control", "modifiers": ["left_command", "left_option"]}],
+    }],
+}
+
+
+def build_rules(work_dir, caps_lock_hyper=False):
     """Return the rules this script owns, in the order they are added."""
     qwertz, qwerty = layout("input_source_if"), layout("input_source_unless")
     ctrl, ctrl_shift = ["control"], ["control", "shift"]
@@ -96,7 +109,8 @@ def build_rules(work_dir):
         "to": [{"key_code": "w", "modifiers": ["command"]}],
         "conditions": [],
     }
-    return [
+    hyper = [CAPS_LOCK_HYPER] if caps_lock_hyper else []
+    return hyper + [
         {"description": "Windows: Option+F4 closes the window (Cmd+W)",
          "manipulators": [close_window]},
         {"description": f"{OPEN_DIR_PREFIX}~/{work_dir}", "manipulators": [open_dir]},
@@ -268,6 +282,10 @@ def main():
                         help="folder under $HOME that Option+E opens (default: Development)")
     parser.add_argument("--device", type=parse_device, action="append", default=[],
                         metavar="VID:PID", help="also modify this keyboard+pointing device")
+    parser.add_argument("--caps-lock-hyper", action="store_true",
+                        help="make Caps Lock send Ctrl+Option+Cmd for FlashSpace and Rectangle")
+    parser.add_argument("--hide-menu-bar-icon", action="store_true",
+                        help="hide Karabiner's menu bar icon")
     parser.add_argument("--dry-run", action="store_true", help="print the result, write nothing")
     parser.add_argument("--list-devices", action="store_true",
                         help="list connected keyboards that also report as pointing devices")
@@ -279,8 +297,11 @@ def main():
 
     config = load(args.config)
     profile = selected_profile(config)
-    merge_rules(profile, build_rules(args.work_dir))
+    merge_rules(profile, build_rules(args.work_dir, args.caps_lock_hyper))
     merge_devices(profile, args.device)
+    if args.hide_menu_bar_icon:
+        config.setdefault("global", {}).update(
+            {"show_in_menu_bar": False, "show_profile_name_in_menu_bar": False})
 
     if args.dry_run:
         json.dump(config, sys.stdout, indent=4, ensure_ascii=False)
