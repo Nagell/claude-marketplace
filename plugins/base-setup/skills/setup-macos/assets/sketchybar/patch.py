@@ -27,6 +27,9 @@ BAR_HEIGHT = 36
 GROUP_HEIGHT = 30  # height of the rounded left/right groups inside the bar
 
 WORKSPACES_TAIL = r'''
+# Every flashspace call waits for a timeout when the app is not running, which stalls the bar.
+pgrep -xq FlashSpace || exit 0
+
 # FlashSpace passes the new workspace with its change event; timer runs have to ask.
 FOCUSED="${WORKSPACE:-$(flashspace get-workspace 2>/dev/null)}"
 
