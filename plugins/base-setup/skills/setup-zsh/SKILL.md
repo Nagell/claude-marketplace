@@ -1472,7 +1472,12 @@ keybind = ctrl+arrow_right=esc:f
 
 # Option+V reaches Claude as Alt+V (its image/text paste) instead of typing a character.
 keybind = alt+v=esc:v
+
+# A free-spinning mouse wheel (Logitech MX) sends bursts of notches; 3 lines each jumps whole pages.
+mouse-scroll-multiplier = precision:1,discrete:1
 ```
+
+The scroll setting only covers Ghostty's own scrollback: inside herdr, herdr scrolls (Step 19).
 
 `window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 19 covers herdr).
 
@@ -1616,6 +1621,21 @@ if that prints `0.8.2`, the installed version is new enough). If it's older, tel
 user herdr-spin needs 0.8.2+ and suggest `herdr update` (or their package manager, if
 they installed via Homebrew/mise/Nix), then don't offer herdr-spin below — notifications
 have no version requirement and can still be offered.
+
+**Wheel scrolling.** herdr captures the mouse and scrolls its own scrollback, 3 lines per
+wheel notch, whatever the terminal is set to; a free-spinning wheel (Logitech MX) jumps
+pages at a time. Skip if `~/.config/herdr/config.toml` already sets `mouse_scroll_lines`.
+Otherwise use AskUserQuestion: "Scroll 1 line per mouse wheel notch in herdr?" — "Yes
+(Recommended)" / "No". If yes, read the file with the Read tool and add the key to its
+existing `[ui]` table (add a `[ui]` table only if there is none; a second one is a TOML
+error):
+
+```toml
+[ui]
+mouse_scroll_lines = 1
+```
+
+Apply with `herdr server reload-config`; no restart needed.
 
 Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
 check passed). If both are already configured, report that and skip to Step 20.

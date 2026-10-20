@@ -1,14 +1,13 @@
 ---
 name: setup-macos
-description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, and fast key repeat
+description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, fast key repeat, and numbered workspaces per screen - FlashSpace workspaces on Caps Lock hotkeys, a SketchyBar top bar, Rectangle window snapping with gaps, the native menu bar auto-hidden
 disable-model-invocation: true
 ---
 
 # Setup macOS
 
-Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, Karabiner-Elements and
-key repeat. Run
-this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
+Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, Karabiner-Elements,
+key repeat, and a workspace setup (FlashSpace, SketchyBar, Rectangle). Run this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
 keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 5 to be done.
 
 Every step is idempotent and can be re-run. Each one backs up the preferences or file it changes
@@ -336,7 +335,213 @@ defaults read -g KeyRepeat; defaults read -g InitialKeyRepeat
 Both take effect after logging out and back in. Tell the user that, and that System Settings →
 Keyboard → "Key repeat rate" / "Delay until repeat" moves them back.
 
-### 8. Done
+### 8. Workspaces: what the next steps build
+
+Steps 9–13 give the Mac numbered workspaces per screen, like virtual desktops on Windows, with a
+bar on top. Four tools, each with one job:
+
+| Tool | Job | Keys |
+| --- | --- | --- |
+| [FlashSpace](https://github.com/wojciech-kulik/FlashSpace) | Workspaces: which apps belong to which number, which screen each number lives on | Caps+1…9 switch, Caps+Shift+1…9 assign the focused app |
+| [Rectangle](https://rectangleapp.com) | Window size and position inside a screen, with gaps | Caps+←/→ halves, Caps+↑ maximize, Caps+↓ restore, or drag to an edge |
+| [SketchyBar](https://github.com/FelixKratz/SketchyBar) | The bar: workspace numbers with app icons, RAM, volume, battery, clock | Click a number to switch |
+| Karabiner-Elements | Caps Lock sends Ctrl+Option+Cmd, the modifier for all of the above | — |
+
+Use AskUserQuestion: "Set up numbered workspaces per screen with a top bar (FlashSpace, SketchyBar,
+Rectangle)?" — "Yes (Recommended)" / "No". If no, skip to Step 14.
+
+Why not a tiling window manager: AeroSpace treats macOS native tabs (Finder, Ghostty) as separate
+windows ([#68](https://github.com/nikitabobko/AeroSpace/issues/68), open since 2023), so switching
+tabs breaks the layout. FlashSpace only shows and hides whole apps and never resizes windows, so
+tabs cannot break it; Rectangle sizes windows only when asked.
+
+Use `GAP=10` (px between the bar, the screen edges and the windows) in Steps 12 and 13.
+
+### 9. Caps Lock as the workspace key
+
+Caps Lock stops working as Caps Lock. Use AskUserQuestion: "Turn Caps Lock into the key for
+workspaces and window snapping (it then sends Ctrl+Option+Cmd)?" — "Yes (Recommended)" / "No, I
+need Caps Lock". If no, the hotkeys in Steps 11 and 13 need another modifier: ask which, and
+replace `cmd+opt+ctrl` / `1835008` there.
+
+Plain Option types characters on many layouts (Option+5…9 and Option+L are `[ ] | { } @` on
+German), and Ctrl+Option is a common dictation push-to-talk key, so neither works as the modifier.
+
+Run the Step 6 script again with `--caps-lock-hyper`, plus `--hide-menu-bar-icon` if the user
+wants Karabiner's menu bar icon gone (AskUserQuestion: "Hide Karabiner's menu bar icon? Remapping
+keeps working" — "Yes (Recommended)" / "No"). Repeat the `--work-dir` and `--device` arguments
+from Step 6, or that step's rules change:
+
+```bash
+S=<this-skill-dir>/assets/karabiner/windows-shortcuts.py
+python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] --caps-lock-hyper [--hide-menu-bar-icon]
+```
+
+The rule presses Cmd before Ctrl and Option, so the chord never passes through bare Ctrl+Option.
+
+### 10. Menu bar auto-hide
+
+SketchyBar draws its own bar where the menu bar is, so the native one has to auto-hide. App menus
+come back when the pointer touches the top edge.
+
+```bash
+BK=<backup folder>
+defaults export NSGlobalDomain - > "$BK/NSGlobalDomain-menubar.plist"
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
+```
+
+Only some screens pick this up. Tell the user to also set System Settings → Menu Bar →
+"Automatically hide and show the menu bar" → **Always** (toggle it off and on if it already says
+Always), which applies it to every screen.
+
+A screen with a camera notch keeps its top strip reserved even with the menu bar hidden. Step 13
+accounts for it.
+
+### 11. FlashSpace
+
+```bash
+brew install --cask flashspace
+```
+
+FlashSpace reads its settings file at launch and writes it back on quit, so edit it while the app
+is not running. Turn on the SketchyBar integration (its default script already sends the event
+Step 12 listens for) and hide the menu bar title and icon:
+
+```bash
+pkill -x FlashSpace || true
+F="$HOME/.config/flashspace/settings.json"
+mkdir -p "$(dirname "$F")"
+[ -f "$F" ] && cp -p "$F" "$F.bak-$(date +%Y%m%d-%H%M%S)"
+python3 - "$F" <<'EOF'
+import json, os, sys
+path = sys.argv[1]
+settings = json.load(open(path)) if os.path.exists(path) else {}
+settings.update({"enableIntegrations": True, "showMenuBarIcon": False, "showMenuBarTitle": False})
+json.dump(settings, open(path, "w"), indent=2)
+EOF
+```
+
+FlashSpace always keeps a menu bar item: with both off it falls back to its ⚡ icon. With the menu
+bar auto-hidden, it only shows when the menu bar slides in.
+
+Claude's sandbox cannot launch apps. Output this and wait:
+
+```
+Please run:  open -a FlashSpace
+Allow it under Accessibility when macOS asks, then in its settings (run `flashspace open`):
+  General -> Launch at login: on
+```
+
+Workspaces need the screens in left-to-right order, with the names FlashSpace uses:
+
+```bash
+osascript -l JavaScript -e 'ObjC.import("AppKit"); var s=$.NSScreen.screens, o=[];
+for (var i=0;i<s.count;i++){var c=s.objectAtIndex(i); o.push([c.frame.origin.x, ObjC.unwrap(c.localizedName)])}
+o.sort(function(a,b){return a[0]-b[0]}); o.map(function(r){return r[1]}).join("\n")'
+```
+
+Workspace N lives on screen `(N-1) mod <screen count>`, counting from the left: with three screens,
+1/4/7 on the left, 2/5/8 in the middle, 3/6/9 on the right. Numbers stay on their screen, so
+switching never moves windows between screens. Tell the user this layout, then create the nine
+workspaces with one `--display` per workspace from that list:
+
+```bash
+flashspace create-workspace 1 --display "<screen for 1>" --activate-key "cmd+opt+ctrl+1" --assign-key "cmd+opt+ctrl+shift+1"
+# ... same for 2-9
+flashspace list-workspaces
+```
+
+`--activate-key` switches to the workspace; `--assign-key` assigns the focused app to it for good.
+Ask which apps go where: show `flashspace list-running-apps --with-bundle-id` and use
+AskUserQuestion with a free-text answer such as "Chrome 1, Ghostty 2, Slack 3". Assign each by
+bundle ID, so it also works for apps that are not running (Playwright's Chrome for Testing is
+`com.google.chrome.for.testing`):
+
+```bash
+flashspace assign-app --name <bundle id> --workspace <number> --activate false
+for n in 1 2 3 4 5 6 7 8 9; do printf '%s: ' "$n"; flashspace list-apps "$n" | paste -sd, -; done
+```
+
+### 12. SketchyBar
+
+The look is [unsecretised/sketchybar-config](https://github.com/unsecretised/sketchybar-config).
+It has no license, so this skill doesn't redistribute it: download the pinned commit and apply
+this skill's changes on top. `assets/sketchybar/patch.py` switches its workspace buttons from
+bobrwm to FlashSpace, adds a RAM item (macOS memory pressure) and sets the bar's offset and side
+padding from `GAP`. It moves an existing `~/.config/sketchybar` to `sketchybar.bak-<timestamp>`.
+
+```bash
+brew tap FelixKratz/formulae
+brew trust --formula felixkratz/formulae/sketchybar
+brew install sketchybar
+brew install --cask font-jetbrains-mono-nerd-font
+
+SRC="$(mktemp -d)/sketchybar-config"
+git clone -q https://github.com/unsecretised/sketchybar-config "$SRC"
+git -C "$SRC" checkout -q 07cf294e0572421c4c29e142668c4a50528a342f
+python3 <this-skill-dir>/assets/sketchybar/patch.py --source "$SRC" --gap "$GAP" --always-shown <screen count>
+brew services start felixkratz/formulae/sketchybar
+```
+
+`brew services` also starts it at login. Verify:
+
+```bash
+sketchybar --query bar | python3 -c 'import json,sys; print(", ".join(json.load(sys.stdin)["items"]))'
+```
+
+Expect `workspace.1` … `workspace.9`, `front_app`, `ram`, `battery`, `volume`, `clock` and the
+music items. Workspaces 1…(screen count) always show; the rest appear while they hold running
+apps. The RAM figure is memory pressure, not Activity Monitor's "Memory Used", which counts
+compressed memory as used and sits near 80% on a healthy Mac.
+
+### 13. Rectangle
+
+macOS's own edge snapping fills the whole screen and covers the bar. Rectangle snaps with gaps.
+It reads its settings at launch, so write them before the first start. Its window gap
+(`gapSize`) also applies at the screen edges, on top of the screen-edge gaps, so all spacing goes
+into `gapSize` and the edges stay 0 — that gives `GAP` at the edges and between windows. The top
+edge additionally clears the bar: `GAP` above it plus its 30 px groups (the window gap adds the
+`GAP` below). On a notched screen macOS already reserves the notch strip, so subtract it (that
+screen's `safeAreaInsets.top`):
+
+```bash
+brew install --cask rectangle
+osascript -l JavaScript -e 'ObjC.import("AppKit"); var s=$.NSScreen.screens, o=[];
+for (var i=0;i<s.count;i++){var c=s.objectAtIndex(i); o.push(ObjC.unwrap(c.localizedName)+"\t"+c.safeAreaInsets.top)}; o.join("\n")'
+```
+
+```bash
+R=com.knollsoft.Rectangle
+TOP=$((GAP + 30))
+defaults write $R gapSize -float "$GAP"
+defaults write $R screenEdgeGapTop -int "$TOP"
+defaults write $R screenEdgeGapTopNotch -int $((TOP - <notch inset, e.g. 32>))  # only with a notched screen
+defaults write $R screenEdgeGapBottom -int 0
+defaults write $R screenEdgeGapLeft -int 0
+defaults write $R screenEdgeGapRight -int 0
+# Caps Lock (Ctrl+Option+Cmd = 262144 + 524288 + 1048576) with arrow keys 123-126.
+M=1835008
+defaults write $R leftHalf -dict-add keyCode -float 123 modifierFlags -float $M
+defaults write $R rightHalf -dict-add keyCode -float 124 modifierFlags -float $M
+defaults write $R maximize -dict-add keyCode -float 126 modifierFlags -float $M
+defaults write $R restore -dict-add keyCode -float 125 modifierFlags -float $M
+```
+
+Output this and wait:
+
+```
+Please run:  open -a Rectangle
+  - Allow it under Accessibility.
+  - First-launch dialog: pick "Recommended" shortcuts (the Caps Lock ones above stay).
+    Those use Ctrl+Option+key, so they also trigger a dictation app that listens on Ctrl+Option.
+  - Rectangle settings -> Launch on login: on
+  - System Settings -> Desktop & Dock -> Windows -> "Drag windows to screen edges to tile": off,
+    so macOS and Rectangle don't both snap the same drag.
+```
+
+After changing any Rectangle setting later, `pkill -x Rectangle` and open it again.
+
+### 14. Done
 
 Report what was applied and where the backups are (`$BK`, plus `karabiner.json.bak-*`). Then tell
 the user:
