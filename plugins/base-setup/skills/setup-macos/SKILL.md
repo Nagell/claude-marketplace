@@ -278,6 +278,9 @@ The rules:
 | Ctrl+B / I / U | Cmd+B / I / U (bold, italic, underline) | not in terminals, VS Code |
 | Ctrl+T / Ctrl+Shift+T | Cmd+T new tab / Cmd+Shift+T reopen closed tab | Chrome, Chrome for Testing, Firefox, Safari |
 | Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Chrome for Testing, Firefox, Safari |
+| Ctrl+Shift+C / Ctrl+K | Cmd+Shift+C code / Cmd+Shift+U link | Slack |
+| Ctrl+Shift+Esc | Cmd+Option+Esc (Force Quit Applications) | all apps |
+| Option+Shift+S | Cmd+Shift+4 (area screenshot) | all apps |
 | Cmd+Q | `@` (Option+L on German, Option+Q on German – Standard, Shift+2 on other layouts) instead of quitting the app | all apps |
 
 Cmd+Q is where Windows' AltGr+Q (`@` on German keyboards) lands on a Mac, so it quits apps by
@@ -343,9 +346,9 @@ bar on top. Four tools, each with one job:
 | Tool | Job | Keys |
 | --- | --- | --- |
 | [FlashSpace](https://github.com/wojciech-kulik/FlashSpace) | Workspaces: which apps belong to which number, which screen each number lives on | Caps+1…9 switch, Caps+Shift+1…9 assign the focused app |
-| [Rectangle](https://rectangleapp.com) | Window size and position inside a screen, with gaps | Caps+←/→ halves, Caps+↑ maximize, Caps+↓ restore, or drag to an edge |
+| [Rectangle](https://rectangleapp.com) | Window size and position inside a screen, with gaps | Option or Caps+←/→ halves, Option or Caps+↑ maximize, Option+↓ minimize, or drag to an edge |
 | [SketchyBar](https://github.com/FelixKratz/SketchyBar) | The bar: workspace numbers with app icons, RAM, volume, battery, clock | Click a number to switch |
-| Karabiner-Elements | Caps Lock sends Ctrl+Option+Cmd, the modifier for all of the above | — |
+| Karabiner-Elements | Caps Lock sends Ctrl+Option+Cmd, the modifier for all of the above; Option+arrows (Win+arrows on a PC keyboard) forward to Rectangle | — |
 
 Use AskUserQuestion: "Set up numbered workspaces per screen with a top bar (FlashSpace, SketchyBar,
 Rectangle)?" — "Yes (Recommended)" / "No". If no, skip to Step 14.
@@ -378,6 +381,9 @@ python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] --caps-lock-hyper [--
 ```
 
 The rule presses Cmd before Ctrl and Option, so the chord never passes through bare Ctrl+Option.
+The flag also adds Option+←/→/↑ → Caps+←/→/↑ (Rectangle's halves and maximize, Step 13) and
+Option+↓ → Cmd+M (minimize), like Win+arrows. Rectangle cannot bind Option+arrows itself: the
+Ctrl+←/→ word-jump rule sends them, and Rectangle would take those too.
 
 ### 10. Menu bar auto-hide
 
@@ -519,12 +525,12 @@ defaults write $R screenEdgeGapTopNotch -int $((TOP - <notch inset, e.g. 32>))  
 defaults write $R screenEdgeGapBottom -int 0
 defaults write $R screenEdgeGapLeft -int 0
 defaults write $R screenEdgeGapRight -int 0
-# Caps Lock (Ctrl+Option+Cmd = 262144 + 524288 + 1048576) with arrow keys 123-126.
+# Caps Lock (Ctrl+Option+Cmd = 262144 + 524288 + 1048576) with arrow keys 123, 124, 126.
+# Down is Karabiner's minimize, so restore gets no hotkey.
 M=1835008
 defaults write $R leftHalf -dict-add keyCode -float 123 modifierFlags -float $M
 defaults write $R rightHalf -dict-add keyCode -float 124 modifierFlags -float $M
 defaults write $R maximize -dict-add keyCode -float 126 modifierFlags -float $M
-defaults write $R restore -dict-add keyCode -float 125 modifierFlags -float $M
 ```
 
 Output this and wait:
