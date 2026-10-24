@@ -36,6 +36,8 @@ BROWSERS = [
     "com.apple.Safari",
 ]
 
+SLACK = "com.tinyspeck.slackmacgap"
+
 # Karabiner matches physical key positions in US terms, so on QWERTZ layouts the Z and Y
 # rules swap. Add every enabled QWERTZ layout (Swiss German, Austrian, Czech, ...) here.
 QWERTZ_LAYOUTS = [
@@ -68,6 +70,10 @@ def in_browsers():
     return {"type": "frontmost_application_if", "bundle_identifiers": anchored(BROWSERS)}
 
 
+def in_slack():
+    return {"type": "frontmost_application_if", "bundle_identifiers": anchored([SLACK])}
+
+
 def layout(condition_type):
     sources = [{"input_source_id": s} for s in anchored(QWERTZ_LAYOUTS)]
     return {"type": condition_type, "input_sources": sources}
@@ -81,6 +87,31 @@ def remap(from_key, from_mods, to_key, to_mods, *extra_conditions):
         "conditions": [not_in_excluded_apps(), *extra_conditions],
     }
 
+
+def everywhere(from_key, from_mods, to_key, to_mods):
+    return {
+        "type": "basic",
+        "from": {"key_code": from_key, "modifiers": {"mandatory": from_mods}},
+        "to": [{"key_code": to_key, "modifiers": to_mods}],
+    }
+
+
+# Ctrl+Option+Cmd, the modifier Rectangle's window hotkeys listen on.
+HYPER = ["left_control", "left_option", "left_command"]
+
+# Rectangle cannot listen on Option+arrows itself: the word-jump rule sends Option+Left/Right,
+# and Rectangle would catch those too. Karabiner never remaps its own output, so the physical
+# keys are translated to Rectangle's hotkeys here instead.
+WINDOW_ARROWS = {
+    "description": "Windows: Option+Left/Right/Up snap and maximize, Option+Down minimizes "
+                   "(all apps)",
+    "manipulators": [
+        everywhere("left_arrow", ["option"], "left_arrow", HYPER),
+        everywhere("right_arrow", ["option"], "right_arrow", HYPER),
+        everywhere("up_arrow", ["option"], "up_arrow", HYPER),
+        everywhere("down_arrow", ["option"], "m", ["command"]),
+    ],
+}
 
 CAPS_LOCK_HYPER = {
     "description": "Caps Lock sends Ctrl+Option+Cmd (workspace and window hotkeys)",
@@ -109,7 +140,7 @@ def build_rules(work_dir, caps_lock_hyper=False):
         "to": [{"key_code": "w", "modifiers": ["command"]}],
         "conditions": [],
     }
-    hyper = [CAPS_LOCK_HYPER] if caps_lock_hyper else []
+    hyper = [CAPS_LOCK_HYPER, WINDOW_ARROWS] if caps_lock_hyper else []
     return hyper + [
         {"description": "Windows: Option+F4 closes the window (Cmd+W)",
          "manipulators": [close_window]},
@@ -157,6 +188,15 @@ def build_rules(work_dir, caps_lock_hyper=False):
          ]},
         {"description": "Windows: Ctrl+Shift+I opens developer tools (browsers)",
          "manipulators": [remap("i", ctrl_shift, "i", ["command", "option"], in_browsers())]},
+        {"description": "Windows: Ctrl+Shift+C code, Ctrl+K link (Slack)",
+         "manipulators": [
+             remap("c", ctrl_shift, "c", ["command", "shift"], in_slack()),
+             remap("k", ctrl, "u", ["command", "shift"], in_slack()),
+         ]},
+        {"description": "Windows: Ctrl+Shift+Esc opens Force Quit Applications (all apps)",
+         "manipulators": [everywhere("escape", ctrl_shift, "escape", ["command", "option"])]},
+        {"description": "Windows: Option+Shift+S takes an area screenshot (all apps)",
+         "manipulators": [everywhere("s", ["option", "shift"], "4", ["command", "shift"])]},
         {"description": "Windows: Cmd+Q types @ instead of quitting (all apps)",
          "manipulators": at_sign_manipulators()},
     ]
@@ -283,7 +323,8 @@ def main():
     parser.add_argument("--device", type=parse_device, action="append", default=[],
                         metavar="VID:PID", help="also modify this keyboard+pointing device")
     parser.add_argument("--caps-lock-hyper", action="store_true",
-                        help="make Caps Lock send Ctrl+Option+Cmd for FlashSpace and Rectangle")
+                        help="make Caps Lock send Ctrl+Option+Cmd for FlashSpace and Rectangle, "
+                             "and Option+arrows drive Rectangle")
     parser.add_argument("--hide-menu-bar-icon", action="store_true",
                         help="hide Karabiner's menu bar icon")
     parser.add_argument("--dry-run", action="store_true", help="print the result, write nothing")
