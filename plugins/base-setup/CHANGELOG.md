@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.8.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.7.0...base-setup-v1.8.0) (2026-10-24)
+
+
+### Features
+
+* **base-setup:** add Win+arrows, Force Quit, screenshot, Slack keys ([ef3873e](https://github.com/Nagell/claude-marketplace/commit/ef3873eb6b5539be6b398383f7f230350086eb20))
+* **base-setup:** add Win+arrows, Force Quit, screenshot, Slack keys ([e6d8131](https://github.com/Nagell/claude-marketplace/commit/e6d81314d4722e4fc3664f90ac2e7c0854a3475b))
+
 ## [1.7.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.6.0...base-setup-v1.7.0) (2026-10-20)
 
 
