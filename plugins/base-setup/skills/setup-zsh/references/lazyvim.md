@@ -8,7 +8,7 @@ file does, changing the theme, known quirks, and how to remove it.
 | Installed path | Source | Purpose |
 | --- | --- | --- |
 | `~/.config/nvim/init.lua`, `lua/config/{lazy,autocmds}.lua` | LazyVim starter | Bootstraps lazy.nvim and LazyVim |
-| `~/.config/nvim/lazyvim.json` | `assets/lazyvim/lazyvim.json` | Enabled extras (TypeScript, ESLint, Prettier, JSON, YAML, Markdown) |
+| `~/.config/nvim/lazyvim.json` | `assets/lazyvim/lazyvim.json` | Enabled extras (TypeScript, Vue, Python, ESLint, Prettier, JSON, YAML, Markdown) |
 | `~/.config/nvim/lazy-lock.json` | `assets/lazyvim/lazy-lock.json` | Plugin commits that `Lazy! restore` checks out |
 | `~/.config/nvim/lua/config/keymaps.lua` | `assets/lazyvim/lua/config/keymaps.lua` | VS Code- and Windows-style shortcuts |
 | `~/.config/nvim/lua/config/options.lua` | `assets/lazyvim/lua/config/options.lua` | Windows-style selection (`keymodel`, `selectmode`); replaces the starter's copy |
