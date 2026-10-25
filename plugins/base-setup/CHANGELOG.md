@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.9.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.8.0...base-setup-v1.9.0) (2026-10-25)
+
+
+### Features
+
+* **base-setup:** add Vue, Python and IPython to setup-zsh ([866380c](https://github.com/Nagell/claude-marketplace/commit/866380cf744409ee763554b477e3f561a9efcaa5))
+
 ## [1.8.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.7.0...base-setup-v1.8.0) (2026-10-24)
 
 
