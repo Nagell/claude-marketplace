@@ -14,7 +14,7 @@ out(ok and ("parsers: " .. #parsers .. " installed") or "parsers: timed out or f
 -- 2. Mason packages the extras need; each attempted once, failures reported
 local registry = require("mason-registry")
 local packages = {
-  "vtsls", "eslint-lsp", "json-lsp", "yaml-language-server", "marksman",
+  "vtsls", "vue-language-server", "pyright", "ruff", "eslint-lsp", "json-lsp", "yaml-language-server", "marksman",
   "lua-language-server", "stylua", "prettier", "markdownlint-cli2", "markdown-toc", "shfmt",
 }
 

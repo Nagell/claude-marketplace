@@ -1,12 +1,12 @@
 ---
 name: setup-zsh
-description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts, plus optional terminal tools (glow, mdv, btop, herdr) and a LazyVim Neovim editor
+description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts, plus optional terminal tools (glow, mdv, btop, herdr), a LazyVim Neovim editor (TypeScript, Vue, Python) and Python tooling (uv, IPython)
 disable-model-invocation: true
 ---
 
 # Setup Zsh Environment
 
-Install and configure a complete Zsh environment with zinit plugin manager, Powerlevel10k theme, zsh-autosuggestions, zsh-syntax-highlighting, and MesloLGS NF Nerd Font. No Oh My Zsh — zinit self-bootstraps and manages everything. Optionally sets up Neovim as a VS Code-like editor with LazyVim. Handles WSL, native Linux, and macOS environments.
+Install and configure a complete Zsh environment with zinit plugin manager, Powerlevel10k theme, zsh-autosuggestions, zsh-syntax-highlighting, and MesloLGS NF Nerd Font. No Oh My Zsh — zinit self-bootstraps and manages everything. Optionally sets up Neovim as a VS Code-like editor with LazyVim, and Python with uv and IPython. Handles WSL, native Linux, and macOS environments.
 
 ## Implementation Steps
 
@@ -1254,11 +1254,13 @@ Copies travel as OSC 52 through the terminal, so they reach the Windows clipboar
 
 ### 16. Set up Neovim as an editor with LazyVim (optional)
 
-Turns `nvim` into a VS Code-like editor: [LazyVim](https://www.lazyvim.org) with a file tree, fuzzy file search, TypeScript (vtsls), ESLint, Prettier, JSON/YAML/Markdown support, lazygit, Catppuccin Mocha with a transparent background (the same theme mdv uses), a few VS Code shortcuts, and Windows-style selection, copy/paste and undo/redo. It lives in `~/.config/nvim`; mdv keeps its own `~/.config/mdv` (`NVIM_APPNAME=mdv`), so neither affects the other.
+Turns `nvim` into a VS Code-like editor: [LazyVim](https://www.lazyvim.org) with a file tree, fuzzy file search, TypeScript (vtsls), Vue (vue_ls), Python (pyright, ruff), ESLint, Prettier, JSON/YAML/Markdown support, lazygit, Catppuccin Mocha with a transparent background (the same theme mdv uses), a few VS Code shortcuts, and Windows-style selection, copy/paste and undo/redo. It lives in `~/.config/nvim`; mdv keeps its own `~/.config/mdv` (`NVIM_APPNAME=mdv`), so neither affects the other.
 
-Use AskUserQuestion to ask "Set up Neovim as a code editor (LazyVim with file tree, TypeScript, ESLint/Prettier, VS Code-style shortcuts)?" with options "Yes" and "Skip". If skipped, continue with Step 17.
+Use AskUserQuestion to ask "Set up Neovim as a code editor (LazyVim with file tree, TypeScript, Vue, Python, ESLint/Prettier, VS Code-style shortcuts)?" with options "Yes" and "Skip". If skipped, continue with Step 17.
 
 If Step 2 reported `nvim config: EXISTS`, do not overwrite it. Report that `~/.config/nvim` already exists and skip this step, unless the user explicitly asks to replace it — then move it aside first (`mv ~/.config/nvim ~/.config/nvim.bak-$(date +%Y%m%d)`, same for `~/.local/share/nvim`).
+
+An existing config that is LazyVim (has `~/.config/nvim/lazyvim.json`) can still pick up language support it lacks. Compare its `extras` with `assets/lazyvim/lazyvim.json`. If any are missing (for example `lang.vue` or `lang.python`), use AskUserQuestion to offer adding them. On yes, insert the missing entries into the user's `extras` list with the Edit tool, then run only the two headless passes under **Install plugins, language servers and parsers** below. Use `Lazy! install` instead of `Lazy! restore` there, so the user's own pinned plugin versions stay as they are.
 
 #### Neovim 0.11 or newer
 
@@ -1320,7 +1322,7 @@ What each asset does:
 
 | File | Effect |
 | --- | --- |
-| `lazyvim.json` | Turns on the extras: `lang.typescript`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml`, `lang.markdown` |
+| `lazyvim.json` | Turns on the extras: `lang.typescript`, `lang.vue`, `lang.python`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml`, `lang.markdown` |
 | `lazy-lock.json` | Plugin commits known to work together |
 | `lua/plugins/colorscheme.lua` | Catppuccin Mocha with `transparent_background`, plus One Dark / One Dark Pro kept lazy for previewing |
 | `lua/config/keymaps.lua` | `Ctrl+P` find file, `Ctrl+B` file tree, `Ctrl+/` comment (LazyVim already has `Ctrl+S`); Windows-style `Ctrl+C`/`X`/`V` copy, cut, paste, `Ctrl+Z`/`Y` undo, redo, `Ctrl+A` select all |
@@ -1371,6 +1373,18 @@ cd <any git repo> && ~/.local/bin/nvim --headless -c 'doautocmd User VeryLazy' -
 
 Expect entries such as `.gitignore` or `.github`, and no `(N hidden items)` line.
 
+Check that the Vue and Python language servers attach as well:
+
+```bash
+T=$(mktemp -d) && cd "$T" && echo '{}' > tsconfig.json && \
+printf '<script setup lang="ts">\nconst x: number = 1\n</script>\n' > A.vue && printf 'import math\nmath.pi\n' > t.py && \
+for f in A.vue t.py; do ~/.local/bin/nvim --headless "$f" -c 'doautocmd User VeryLazy' -c 'sleep 15' \
+  -c 'lua io.stdout:write(vim.fn.expand("%") .. ": " .. table.concat(vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ bufnr = 0 })), ",") .. "\n")' \
+  -c 'qa!' 2>&1 | tail -1; done
+```
+
+Expect `A.vue: vue_ls,vtsls` and `t.py: pyright,ruff`. Completion items appear in the menu while typing (e.g. after `math.`). Enter accepts one. Tab does not, because LazyVim keeps Tab for jumping between snippet fields.
+
 Then tell the user:
 
 ```
@@ -1389,7 +1403,70 @@ After editing ~/.config/nvim, run :restart — lazy.nvim reloads plugin specs on
 
 The transparent background only shows through if the terminal itself is translucent (Windows Terminal: Settings → Defaults → Appearance → Background opacity / acrylic). Details, changing the theme, and uninstall: this skill's `references/lazyvim.md`.
 
-### 17. Install btop
+### 17. Set up Python: uv, a current Python and IPython (optional)
+
+Distribution Pythons are often old (Debian 12 ships 3.11). Below 3.13 the built-in console has no colors, and its completion is basic in every version. This step installs [uv](https://docs.astral.sh/uv/), uses it to put a current Python on PATH ahead of the system one, and adds IPython as the everyday console. Everything goes under `$HOME`, so no sudo is needed.
+
+Use AskUserQuestion to ask "Set up Python (uv, Python 3.14 as your default python/python3, IPython console)?" with options "Yes" and "Skip". If skipped, continue with Step 18.
+
+```bash
+command -v uv && uv --version || echo "uv: MISSING"
+python3 --version; command -v python3
+command -v ipython && ipython --version || echo "ipython: MISSING"
+```
+
+#### Install uv
+
+Skip if uv is already installed.
+
+**If MACOS, or LINUX/WSL with linuxbrew available:** `brew install uv`
+
+**Otherwise** use the official installer, which writes to `~/.local/bin`:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+#### Python 3.14 as the user default
+
+```bash
+uv python install 3.14 --default
+```
+
+This creates `python`, `python3` and `python3.14` links in `~/.local/bin`. uv marks `--default` as experimental and prints a warning, but the install works. The system `/usr/bin/python3` is not touched, which matters because apt and other OS tools depend on it. The links only take effect if `~/.local/bin` comes before `/usr/bin` in PATH. Check with `zsh -i -c 'command -v python3'`. If that does not print `~/.local/bin/python3`, add the `setup-zsh local-bin` block from Step 15.
+
+uv's Python is marked as externally managed, so a global `pip install` is refused. Packages go into a project venv (`uv venv`, then `uv pip install <pkg>`), and command-line tools go in with `uv tool install`.
+
+#### IPython
+
+```bash
+uv tool install ipython
+```
+
+This gives a global `ipython` with colors, completion and `%autoreload`. It runs in its own environment, so it can import files from the current folder but not packages installed into a project venv. For a project with dependencies, also run `uv pip install ipython` inside that project's activated venv.
+
+#### Verify
+
+```bash
+zsh -i -c 'python3 --version; ipython --version' 2>/dev/null
+```
+
+Expect `Python 3.14.x` and an IPython version. Terminals that are already open still remember the old `python3` path until `hash -r` or a new tab.
+
+Then tell the user:
+
+```
+Python is set up. python / python3 now run 3.14; /usr/bin/python3 stays for the OS.
+  ipython                         console with colors and Tab completion
+  %load_ext autoreload            then %autoreload 2: edited files reload before each command
+  import mymodule; mymodule.f()   call functions directly (IPython lines are Python, not shell)
+  %run script.py --flag           run a script with command-line flags from inside IPython
+  ipython script.py -- --flag     same from the shell (the -- stops IPython reading --flag itself)
+  uv venv && uv pip install X     per-project packages; activate with source .venv/bin/activate
+Open nvim after activating a venv so pyright sees that venv's packages.
+```
+
+### 18. Install btop
 
 btop is a resource monitor (CPU, memory, disks, network, process list) with a much nicer terminal UI than `top`/`htop`. Standalone tool, no `.zshrc` wiring needed.
 
@@ -1418,7 +1495,7 @@ Verify:
 btop --version
 ```
 
-### 18. Set up the terminal (macOS: Ghostty, WSL: Windows Terminal profile)
+### 19. Set up the terminal (macOS: Ghostty, WSL: Windows Terminal profile)
 
 Skip this step on native Linux.
 
@@ -1477,9 +1554,9 @@ keybind = alt+v=esc:v
 mouse-scroll-multiplier = precision:1,discrete:1
 ```
 
-The scroll setting only covers Ghostty's own scrollback: inside herdr, herdr scrolls (Step 19).
+The scroll setting only covers Ghostty's own scrollback: inside herdr, herdr scrolls (Step 20).
 
-`window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 19 covers herdr).
+`window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 20 covers herdr).
 
 Don't bind `ctrl+v` in Ghostty: zsh (`_paste_from_clipboard`, Step 7) and nvim (the LazyVim keymaps) handle Ctrl+V themselves, and Claude Code needs to receive it (below). Only `alt+v` is remapped; changing `macos-option-as-alt` instead would break the Option characters of non-US layouts.
 
@@ -1519,7 +1596,7 @@ Ghostty picks up config changes after Cmd+Shift+, (reload config) or a restart.
 
 #### If WSL: Windows Terminal profile for herdr
 
-There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts herdr (installed in Step 19) instead. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into herdr?" — "Yes (Recommended)" / "No, I won't use herdr". If no, skip the rest of this step.
+There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts herdr (installed in Step 20) instead. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into herdr?" — "Yes (Recommended)" / "No, I won't use herdr". If no, skip the rest of this step.
 
 Locate `settings.json` with the same loop as Step 12, read it with the Read tool, back it up (`cp`, `.bak-<timestamp>` suffix), and if no profile named `herdr` exists, add one to `profiles.list` with the Edit tool. Generate the GUID with `cat /proc/sys/kernel/random/uuid`.
 
@@ -1535,7 +1612,7 @@ Locate `settings.json` with the same loop as Step 12, read it with the Read tool
 
 Then ask (AskUserQuestion): "Make herdr the default Windows Terminal profile?" — "Yes" / "No". If yes, set the top-level `"defaultProfile"` to the new GUID. Windows Terminal reloads `settings.json` on save.
 
-### 19. Install herdr, herdr-spin, and agent notifications (optional)
+### 20. Install herdr, herdr-spin, and agent notifications (optional)
 
 [herdr](https://herdr.dev) is a terminal workspace manager for running AI coding agents
 (Claude Code, Codex, etc.) in one window, with a sidebar that tracks each agent's status.
@@ -1554,7 +1631,7 @@ that tracks each agent's status. Install it now?" with options "Yes, install her
 "No, skip this step".
 
 - If the user says no, skip the rest of this step (including herdr-spin and
-  notifications below) and move on to Step 20.
+  notifications below) and move on to Step 21.
 - If yes, install it with herdr's official installer — this works the same on Linux,
   macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
   `~/.local/bin`):
@@ -1605,7 +1682,7 @@ fi
 ```
 
 Quitting herdr drops back to the normal zsh prompt in that tab. On WSL, the Windows
-Terminal profile from Step 18 does this job instead; nothing goes into `~/.zshrc`.
+Terminal profile from Step 19 does this job instead; nothing goes into `~/.zshrc`.
 
 **4. herdr is now installed** (either just now, or already). Check its version against
 herdr-spin's minimum (0.8.2), and check what's already configured:
@@ -1638,7 +1715,7 @@ mouse_scroll_lines = 1
 Apply with `herdr server reload-config`; no restart needed.
 
 Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
-check passed). If both are already configured, report that and skip to Step 20.
+check passed). If both are already configured, report that and skip to Step 21.
 
 Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
 installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
@@ -1647,7 +1724,7 @@ this plugin restores one glyph per agent state in the sidebar) and "Agent notifi
 (a toast when a background agent finishes or needs input, so you don't have to keep
 glancing at the sidebar).
 
-If the user picks neither, skip to Step 20.
+If the user picks neither, skip to Step 21.
 
 **5. If "Animated agent spinner (herdr-spin)" was picked:**
 
@@ -1747,7 +1824,7 @@ Apply:
 herdr server reload-config
 ```
 
-### 20. Apply Configuration
+### 21. Apply Configuration
 
 Run using Bash tool to verify the config is valid:
 
