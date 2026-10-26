@@ -90,11 +90,11 @@ if [ -n "$ctx_used" ] && [ "$ctx_used" != "null" ]; then
     # Uniform bar: white filled, dim-white empty (no traffic-light coloring)
     progress_bar='\033[97m'
     for ((i=0; i<filled; i++)); do
-        progress_bar="${progress_bar}▰"
+        progress_bar="${progress_bar}■"
     done
     progress_bar="${progress_bar}\033[37;2m"
     for ((i=0; i<empty; i++)); do
-        progress_bar="${progress_bar}▱"
+        progress_bar="${progress_bar}─"
     done
     progress_bar="${progress_bar}\033[0m"
 
