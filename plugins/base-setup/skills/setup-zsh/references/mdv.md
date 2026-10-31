@@ -18,6 +18,7 @@ how to remove it.
 | `~/.local/opt/nvim-*/`, `~/.local/bin/nvim` | Neovim release tarball          | Neovim itself, only when the step had to install one                     |
 | `~/.config/herdr-mdv-restore/`              | `assets/mdv-restore/`           | herdr plugin that reopens mdv after a restart (Step 20, optional)        |
 | `~/.local/state/mdv-restore/`               | written by the launcher         | Open files per herdr pane, read by the plugin                            |
+| `mdv-resume` label on an app terminal       | written by the launcher         | Open files per Herdr app terminal, read by the `~/.zshrc` block          |
 
 `assets/mdv/` is the source of truth. A change made on a machine's `~/.config/mdv` goes
 back into the assets, and the lock file travels with it.
@@ -65,6 +66,13 @@ This replaces the first version, which reported `mdv <paths>` to herdr as the pa
 resume command through `herdr pane report-agent`. That reused herdr's own agent restore,
 but herdr then listed every open mdv as an agent in the sidebar, and it rejected paths
 containing an apostrophe. herdr has no way to keep a reported agent out of the sidebar.
+
+**Reopened in the Herdr app.** Inside a Herdr app terminal (`HC_TERMINAL_ID` set), the
+wrapper stores the same launcher path and files as a JSON array in the terminal's
+`mdv-resume` label (`hc label`) and clears it on a clean quit. herdr-core keeps labels across
+a reboot and gives a lost terminal a fresh shell with the same address; the `setup-zsh
+herdr-app` block in `~/.zshrc` (`references/herdr-app.md`) finds the label there and types
+the mdv command as the shell's first command. No plugin is involved.
 
 ## Keys
 

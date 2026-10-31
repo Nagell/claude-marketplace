@@ -1,6 +1,6 @@
 ---
 name: setup-zsh
-description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts, plus optional terminal tools (glow, mdv, btop, herdr), a LazyVim Neovim editor (TypeScript, Vue, Python) and Python tooling (uv, IPython)
+description: Install and configure Zsh with zinit, Powerlevel10k, autosuggestions, syntax highlighting, and Nerd Fonts, plus optional terminal tools (glow, mdv, btop, the herdr TUI and Herdr app), a LazyVim Neovim editor (TypeScript, Vue, Python) and Python tooling (uv, IPython)
 disable-model-invocation: true
 ---
 
@@ -1604,7 +1604,7 @@ Ghostty picks up config changes after Cmd+Shift+, (reload config) or a restart.
 
 #### If WSL: Windows Terminal profile for herdr
 
-There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts herdr (installed in Step 20) instead. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into herdr?" — "Yes (Recommended)" / "No, I won't use herdr". If no, skip the rest of this step.
+There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts the herdr TUI (installed in Step 20) instead. It is only for the TUI; the Herdr app is its own window. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into the herdr TUI?" — "Yes (Recommended)" / "No, I won't use the herdr TUI". If no, skip the rest of this step.
 
 Locate `settings.json` with the same loop as Step 12, read it with the Read tool, back it up (`cp`, `.bak-<timestamp>` suffix), and if no profile named `herdr` exists, add one to `profiles.list` with the Edit tool. Generate the GUID with `cat /proc/sys/kernel/random/uuid`.
 
@@ -1620,27 +1620,37 @@ Locate `settings.json` with the same loop as Step 12, read it with the Read tool
 
 Then ask (AskUserQuestion): "Make herdr the default Windows Terminal profile?" — "Yes" / "No". If yes, set the top-level `"defaultProfile"` to the new GUID. Windows Terminal reloads `settings.json` on save.
 
-### 20. Install herdr, herdr-spin, and agent notifications (optional)
+### 20. Install herdr: the TUI, the app, or both (optional)
 
-[herdr](https://herdr.dev) is a terminal workspace manager for running AI coding agents
-(Claude Code, Codex, etc.) in one window, with a sidebar that tracks each agent's status.
-Nothing else in this skill depends on it — this step only sets it up (and two optional
-extras) for people who use or want to try it.
+[herdr](https://herdr.dev) runs AI coding agents (Claude Code, Codex, etc.) side by side,
+with a sidebar that tracks each agent's status. It comes in two independent products that
+can be installed side by side:
 
-**1. Check whether herdr is installed, using the official docs' own check.**
+- **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal,
+  Ghostty). Resumes Claude Code after a restart by itself. Extras below: herdr-spin,
+  notifications, mdv-restore.
+- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL
+  and shows through WSLg. Claude Code and mdv come back after a reboot through
+  herdr-agent-resume and a zsh block.
+
+Nothing else in this skill depends on either.
+
+**1. Check what is installed.**
 
 ```bash
-which herdr 2>/dev/null && herdr --version || echo "NOT INSTALLED"
+which herdr 2>/dev/null && herdr --version || echo "herdr TUI: NOT INSTALLED"
+command -v herdr-app >/dev/null && echo "herdr app: INSTALLED" || echo "herdr app: NOT INSTALLED"
 ```
 
-**2. If `NOT INSTALLED`**, use AskUserQuestion: "herdr isn't installed — it's a terminal
-workspace manager for running AI coding agents (Claude Code, Codex, etc.) with a sidebar
-that tracks each agent's status. Install it now?" with options "Yes, install herdr" and
-"No, skip this step".
+**2. Ask which one to set up.** Use AskUserQuestion: "Which herdr do you want to set up?"
+with options "Herdr TUI", "Herdr app", "Both" and "Neither". Mention what is already
+installed in the question; picking an installed one still runs its configuration below.
 
-- If the user says no, skip the rest of this step (including herdr-spin and
-  notifications below) and move on to Step 21.
-- If yes, install it with herdr's official installer — this works the same on Linux,
+- **Neither:** skip to Step 21.
+- **Herdr app** or **Both:** follow this skill's `references/herdr-app.md` from top to
+  bottom. With **Herdr app** alone, skip the rest of this step afterwards and go to Step 21.
+- **Herdr TUI** or **Both:** continue below. If the TUI is `NOT INSTALLED`, install it with
+  herdr's official installer — this works the same on Linux,
   macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
   `~/.local/bin`):
 
