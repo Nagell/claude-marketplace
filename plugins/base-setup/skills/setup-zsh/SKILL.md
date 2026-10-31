@@ -1160,7 +1160,15 @@ Everything installs under `$HOME` — no sudo. Needs `git`, `curl`, `tar` and ac
 
 Use AskUserQuestion to ask "Install mdv, a Neovim-based Markdown viewer with live reload and copy-on-select?" with options "Yes" and "Skip". If skipped, continue with Step 16.
 
-Skip the whole step if Step 2 reported `mdv: INSTALLED`; report it as already installed.
+If Step 2 reported `mdv: INSTALLED`, don't ask the question above. Instead, check whether the installed files match this skill's copies, since a skipped step never delivers launcher or config updates:
+
+```bash
+A=<this-skill-dir>/assets/mdv
+for f in init.lua lazy-lock.json lua/mdreflow.lua lua/mdview.lua; do cmp -s "$A/$f" ~/.config/mdv/$f || echo "OUTDATED: ~/.config/mdv/$f"; done
+cmp -s "$A/mdv" ~/.local/bin/mdv || echo "OUTDATED: ~/.local/bin/mdv"
+```
+
+If nothing prints, report mdv as already installed and up to date, and continue with Step 16. Otherwise list the outdated files and use AskUserQuestion: "Update mdv to this skill's version? Local changes to these files are overwritten" with options "Yes, update (Recommended)" and "Skip". On yes, run **Copy the launcher and config** below. If `lazy-lock.json` was among them, also run **Install the plugins** so the pinned plugin versions are checked out. Then continue with Step 16.
 
 #### Neovim 0.10 or newer
 
