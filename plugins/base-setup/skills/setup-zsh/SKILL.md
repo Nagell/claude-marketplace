@@ -59,6 +59,22 @@ Report which components are already installed. Zinit manages all plugins and Pow
 
 ### 3. Install Zsh (requires user action on Linux/WSL)
 
+Later steps need a few base tools that a fresh Debian/Ubuntu (WSL in particular) leaves out: `git` (zinit, LazyVim), `curl` (fonts, installers), `unzip` (Fira Code, Mason), `jq` (glow style, the Herdr app block), `fc-cache` from fontconfig (fonts on Linux) and `gpg` (glow's apt repo). Check them alongside zsh:
+
+```bash
+for c in zsh git curl unzip jq fc-cache gpg; do printf "%s: " $c; command -v $c >/dev/null && echo OK || echo MISSING; done
+```
+
+On LINUX or WSL, if anything is MISSING, hand over one command that installs them together, even when zsh itself is already there, instead of letting a later step fail halfway. Package names: `fontconfig` for `fc-cache`, `gnupg` for `gpg`:
+
+```
+Please run this command manually, then confirm when done:
+
+sudo apt update && sudo apt install -y zsh git curl unzip jq fontconfig gnupg
+```
+
+Add `chsh -s $(which zsh)` below it only when zsh was MISSING. On MACOS the system has git, curl and unzip; install a missing `jq` with `brew install jq`.
+
 If Zsh is not installed:
 
 **If MACOS:** Zsh is the default shell since macOS Catalina. It should already be installed. If somehow missing, instruct the user:
@@ -70,16 +86,7 @@ brew install zsh
 chsh -s $(which zsh)
 ```
 
-**If LINUX or WSL:** **IMPORTANT: Claude cannot run sudo commands.** Output the following message to the user and wait for confirmation before proceeding:
-
-```
-Please run these commands manually in your terminal, then confirm when done:
-
-sudo apt update && sudo apt install zsh -y
-chsh -s $(which zsh)
-```
-
-Explain that `chsh` changes the default shell and takes effect on next login/terminal session.
+**If LINUX or WSL:** **IMPORTANT: Claude cannot run sudo commands.** The combined command above already installs zsh; output it with `chsh -s $(which zsh)` added and wait for confirmation before proceeding. Explain that `chsh` changes the default shell and takes effect on next login/terminal session.
 
 **DO NOT proceed to Step 4 until the user confirms Zsh is installed.** Use AskUserQuestion to ask "Have you finished installing Zsh and setting it as default shell?" with options "Yes, done" and "Skip, it was already installed".
 
@@ -129,13 +136,25 @@ After installing, verify:
 which fzf && fzf --version
 ```
 
+**Check the version, also when fzf was already installed.** Step 6 sets up fzf's key bindings with `eval "$(fzf --zsh)"`, which fzf only supports from 0.48 on. Debian 12 ships 0.38 (Ubuntu 22.04 0.29), so with the apt package every new shell prints an error and the bindings are missing. If the version is below 0.48, install the current release binary into `~/.local/bin`, no sudo:
+
+```bash
+case "$(uname -m)" in x86_64) A=linux_amd64 ;; aarch64) A=linux_arm64 ;; esac
+URL=$(curl -fsSL https://api.github.com/repos/junegunn/fzf/releases/latest \
+  | jq -r --arg a "$A" '.assets[] | select(.name | endswith("-" + $a + ".tar.gz")) | .browser_download_url')
+mkdir -p ~/.local/bin && curl -fsSL "$URL" | tar -xz -C ~/.local/bin fzf
+~/.local/bin/fzf --version
+```
+
+The new binary only wins if `~/.local/bin` comes before `/usr/bin` in PATH when `.zshrc` runs that `eval`, so in this case Step 6 adds `export PATH="$HOME/.local/bin:$PATH"` right after the P10K instant prompt block (or at the top of a new file), unless `~/.zshrc` already exports it that early.
+
 ### 6. Configure ~/.zshrc
 
 Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured: only make sure `bindkey -e` (with its comment, as in `assets/zshrc/zinit.zsh`) sits right after the `source "${ZINIT_HOME}/zinit.zsh"` line, adding it with the Edit tool if missing, then skip to Step 7.
 
 Otherwise, read the existing `~/.zshrc` with the Read tool to identify any PATH exports, NVM setup, custom functions, or keybindings to preserve. Then use the Write tool to create `~/.zshrc` with this structure, incorporating any preserved content after the aliases block:
 
-1. The P10K instant prompt block (keep it first if the file has one).
+1. The P10K instant prompt block (keep it first if the file has one). If Step 5 put fzf into `~/.local/bin`, follow it with `export PATH="$HOME/.local/bin:$PATH"`.
 2. The core zinit block: the content of `assets/zshrc/zinit.zsh`, before any other config.
 3. History, completion styling and aliases after the zinit block: the content of `assets/zshrc/history.zsh`.
 4. Preserved content.
@@ -247,10 +266,10 @@ pcm.default pulse
 ctl.default pulse
 ```
 
-**Add `PULSE_SERVER` to `.zshrc`:** If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after the `export PATH=` line:
+**Add `PULSE_SERVER` to `.zshrc`:** If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it right before the zinit block, which Step 6 always writes (a fresh `.zshrc` has no `export PATH=` line to attach it to):
 
-- old_string: the existing `export PATH=...` line
-- new_string: same line + newline + `export PULSE_SERVER=unix:/mnt/wslg/runtime-dir/pulse/native`
+- old_string: `# Zinit - auto-installs itself if missing`
+- new_string: `export PULSE_SERVER=unix:/mnt/wslg/runtime-dir/pulse/native` + blank line + `# Zinit - auto-installs itself if missing`
 
 Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
 
@@ -324,11 +343,13 @@ Use the `FONT_CHOICE` from Step 4 to determine the font family name:
 
 Set `"terminal.integrated.fontFamily": "<font family>"` in all VS Code settings files — both the default and any profile-specific ones. VS Code profiles store their own `settings.json` that overrides the default.
 
-First, locate the VS Code config directory and find all `settings.json` files:
+First, locate the VS Code config directory and find all `settings.json` files. On WSL, VS Code runs on Windows and reads its user settings there (the terminal font is a window setting, even for a WSL window), so `~/.config/Code` inside Linux would have no effect:
 
 ```bash
 if [[ "$(uname)" == "Darwin" ]]; then
   VSCODE_DIR="$HOME/Library/Application Support/Code"
+elif grep -qi microsoft /proc/version 2>/dev/null; then
+  VSCODE_DIR="/mnt/c/Users/$(cmd.exe /c 'echo %USERNAME%' 2>/dev/null | tr -d '\r')/AppData/Roaming/Code"
 else
   VSCODE_DIR="$HOME/.config/Code"
 fi
