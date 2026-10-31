@@ -8,6 +8,16 @@ disable-model-invocation: true
 
 Install and configure a complete Zsh environment with zinit plugin manager, Powerlevel10k theme, zsh-autosuggestions, zsh-syntax-highlighting, and MesloLGS NF Nerd Font. No Oh My Zsh — zinit self-bootstraps and manages everything. Optionally sets up Neovim as a VS Code-like editor with LazyVim, and Python with uv and IPython. Handles WSL, native Linux, and macOS environments.
 
+## How this skill is organised
+
+This file is the run order: do Steps 1-21 in sequence. Long procedures live next to it, in this skill's directory (`<this-skill-dir>`, the directory holding this file):
+
+- `scripts/install-font.sh` — Nerd Font install (Step 4)
+- `assets/zshrc/*.zsh` — the blocks Steps 6, 7, 8 and 14 put into `~/.zshrc`. To add one, Read the asset with the Read tool, then insert its exact content with the Edit tool (Write for a fresh `~/.zshrc`) at the place the step names.
+- `references/*.md` — step details: `glow.md`, `mdv.md`, `lazyvim.md`, `terminal.md`, `herdr-tui.md`, `herdr-app.md`, `herdr-spin.md`
+
+Each step below says what it checks, when to skip, which question to ask, and where the details are.
+
 ## Implementation Steps
 
 When this command is invoked:
@@ -30,45 +40,18 @@ Possible results:
 
 ### 2. Check Prerequisites
 
-Check what is already installed by running these checks in parallel using Bash tool:
+Check what is already installed. Run each line below as its own Bash tool call, all in parallel, so every result is labelled by its command:
 
 ```bash
 which zsh 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which git 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which curl 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which unzip 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which fzf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which glow 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 which btop 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-```bash
 test -x ~/.local/bin/mdv && echo "mdv: INSTALLED" || echo "mdv: MISSING"
-```
-
-```bash
 test -d ~/.config/nvim && echo "nvim config: EXISTS" || echo "nvim config: MISSING"
-```
-
-```bash
 test -d "$HOME/.local/share/zinit/zinit.git" && echo "INSTALLED" || echo "MISSING"
 ```
 
@@ -87,9 +70,7 @@ brew install zsh
 chsh -s $(which zsh)
 ```
 
-**If LINUX or WSL:**
-
-**IMPORTANT: Claude cannot run sudo commands.** Output the following message to the user and wait for confirmation before proceeding:
+**If LINUX or WSL:** **IMPORTANT: Claude cannot run sudo commands.** Output the following message to the user and wait for confirmation before proceeding:
 
 ```
 Please run these commands manually in your terminal, then confirm when done:
@@ -111,321 +92,15 @@ Explain that `chsh` changes the default shell and takes effect on next login/ter
 
 Store the choice as `FONT_CHOICE = "meslo"` or `"fira"`. Use it in Step 11 to set the correct VS Code font family name.
 
----
-
-#### Option A: MesloLGS NF (FONT_CHOICE = "meslo")
-
-Download the four MesloLGS NF font files. The installation location depends on the environment detected in Step 1.
-
-First, check if fonts are already installed by looking for them in the appropriate directory.
-
-**If WSL:**
-
-Fonts must be installed on the Windows host for VS Code to use them. Check if they already exist:
+Then run the install script with Bash:
 
 ```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-ls "${FONTDIR}"/MesloLGS*.ttf 2>/dev/null | wc -l
+bash <this-skill-dir>/scripts/install-font.sh <FONT_CHOICE>
 ```
 
-If the count is 4, all fonts are already installed - skip downloading and report them as already installed.
+The script detects the environment like Step 1 and picks the font directory: on WSL the Windows host (`/mnt/c/Users/<user>/AppData/Local/Microsoft/Windows/Fonts`, because VS Code and Windows Terminal run on Windows), on Linux `~/.local/share/fonts`, on macOS `~/Library/Fonts`. It skips files already present with a valid size, downloads the rest (MesloLGS NF: the four Regular/Bold/Italic/Bold Italic files from `romkatv/powerlevel10k-media`; Fira Code: the `FiraCodeNerdFont-*.ttf` standard variants from the nerd-fonts v3.4.0 `FiraCode.zip`, not the Mono/Propo ones), and verifies each file (MesloLGS >1MB each, `FiraCodeNerdFont-Regular.ttf` >100KB). On Linux it runs `fc-cache -fv`; macOS picks up `~/Library/Fonts` by itself. On WSL it registers the fonts under `HKCU` with `reg.exe` so Windows discovers them — no admin/sudo required.
 
-If fewer than 4, download the missing fonts:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-mkdir -p "${FONTDIR}"
-declare -A fontmap=( ["Regular"]="Regular" ["Bold"]="Bold" ["Italic"]="Italic" ["Bold Italic"]="Bold%20Italic" )
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]] && [[ $(stat -c%s "$filepath" 2>/dev/null || echo 0) -gt 1000000 ]]; then
-    echo "Already installed: MesloLGS NF ${font}.ttf"
-  else
-    curl -fsSL -o "$filepath" "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20${fontmap[$font]}.ttf"
-  fi
-done
-```
-
-After downloading, **verify all 4 files exist and have valid size** (>1MB each):
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-MISSING=0
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]]; then
-    size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
-    if [[ $size -gt 1000000 ]]; then
-      echo "OK: MesloLGS NF ${font}.ttf (${size} bytes)"
-    else
-      echo "INVALID (too small): MesloLGS NF ${font}.ttf (${size} bytes)"
-      MISSING=$((MISSING+1))
-    fi
-  else
-    echo "MISSING: MesloLGS NF ${font}.ttf"
-    MISSING=$((MISSING+1))
-  fi
-done
-echo "Missing fonts: ${MISSING}"
-```
-
-If any fonts are missing or invalid, report the specific failures to the user and do NOT proceed — ask them to retry or download manually.
-
-Then **register fonts in Windows registry** so Windows discovers them:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-WINFONTDIR="C:\\Users\\${WINUSER}\\AppData\\Local\\Microsoft\\Windows\\Fonts"
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  regname="MesloLGS NF ${font} (TrueType)"
-  regpath="${WINFONTDIR}\\MesloLGS NF ${font}.ttf"
-  reg.exe add "HKCU\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts" /v "$regname" /t REG_SZ /d "$regpath" /f
-done
-```
-
-This registers the fonts under the current user's registry hive — no admin/sudo required.
-
-**If native Linux:**
-
-Check if fonts already exist:
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-ls "${FONTDIR}"/MesloLGS*.ttf 2>/dev/null | wc -l
-```
-
-If the count is 4, skip downloading. Otherwise, download missing fonts:
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-mkdir -p "${FONTDIR}"
-declare -A fontmap=( ["Regular"]="Regular" ["Bold"]="Bold" ["Italic"]="Italic" ["Bold Italic"]="Bold%20Italic" )
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]] && [[ $(stat -c%s "$filepath" 2>/dev/null || echo 0) -gt 1000000 ]]; then
-    echo "Already installed: MesloLGS NF ${font}.ttf"
-  else
-    curl -fsSL -o "$filepath" "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20${fontmap[$font]}.ttf"
-  fi
-done
-fc-cache -fv
-```
-
-After downloading, **verify all 4 files exist and have valid size** (>1MB each):
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-MISSING=0
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]]; then
-    size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
-    if [[ $size -gt 1000000 ]]; then
-      echo "OK: MesloLGS NF ${font}.ttf (${size} bytes)"
-    else
-      echo "INVALID (too small): MesloLGS NF ${font}.ttf (${size} bytes)"
-      MISSING=$((MISSING+1))
-    fi
-  else
-    echo "MISSING: MesloLGS NF ${font}.ttf"
-    MISSING=$((MISSING+1))
-  fi
-done
-echo "Missing fonts: ${MISSING}"
-```
-
-If any fonts are missing or invalid, report the specific failures to the user and do NOT proceed — ask them to retry or download manually.
-
-The `fc-cache` command refreshes the font cache so the fonts are immediately available.
-
-**If macOS:**
-
-Check if fonts already exist:
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-ls "${FONTDIR}"/MesloLGS*.ttf 2>/dev/null | wc -l
-```
-
-If the count is 4, skip downloading. Otherwise, download missing fonts:
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-mkdir -p "${FONTDIR}"
-declare -A fontmap=( ["Regular"]="Regular" ["Bold"]="Bold" ["Italic"]="Italic" ["Bold Italic"]="Bold%20Italic" )
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]] && [[ $(stat -f%z "$filepath" 2>/dev/null || echo 0) -gt 1000000 ]]; then
-    echo "Already installed: MesloLGS NF ${font}.ttf"
-  else
-    curl -fsSL -o "$filepath" "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20${fontmap[$font]}.ttf"
-  fi
-done
-```
-
-After downloading, **verify all 4 files exist and have valid size** (>1MB each):
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-MISSING=0
-for font in "Regular" "Bold" "Italic" "Bold Italic"; do
-  filepath="${FONTDIR}/MesloLGS NF ${font}.ttf"
-  if [[ -f "$filepath" ]]; then
-    size=$(stat -f%z "$filepath" 2>/dev/null || echo 0)
-    if [[ $size -gt 1000000 ]]; then
-      echo "OK: MesloLGS NF ${font}.ttf (${size} bytes)"
-    else
-      echo "INVALID (too small): MesloLGS NF ${font}.ttf (${size} bytes)"
-      MISSING=$((MISSING+1))
-    fi
-  else
-    echo "MISSING: MesloLGS NF ${font}.ttf"
-    MISSING=$((MISSING+1))
-  fi
-done
-echo "Missing fonts: ${MISSING}"
-```
-
-If any fonts are missing or invalid, report the specific failures to the user and do NOT proceed — ask them to retry or download manually.
-
-macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
-
----
-
-#### Option B: Fira Code Nerd Font (FONT_CHOICE = "fira")
-
-Download from: `https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip`
-
-The zip contains ~20 TTF files across three variants (standard, Mono, Propo). Use the pattern `FiraCodeNerdFont-*.ttf` to extract only the ~6 standard variants — this excludes `FiraCodeNerdFontMono-*` and `FiraCodeNerdFontPropo-*`.
-
-**If WSL:**
-
-Check if already installed:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-If INSTALLED, skip downloading and report already installed.
-
-If MISSING, download and install:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-mkdir -p "${FONTDIR}"
-TMPFONT=$(mktemp -d)
-curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
-unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
-rm -rf "${TMPFONT}"
-```
-
-Verify:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
-if [[ -f "$filepath" ]]; then
-  size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
-  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
-else
-  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
-fi
-```
-
-If the font is missing or invalid, report it to the user and do NOT proceed.
-
-Register all installed FiraCode fonts in the Windows registry:
-
-```bash
-WINUSER=$(cmd.exe /c "echo %USERNAME%" 2>/dev/null | tr -d '\r')
-WINFONTDIR="C:\\Users\\${WINUSER}\\AppData\\Local\\Microsoft\\Windows\\Fonts"
-FONTDIR="/mnt/c/Users/${WINUSER}/AppData/Local/Microsoft/Windows/Fonts"
-for f in "${FONTDIR}"/FiraCodeNerdFont-*.ttf; do
-  [[ -f "$f" ]] || continue
-  fname=$(basename "$f")
-  reg.exe add "HKCU\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Fonts" /v "${fname%.ttf} (TrueType)" /t REG_SZ /d "${WINFONTDIR}\\${fname}" /f
-done
-```
-
-**If native Linux:**
-
-Check if already installed:
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-If MISSING, download and install:
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-mkdir -p "${FONTDIR}"
-TMPFONT=$(mktemp -d)
-curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4/FiraCode.zip"
-unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
-rm -rf "${TMPFONT}"
-fc-cache -fv
-```
-
-Verify:
-
-```bash
-FONTDIR="$HOME/.local/share/fonts"
-filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
-if [[ -f "$filepath" ]]; then
-  size=$(stat -c%s "$filepath" 2>/dev/null || echo 0)
-  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
-else
-  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
-fi
-```
-
-If the font is missing or invalid, report it to the user and do NOT proceed.
-
-**If macOS:**
-
-Check if already installed:
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-ls "${FONTDIR}"/FiraCodeNerdFont-Regular.ttf 2>/dev/null && echo "INSTALLED" || echo "MISSING"
-```
-
-If MISSING, download and install:
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-mkdir -p "${FONTDIR}"
-TMPFONT=$(mktemp -d)
-curl -fsSL -o "${TMPFONT}/FiraCode.zip" "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.4.0/FiraCode.zip"
-unzip -j -q "${TMPFONT}/FiraCode.zip" "FiraCodeNerdFont-*.ttf" -d "${FONTDIR}"
-rm -rf "${TMPFONT}"
-```
-
-Verify:
-
-```bash
-FONTDIR="$HOME/Library/Fonts"
-filepath="${FONTDIR}/FiraCodeNerdFont-Regular.ttf"
-if [[ -f "$filepath" ]]; then
-  size=$(stat -f%z "$filepath" 2>/dev/null || echo 0)
-  if [[ $size -gt 100000 ]]; then echo "OK: FiraCodeNerdFont-Regular.ttf (${size} bytes)"; else echo "INVALID (too small): ${size} bytes"; fi
-else
-  echo "MISSING: FiraCodeNerdFont-Regular.ttf"
-fi
-```
-
-If the font is missing or invalid, report it to the user and do NOT proceed.
-
-macOS picks up fonts from `~/Library/Fonts` automatically - no cache refresh needed.
+Report what it printed (`Already installed`, `OK`, `INVALID`, `MISSING`). If it exits non-zero, some fonts are missing or invalid: report the specific failures to the user and do NOT proceed — ask them to retry or download manually.
 
 ### 5. Install fzf
 
@@ -439,9 +114,7 @@ If already installed (`which fzf` returned INSTALLED), skip this step.
 brew install fzf
 ```
 
-**If LINUX (no brew):**
-
-**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+**If LINUX (no brew):** **IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
 
 ```bash
 # Please run this command manually, then confirm when done:
@@ -458,72 +131,15 @@ which fzf && fzf --version
 
 ### 6. Configure ~/.zshrc
 
-Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured: only make sure `bindkey -e` (with its comment, as in the block below) sits right after the `source "${ZINIT_HOME}/zinit.zsh"` line, adding it with the Edit tool if missing, then skip to Step 7.
+Read the existing `~/.zshrc` file using the Read tool. If it already contains `zdharma-continuum/zinit`, zinit is already configured: only make sure `bindkey -e` (with its comment, as in `assets/zshrc/zinit.zsh`) sits right after the `source "${ZINIT_HOME}/zinit.zsh"` line, adding it with the Edit tool if missing, then skip to Step 7.
 
-Otherwise, read the existing `~/.zshrc` with the Read tool to identify any PATH exports, NVM setup, custom functions, or keybindings to preserve. Then use the Write tool to create `~/.zshrc` with the following structure, incorporating any preserved content after the aliases block.
+Otherwise, read the existing `~/.zshrc` with the Read tool to identify any PATH exports, NVM setup, custom functions, or keybindings to preserve. Then use the Write tool to create `~/.zshrc` with this structure, incorporating any preserved content after the aliases block:
 
-The core zinit block (add after the P10K instant prompt block, before any other config):
-
-```zsh
-# Zinit - auto-installs itself if missing
-ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
-if [ ! -d "$ZINIT_HOME" ]; then
-  mkdir -p "$(dirname $ZINIT_HOME)"
-  git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
-fi
-source "${ZINIT_HOME}/zinit.zsh"
-
-# Emacs keymap explicitly: zsh picks vi mode when $EDITOR/$VISUAL contain "vi" (nvim).
-bindkey -e
-
-# Powerlevel10k
-zinit ice depth=1; zinit light romkatv/powerlevel10k
-
-# Plugins
-zinit light zsh-users/zsh-autosuggestions
-zinit light zsh-users/zsh-syntax-highlighting
-zinit light zsh-users/zsh-completions
-zinit light jirutka/zsh-shift-select
-zinit light Aloxaf/fzf-tab
-
-# OMZ snippets
-zinit snippet OMZL::git.zsh
-zinit snippet OMZP::git
-zinit snippet OMZP::sudo
-zinit snippet OMZP::command-not-found
-
-# Completions
-autoload -Uz compinit && compinit
-zinit cdreplay -q
-```
-
-Add history configuration after the zinit block:
-
-```zsh
-# History
-HISTSIZE=5000
-HISTFILE=~/.zsh_history
-SAVEHIST=$HISTSIZE
-HISTDUP=erase
-setopt appendhistory
-setopt sharehistory
-setopt hist_ignore_space
-setopt hist_ignore_all_dups
-setopt hist_save_no_dups
-setopt hist_ignore_dups
-setopt hist_find_no_dups
-
-# Completion styling
-zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
-zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
-zstyle ':completion:*' menu no
-zstyle ':fzf-tab:complete:cd:*' fzf-preview 'ls --color $realpath'
-
-# Aliases
-alias ls='ls --color'
-```
-
-Also add a shell integrations block before the p10k sourcing line:
+1. The P10K instant prompt block (keep it first if the file has one).
+2. The core zinit block: the content of `assets/zshrc/zinit.zsh`, before any other config.
+3. History, completion styling and aliases after the zinit block: the content of `assets/zshrc/history.zsh`.
+4. Preserved content.
+5. A shell integrations block before the p10k sourcing line:
 
 ```zsh
 # Shell integrations
@@ -559,199 +175,20 @@ If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ w
 
 Then read `~/.zshrc` using Read tool and check these:
 
-- **`_select_all` with `zle -K shift-select`** — the current select-all. If `_select_all` exists but uses `set-mark-command` instead, it is the earlier version that leaves arrows unable to deselect: replace just that function with the one below and keep the rest of the block.
+- **`_select_all` with `zle -K shift-select`** — the current select-all. If `_select_all` exists but uses `set-mark-command` instead, it is the earlier version that leaves arrows unable to deselect: replace just that function with the one in `assets/zshrc/keys-base.zsh` and keep the rest of the block.
 - **`# >>> setup-zsh keys >>>`** — the navigation keys block. If present but without the `'^U' backward-kill-line` line, add that line before `unset _seq`; otherwise leave it.
 - **`# >>> setup-zsh select-replace >>>`** — typing or pasting over a selection replaces it. If present, leave it.
-- **WSL only: `_to_win_clipboard`** — the UTF-8-safe clipboard helper. If the clipboard functions exist but pipe straight into `clip.exe` or run a bare `powershell.exe Get-Clipboard`, they are the earlier version that mangles non-ASCII text: replace `_cut_to_clipboard` and `_paste_from_clipboard` with the WSL versions below, add `_to_win_clipboard`, and switch the `clip.exe` calls in `_backspace_or_delete_region` / `_delete_or_delete_region` to `| _to_win_clipboard`.
+- **WSL only: `_to_win_clipboard`** — the UTF-8-safe clipboard helper. If the clipboard functions exist but pipe straight into `clip.exe` or run a bare `powershell.exe Get-Clipboard`, they are the earlier version that mangles non-ASCII text: replace `_cut_to_clipboard` and `_paste_from_clipboard` with the WSL versions in `assets/zshrc/clipboard-wsl.zsh`, add `_to_win_clipboard`, and switch the `clip.exe` calls in `_backspace_or_delete_region` / `_delete_or_delete_region` to `| _to_win_clipboard`.
 
-If all are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Both blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates.
+If all are current, skip this step. Otherwise use the Edit tool to append whatever is missing **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. All these blocks must come after the zinit plugins load, because they use the `shift-select` keymap that zsh-shift-select creates. Append in this order:
 
-**All environments** — append this base block:
-
-```zsh
-# Windows-like keybindings
-_select_all() {
-  MARK=0
-  CURSOR=${#BUFFER}
-  REGION_ACTIVE=1
-  # zsh-shift-select's keymap: arrows deselect, Backspace/Delete remove the selection.
-  zle -K shift-select
-}
-zle -N _select_all
-bindkey '^A' _select_all
-bindkey '^Z' undo
-bindkey '^Y' redo
-```
-
-Ctrl+A selects the whole buffer and switches to zsh-shift-select's keymap, so the selection behaves like one made with Shift+arrows: a plain arrow deselects, Backspace/Delete remove it.
-
-Then the navigation keys block, also for all environments:
-
-```zsh
-# >>> setup-zsh keys >>>
-# zsh-shift-select binds Option+Shift on macOS and Ctrl+Shift elsewhere; bind Ctrl+Shift
-# explicitly so it selects by word / to the buffer ends on every platform.
-for _seq _widget in '^[[1;6D' backward-word '^[[1;6C' forward-word \
-                    '^[[1;6H' beginning-of-buffer '^[[1;6F' end-of-buffer; do
-  bindkey -M emacs "$_seq" shift-select::$_widget
-  bindkey -M shift-select "$_seq" shift-select::$_widget
-done
-unset _seq _widget
-
-# Keys zsh's emacs keymap leaves unbound; each has several sequences depending on the terminal.
-for _seq in '^[[H' '^[[1~' '^[OH'; do bindkey -M emacs "$_seq" beginning-of-line; done
-for _seq in '^[[F' '^[[4~' '^[OF'; do bindkey -M emacs "$_seq" end-of-line; done
-bindkey -M emacs '^[[1;5D' backward-word     # Ctrl+Left (on macOS only if Spaces doesn't take it)
-bindkey -M emacs '^[[1;5C' forward-word      # Ctrl+Right
-bindkey -M emacs '^[[3;5~' kill-word         # Ctrl+Delete
-bindkey -M emacs '^[[3;3~' kill-word         # Alt/Option+Delete
-bindkey -M emacs '^U' backward-kill-line     # Cmd+Backspace (Ghostty sends ^U): to line start, as on macOS
-unset _seq
-# <<< setup-zsh keys <<<
-```
-
-Where zsh-shift-select already binds Ctrl+Shift (Linux, WSL), the first loop rebinds the same widgets and changes nothing.
-
-Then the select-replace block, also for all environments:
-
-```zsh
-# >>> setup-zsh select-replace >>>
-# Typing or pasting over a Shift-selection replaces it, as in a GUI text field;
-# zsh-shift-select alone deselects and inserts, and drops non-ASCII keys.
-_shift_select_replace() {
-  zle kill-region -w
-  zle -K main
-  zle -U "$KEYS"
-}
-zle -N _shift_select_replace
-bindkey -M shift-select -R ' '-'~' _shift_select_replace
-bindkey -M shift-select -R '\M-^@'-'\M-^?' _shift_select_replace
-
-_shift_select_paste() {
-  zle kill-region -w
-  zle -K main
-  zle bracketed-paste -w
-}
-zle -N _shift_select_paste
-bindkey -M shift-select '^[[200~' _shift_select_paste
-# <<< setup-zsh select-replace <<<
-```
-
-zsh-shift-select on its own deselects and inserts when you type over a selection, and drops non-ASCII characters (ä, ż) because its fallback covers only ASCII. This block makes typed text and bracketed pastes replace the selection; plain arrows still deselect.
-
-Then append clipboard bindings depending on the environment detected in Step 1:
-
-**If WSL** — append:
-
-```zsh
-# clip.exe reads UTF-16LE and PowerShell writes the console code page by default;
-# convert both ways or non-ASCII text (ä, ż, —) gets mangled.
-_to_win_clipboard() { iconv -f UTF-8 -t UTF-16LE | clip.exe 2>/dev/null }
-
-_cut_to_clipboard() {
-  zle kill-region
-  echo -n "$CUTBUFFER" | _to_win_clipboard
-}
-zle -N _cut_to_clipboard
-
-_paste_from_clipboard() {
-  local paste
-  paste=$(powershell.exe -NoLogo -NoProfile -Command '[Console]::OutputEncoding = [Text.Encoding]::UTF8; [Console]::Out.Write(([string](Get-Clipboard -Raw)) -replace "`r", "")' 2>/dev/null)
-  LBUFFER+=$paste
-}
-zle -N _paste_from_clipboard
-
-bindkey '^X' _cut_to_clipboard
-bindkey '^V' _paste_from_clipboard
-
-_backspace_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-    echo -n "$CUTBUFFER" | _to_win_clipboard
-  else
-    zle backward-delete-char
-  fi
-}
-zle -N _backspace_or_delete_region
-bindkey '^?' _backspace_or_delete_region
-
-_delete_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-    echo -n "$CUTBUFFER" | _to_win_clipboard
-  else
-    zle delete-char
-  fi
-}
-zle -N _delete_or_delete_region
-bindkey '^[[3~' _delete_or_delete_region
-```
-
-**If macOS** — append:
-
-```zsh
-_cut_to_clipboard() {
-  zle kill-region
-  echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
-}
-zle -N _cut_to_clipboard
-
-_paste_from_clipboard() {
-  local paste
-  paste=$(pbpaste 2>/dev/null)
-  LBUFFER+=$paste
-}
-zle -N _paste_from_clipboard
-
-bindkey '^X' _cut_to_clipboard
-bindkey '^V' _paste_from_clipboard
-
-_backspace_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-    echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
-  else
-    zle backward-delete-char
-  fi
-}
-zle -N _backspace_or_delete_region
-bindkey '^?' _backspace_or_delete_region
-
-_delete_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-    echo -n "$CUTBUFFER" | pbcopy 2>/dev/null
-  else
-    zle delete-char
-  fi
-}
-zle -N _delete_or_delete_region
-bindkey '^[[3~' _delete_or_delete_region
-```
-
-**If native Linux** — skip clipboard bindings but still add backspace/delete region support:
-
-```zsh
-_backspace_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-  else
-    zle backward-delete-char
-  fi
-}
-zle -N _backspace_or_delete_region
-bindkey '^?' _backspace_or_delete_region
-
-_delete_or_delete_region() {
-  if (( REGION_ACTIVE )); then
-    zle kill-region
-  else
-    zle delete-char
-  fi
-}
-zle -N _delete_or_delete_region
-bindkey '^[[3~' _delete_or_delete_region
-```
+1. **All environments** — `assets/zshrc/keys-base.zsh`. Ctrl+A selects the whole buffer and switches to zsh-shift-select's keymap, so the selection behaves like one made with Shift+arrows: a plain arrow deselects, Backspace/Delete remove it. Ctrl+Z / Ctrl+Y are undo / redo.
+2. **All environments** — `assets/zshrc/keys-nav.zsh` (the navigation keys block): Ctrl+Shift+arrows select by word / to the buffer ends on every platform (where zsh-shift-select already binds Ctrl+Shift — Linux, WSL — the loop rebinds the same widgets and changes nothing), plus Home/End, Ctrl+←/→, Ctrl+Delete, Alt/Option+Delete and `^U` (Cmd+Backspace in Ghostty) that zsh's emacs keymap leaves unbound.
+3. **All environments** — `assets/zshrc/select-replace.zsh`. zsh-shift-select on its own deselects and inserts when you type over a selection, and drops non-ASCII characters (ä, ż) because its fallback covers only ASCII. This block makes typed text and bracketed pastes replace the selection; plain arrows still deselect.
+4. **Clipboard bindings**, by the environment from Step 1:
+   - **If WSL** — `assets/zshrc/clipboard-wsl.zsh` (converts to UTF-16LE for `clip.exe` and reads via PowerShell as UTF-8, so non-ASCII text survives).
+   - **If macOS** — `assets/zshrc/clipboard-macos.zsh` (`pbcopy` / `pbpaste`).
+   - **If native Linux** — `assets/zshrc/clipboard-linux.zsh`: no clipboard bindings, only Backspace/Delete removing a selection.
 
 ### 8. Configure Prefix History Search
 
@@ -759,25 +196,9 @@ Bind Up/Down arrows to prefix history search so they cycle through history entri
 
 Read `~/.zshrc` using Read tool. If it already contains `# >>> setup-zsh prefix-history >>>`, the block is already configured — skip this step.
 
-Otherwise, use Edit tool to append the following block **after** the keybindings block from Step 7 — before the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. It must load after zinit and after any other arrow-key bindings so it wins:
+Otherwise, Read `assets/zshrc/prefix-history.zsh` and use Edit tool to append it **after** the keybindings block from Step 7 — before the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. It must load after zinit and after any other arrow-key bindings so it wins.
 
-```zsh
-# >>> setup-zsh prefix-history >>>
-# Prefix history search: Up/Down cycle through history entries beginning with
-# the already-typed text (matching what zsh-autosuggestions shows in grey).
-autoload -Uz up-line-or-beginning-search down-line-or-beginning-search
-zle -N up-line-or-beginning-search
-zle -N down-line-or-beginning-search
-bindkey '^[[A' up-line-or-beginning-search   # Up, normal cursor mode
-bindkey '^[[B' down-line-or-beginning-search # Down, normal cursor mode
-bindkey '^[OA' up-line-or-beginning-search   # Up, application cursor mode
-bindkey '^[OB' down-line-or-beginning-search # Down, application cursor mode
-# <<< setup-zsh prefix-history <<<
-```
-
-Use `up-line-or-beginning-search`, not `up-line-or-search` — the latter matches only the first word (`docker`) instead of the full typed prefix (`docker compose`), surfacing unrelated history entries.
-
-Bind both `^[[A/B` and `^[OA/OB` — terminals switch between normal and application cursor-key modes, and binding only one leaves arrows broken in the other mode.
+The block uses `up-line-or-beginning-search`, not `up-line-or-search` — the latter matches only the first word (`docker`) instead of the full typed prefix (`docker compose`), surfacing unrelated history entries. It binds both `^[[A/B` and `^[OA/OB` — terminals switch between normal and application cursor-key modes, and binding only one leaves arrows broken in the other mode.
 
 History dedup (`hist_ignore_all_dups`, `hist_find_no_dups`) is already set in Step 6's history block — no changes needed there.
 
@@ -805,9 +226,7 @@ test -f "$HOME/.asoundrc" && echo ".asoundrc: EXISTS" || echo ".asoundrc: MISSIN
 grep -q 'PULSE_SERVER' "$HOME/.zshrc" 2>/dev/null && echo "PULSE_SERVER in .zshrc: YES" || echo "PULSE_SERVER in .zshrc: NO"
 ```
 
-**If packages are missing (`pactl: MISSING` or `libasound2-plugins: MISSING`):**
-
-**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+**If packages are missing (`pactl: MISSING` or `libasound2-plugins: MISSING`):** **IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
 
 ```
 Please run this command manually, then confirm when done:
@@ -819,22 +238,16 @@ Use AskUserQuestion to ask "Have you finished installing the audio packages?" wi
 
 If user skips, skip the rest of this step.
 
-**If WSLg PulseAudio is not running:**
+**If WSLg PulseAudio is not running:** Inform the user: "WSLg PulseAudio is not running — audio may not work until you restart WSL. Continue anyway and audio will work after restart."
 
-Inform the user: "WSLg PulseAudio is not running — audio may not work until you restart WSL. Continue anyway and audio will work after restart."
-
-**Configure `~/.asoundrc`:**
-
-If `~/.asoundrc` does not exist, or does not contain `pcm.default pulse`, create/overwrite it using Write tool:
+**Configure `~/.asoundrc`:** If `~/.asoundrc` does not exist, or does not contain `pcm.default pulse`, create/overwrite it using Write tool:
 
 ```
 pcm.default pulse
 ctl.default pulse
 ```
 
-**Add `PULSE_SERVER` to `.zshrc`:**
-
-If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after the `export PATH=` line:
+**Add `PULSE_SERVER` to `.zshrc`:** If `PULSE_SERVER` is not already in `~/.zshrc`, use Edit tool to add it after the `export PATH=` line:
 
 - old_string: the existing `export PATH=...` line
 - new_string: same line + newline + `export PULSE_SERVER=unix:/mnt/wslg/runtime-dir/pulse/native`
@@ -843,7 +256,7 @@ Report what was configured. Inform the user that audio input (microphone) is now
 
 ### 10. Port Bash Environment to Zsh
 
-Oh My Zsh creates a fresh `~/.zshrc` from a template, which means environment setup from `~/.bashrc` and `~/.profile` is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
+Step 6 writes a fresh `~/.zshrc`, and zsh does not read `~/.bashrc` or `~/.profile`, so environment setup that lives there is lost. Common breakage: NVM (node/npm/pnpm missing), custom PATH entries, SSH agent auto-start, other exports.
 
 Scan the user's existing bash config files for portable environment setup:
 
@@ -865,12 +278,12 @@ Read the output and identify portable statements that should carry over to zsh. 
 - **Custom env vars**: `export EDITOR`, `export GOPATH`, etc.
 - **pyenv/rbenv/fnm init**: `eval "$(pyenv init -)"` etc.
 
-Things to **exclude** (bash-specific, already handled by Oh My Zsh, or not portable):
+Things to **exclude** (bash-specific, already handled by the zsh config from Step 6, or not portable):
 
 - `shopt` commands
 - bash-completion sourcing
 - `PS1`/`PROMPT_COMMAND` (p10k handles this)
-- `HISTCONTROL`/`HISTSIZE`/`HISTFILESIZE` (Oh My Zsh sets these)
+- `HISTCONTROL`/`HISTSIZE`/`HISTFILESIZE` (Step 6's history block sets `HISTSIZE`, `SAVEHIST` and the dedup options)
 - Anything referencing `BASH_` variables
 
 Read `~/.zshrc` using Read tool, then use Edit tool to append the portable statements **before** the p10k sourcing line (`[[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh`) if it exists, or at the end of the file otherwise. Wrap them in a clearly marked block:
@@ -1003,8 +416,8 @@ If `EXISTS`, read `~/.p10k.zsh` using the Read tool, then apply these changes wi
 
 **2. Clear right prompt powerline cap symbols** — these render invisible frame artifacts even when no segments are present. Find and replace:
 
-- `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL='\uE0BA'` → `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL=''`
-- `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL='\uE0BC'` → `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL=''`
+- `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL=''` → `POWERLEVEL9K_RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL=''`
+- `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL=''` → `POWERLEVEL9K_RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL=''`
 
 Note: the exact unicode values may differ depending on the style chosen in the p10k wizard — search for `RIGHT_PROMPT_FIRST_SEGMENT_START_SYMBOL` and `RIGHT_PROMPT_LAST_SEGMENT_END_SYMBOL` by name, not by value.
 
@@ -1019,8 +432,6 @@ source ~/.p10k.zsh
 glow renders markdown in the terminal, but glow 3.x word-wraps at a hard-coded 80 columns and never reads the real terminal size — wide tables get shredded to one character per column unless the width is passed explicitly on every call.
 
 Skip this step if `which glow` returned INSTALLED in Step 2.
-
-#### Install the binary
 
 **If MACOS, or LINUX/WSL with linuxbrew available:**
 
@@ -1048,109 +459,7 @@ Verify:
 glow --version
 ```
 
-#### Build the wide style
-
-This is the upstream dark style with two changes: the 2-column document margin dropped (buys back 4 columns of table), and box-drawing table separators instead of ASCII `|` and `-`.
-
-Starting from the full upstream file is not optional — a hand-written partial JSON throws away every colour in the theme, since custom styles replace the built-in theme rather than merge into it.
-
-```bash
-mkdir -p ~/.config/glow
-curl -fsSL https://raw.githubusercontent.com/charmbracelet/glamour/master/styles/dark.json \
-  | jq '.document.margin = 0
-        | .table = {center_separator:"┼", column_separator:"│", row_separator:"─"}' \
-  > ~/.config/glow/glow-wide.json
-```
-
-Requires `jq`. If it is missing, `sudo apt install jq -y` or `brew install jq`.
-
-Verify the file is valid and patched:
-
-```bash
-jq -e '.document.margin == 0 and (.table.column_separator == "│") and (.heading | length > 0)' \
-  ~/.config/glow/glow-wide.json && echo "style OK"
-```
-
-The `.heading` check is the one that matters — it confirms the upstream theme survived rather than getting replaced by a two-key stub.
-
-This pins rendering to the dark theme, giving up glow's `auto` light/dark detection. On a dark terminal `auto` already resolves to `dark`, so it costs nothing there. On a light terminal, skip this section and drop the `-s` flag from the functions below.
-
-#### Write the glow config
-
-Use the Write tool to create `~/.config/glow/glow.yml`:
-
-```yaml
-# style name or JSON path (default "auto")
-style: "auto"
-# mouse support (TUI-mode only)
-mouse: false
-# use pager to display markdown
-pager: false
-# word-wrap at width. Fallback only, for scripts and non-zsh shells. The glow()
-# function in ~/.zshrc passes -w $COLUMNS on every interactive call and wins.
-width: 120
-# show all files, including hidden and ignored.
-all: true
-```
-
-Do not set `width: 80` here — that is glow's own default and it is the thing that shreds tables.
-
-#### Configure ~/.zshrc
-
-Read `~/.zshrc` using the Read tool. If it already contains `# >>> setup-zsh glow >>>`, the block is configured - skip this step.
-
-Otherwise use the Edit tool to append the block at the end of the file. These are function definitions, so unlike the keybinding blocks they do not need to land before the p10k sourcing line.
-
-```zsh
-# >>> setup-zsh glow >>>
-# glow 3.x word-wraps at a hard-coded 80 columns and never reads the real
-# terminal size, so wide markdown tables get shredded to one character per
-# line. The width has to be passed on every call. glow-wide.json is the
-# built-in dark style with the 2-column document margin dropped and
-# box-drawing table separators; both functions fall back to the built-in
-# style if that file is missing.
-glow() {
-  local -a style
-  [[ -r $HOME/.config/glow/glow-wide.json ]] && style=(-s "$HOME/.config/glow/glow-wide.json")
-  command glow "${style[@]}" -w "${COLUMNS:-100}" "$@"
-}
-
-# For tables too wide to wrap readably: render unwrapped and scroll sideways
-# with the arrow keys. less -R keeps the colours, -S chops lines instead of
-# wrapping them.
-glowide() {
-  local -a style
-  [[ -r $HOME/.config/glow/glow-wide.json ]] && style=(-s "$HOME/.config/glow/glow-wide.json")
-  PAGER='less -RSX' command glow "${style[@]}" -p -w 0 "$@"
-}
-# <<< setup-zsh glow <<<
-```
-
-Notes on the shape of this block, since each part is load-bearing:
-
-- **Functions, not aliases.** `alias glow='glow -w $COLUMNS'` also works in zsh, but a function composes with the `-s` guard and reads better.
-- **`command glow`** stops the function recursing into itself.
-- **`${COLUMNS:-100}`** is re-evaluated per call, so it tracks window resizes. zsh maintains `COLUMNS` automatically. The `100` fallback covers the case where the function is called from a script with no tty.
-- **The `-r` guard on the style file** keeps glow working if `glow-wide.json` is missing or unreadable, rather than failing on a bad `-s` path.
-- **`-X` on less** keeps the rendered table in scrollback after quitting instead of wiping it.
-- TUI mode is unaffected. Bare `glow` with no file argument still opens the browser UI; the extra flags are accepted and ignored there.
-
-#### Verify
-
-```bash
-printf '| a | b | c |\n|---|---|---|\n| %s | %s | %s |\n' \
-  "$(head -c 120 /dev/urandom | base64 | tr -d '\n')" "short" "also short" > /tmp/glowtest.md
-zsh -i -c 'glow /tmp/glowtest.md' | head -5
-```
-
-The table should fill the terminal width rather than stopping at 78 columns. For an exact check:
-
-```bash
-zsh -i -c 'glow /tmp/glowtest.md' | sed 's/\x1b\[[0-9;]*m//g' \
-  | awk '{ if (length($0) > m) m = length($0) } END { print "widest line:", m }'
-```
-
-Compare that number against `tput cols`. They should match. If it prints 78 or 80, the function is not loaded or `command glow` is picking up a `width: 80` from `glow.yml`.
+Then follow `references/glow.md` in order: build the wide style `~/.config/glow/glow-wide.json` (needs `jq`), write `~/.config/glow/glow.yml`, add the `glow()` / `glowide()` functions from `assets/zshrc/glow.zsh` at the end of `~/.zshrc` (skip if it already contains `# >>> setup-zsh glow >>>`; function definitions need not go before the p10k sourcing line), and verify the rendered width.
 
 ### 15. Install mdv (Neovim Markdown viewer, optional)
 
@@ -1158,7 +467,7 @@ Compare that number against `tput cols`. They should match. If it prints 78 or 8
 
 Everything installs under `$HOME` — no sudo. Needs `git`, `curl`, `tar` and access to GitHub.
 
-Use AskUserQuestion to ask "Install mdv, a Neovim-based Markdown viewer with live reload and copy-on-select?" with options "Yes" and "Skip". If skipped, continue with Step 16.
+Use AskUserQuestion to ask "Install mdv, a Neovim-based Markdown viewer with live reload and copy-on-select?" with options "Yes" and "Skip". If skipped, continue with Step 16. On yes, follow the **Install** section of `references/mdv.md` (Neovim 0.10+, launcher and config, plugins, PATH, verify, what to tell the user).
 
 If Step 2 reported `mdv: INSTALLED`, don't ask the question above. Instead, check whether the installed files match this skill's copies, since a skipped step never delivers launcher or config updates:
 
@@ -1168,97 +477,7 @@ for f in init.lua lazy-lock.json lua/mdreflow.lua lua/mdview.lua; do cmp -s "$A/
 cmp -s "$A/mdv" ~/.local/bin/mdv || echo "OUTDATED: ~/.local/bin/mdv"
 ```
 
-If nothing prints, report mdv as already installed and up to date, and continue with Step 16. Otherwise list the outdated files and use AskUserQuestion: "Update mdv to this skill's version? Local changes to these files are overwritten" with options "Yes, update (Recommended)" and "Skip". On yes, run **Copy the launcher and config** below. If `lazy-lock.json` was among them, also run **Install the plugins** so the pinned plugin versions are checked out. Then continue with Step 16.
-
-#### Neovim 0.10 or newer
-
-The launcher runs `~/.local/bin/nvim`. Check what is there:
-
-```bash
-test -x ~/.local/bin/nvim && ~/.local/bin/nvim --version | head -1 || echo "MISSING"
-```
-
-- **0.10 or newer** → keep it and continue with the next section.
-- **MISSING, but `command -v nvim` finds a 0.10+ build elsewhere** (Homebrew, apt) → link it and continue:
-
-  ```bash
-  mkdir -p ~/.local/bin && ln -s "$(command -v nvim)" ~/.local/bin/nvim
-  ```
-
-- **Otherwise** → install the pinned release tarball into `~/.local/opt`. Distribution packages are often older than 0.10 (Ubuntu 24.04 ships 0.9.5), and the config needs `vim.base64`, `vim.ui.clipboard.osc52` and `nvim_ui_send`, all 0.10 APIs. A system Neovim is never touched.
-
-```bash
-NVIM_VERSION=v0.12.4
-case "$(uname -s)-$(uname -m)" in
-  Linux-x86_64)  ASSET=nvim-linux-x86_64 ;;
-  Linux-aarch64) ASSET=nvim-linux-arm64 ;;
-  Darwin-arm64)  ASSET=nvim-macos-arm64 ;;
-  Darwin-x86_64) ASSET=nvim-macos-x86_64 ;;
-  *) echo "unsupported platform: $(uname -s)-$(uname -m)"; exit 1 ;;
-esac
-mkdir -p ~/.local/opt ~/.local/bin
-curl -fsSL -o "/tmp/$ASSET.tar.gz" "https://github.com/neovim/neovim/releases/download/$NVIM_VERSION/$ASSET.tar.gz"
-[[ "$(uname -s)" == Darwin ]] && xattr -c "/tmp/$ASSET.tar.gz"
-tar -xzf "/tmp/$ASSET.tar.gz" -C ~/.local/opt
-ln -sfn "$HOME/.local/opt/$ASSET/bin/nvim" ~/.local/bin/nvim
-~/.local/bin/nvim --version | head -1
-```
-
-The `xattr -c` on macOS drops the quarantine flag so Gatekeeper does not block the unsigned binary.
-
-#### Copy the launcher and config
-
-The files live in this skill's `assets/mdv/` (in the same skill directory as this file). `NVIM_APPNAME=mdv` keeps the config in `~/.config/mdv`, so an existing `~/.config/nvim` is never touched.
-
-```bash
-mkdir -p ~/.config/mdv/lua
-cp <this-skill-dir>/assets/mdv/init.lua <this-skill-dir>/assets/mdv/lazy-lock.json ~/.config/mdv/
-cp <this-skill-dir>/assets/mdv/lua/mdreflow.lua <this-skill-dir>/assets/mdv/lua/mdview.lua ~/.config/mdv/lua/
-install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv
-```
-
-#### Install the plugins
-
-lazy.nvim bootstraps itself on the first start, and `Lazy! restore` checks out the commits pinned in `lazy-lock.json`. Headless, about ten seconds:
-
-```bash
-NVIM_APPNAME=mdv ~/.local/bin/nvim --headless "+Lazy! restore" +qa 2>&1 | tail -3
-ls ~/.local/share/mdv/lazy
-```
-
-Expect five directories: `catppuccin`, `lazy.nvim`, `render-markdown.nvim`, `rose-pine`, `tokyonight.nvim`.
-
-#### Make sure ~/.local/bin is on PATH
-
-```bash
-zsh -i -c 'command -v mdv' 2>/dev/null || echo "NOT ON PATH"
-```
-
-If it prints NOT ON PATH, read `~/.zshrc` with the Read tool and, unless a `.local/bin` PATH export is already there, use the Edit tool to append:
-
-```zsh
-# >>> setup-zsh local-bin >>>
-export PATH="$HOME/.local/bin:$PATH"
-# <<< setup-zsh local-bin <<<
-```
-
-#### Verify
-
-```bash
-NVIM_APPNAME=mdv ~/.local/bin/nvim --headless "+lua print(vim.g.clipboard.name)" +qa 2>&1 | tail -1
-```
-
-Expect `osc52`. Then tell the user:
-
-```
-mdv is installed. Try it on any Markdown file: mdv README.md
-  /  search      q  quit      g?  all keys
-  Drag-select with the mouse: the text is on your clipboard the moment you release the button.
-  Keyboard: v or V to select, y to copy.
-  Several files: mdv docs/*.md (Tab / Shift-Tab switches). From a pipe: some-command | mdv
-```
-
-Copies travel as OSC 52 through the terminal, so they reach the Windows clipboard from WSL without `clip.exe` (which mangles non-ASCII text) and work inside Herdr panes. Details, troubleshooting and uninstall: this skill's `references/mdv.md`.
+If nothing prints, report mdv as already installed and up to date, and continue with Step 16. Otherwise list the outdated files and use AskUserQuestion: "Update mdv to this skill's version? Local changes to these files are overwritten" with options "Yes, update (Recommended)" and "Skip". On yes, run **Copy the launcher and config** from `references/mdv.md`. If `lazy-lock.json` was among them, also run **Install the plugins** there so the pinned plugin versions are checked out. Then continue with Step 16.
 
 ### 16. Set up Neovim as an editor with LazyVim (optional)
 
@@ -1268,148 +487,9 @@ Use AskUserQuestion to ask "Set up Neovim as a code editor (LazyVim with file tr
 
 If Step 2 reported `nvim config: EXISTS`, do not overwrite it. Report that `~/.config/nvim` already exists and skip this step, unless the user explicitly asks to replace it — then move it aside first (`mv ~/.config/nvim ~/.config/nvim.bak-$(date +%Y%m%d)`, same for `~/.local/share/nvim`).
 
-An existing config that is LazyVim (has `~/.config/nvim/lazyvim.json`) can still pick up language support it lacks. Compare its `extras` with `assets/lazyvim/lazyvim.json`. If any are missing (for example `lang.vue` or `lang.python`), use AskUserQuestion to offer adding them. On yes, insert the missing entries into the user's `extras` list with the Edit tool, then run only the two headless passes under **Install plugins, language servers and parsers** below. Use `Lazy! install` instead of `Lazy! restore` there, so the user's own pinned plugin versions stay as they are.
+An existing config that is LazyVim (has `~/.config/nvim/lazyvim.json`) can still pick up language support it lacks. Compare its `extras` with `assets/lazyvim/lazyvim.json`. If any are missing (for example `lang.vue` or `lang.python`), use AskUserQuestion to offer adding them. On yes, insert the missing entries into the user's `extras` list with the Edit tool, then run only the two headless passes under **Install plugins, language servers and parsers** in `references/lazyvim.md`. Use `Lazy! install` instead of `Lazy! restore` there, so the user's own pinned plugin versions stay as they are.
 
-#### Neovim 0.11 or newer
-
-Uses the same `~/.local/bin/nvim` as mdv. If Step 15 ran, it is already there. Otherwise follow Step 15's **Neovim 0.10 or newer** subsection, with one difference: LazyVim needs **0.11+**, so a system Neovim older than that is not good enough to link — install the pinned tarball instead.
-
-```bash
-~/.local/bin/nvim --version | head -1
-```
-
-#### Tools LazyVim expects
-
-`git`, a C compiler, `node` and `unzip` are required (Mason unpacks some tools, e.g. `stylua`, from zip files and fails without it); `rg` (ripgrep) powers text search, `fd` file search, `tree-sitter` builds syntax parsers, `lazygit` backs `<Space>gg`.
-
-```bash
-for c in git cc node unzip rg fd tree-sitter lazygit; do printf "%s: " $c; command -v $c >/dev/null && echo OK || echo MISSING; done
-```
-
-**If MACOS, or LINUX/WSL with linuxbrew available** — install whatever is missing:
-
-```bash
-brew install unzip ripgrep fd tree-sitter-cli lazygit
-```
-
-(`tree-sitter-cli` is the formula with the `tree-sitter` binary; plain `tree-sitter` is only the library.)
-
-**If LINUX or WSL without brew:**
-
-**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
-
-```bash
-# Please run these commands manually, then confirm when done:
-sudo apt install -y build-essential unzip ripgrep fd-find
-mkdir -p ~/.local/bin && ln -sf "$(command -v fdfind)" ~/.local/bin/fd
-```
-
-Then, without sudo: `npm install -g tree-sitter-cli`. lazygit is optional here; without it only `<Space>gg` does nothing.
-
-If `node` is missing, point the user to Step 10 (NVM) or their Node install before continuing — the TypeScript, ESLint and Prettier tools are Node programs.
-
-#### Install the config
-
-The LazyVim starter provides `init.lua` and the plugin bootstrap; this skill's `assets/lazyvim/` (same skill directory as this file) layers the choices on top. Clone the starter into a temp directory so its `.git` never lands in `~/.config/nvim`:
-
-```bash
-TMP=$(mktemp -d)
-git clone -q --depth 1 https://github.com/LazyVim/starter "$TMP/starter"
-mkdir -p ~/.config/nvim
-cp -r "$TMP/starter/init.lua" "$TMP/starter/lua" "$TMP/starter/stylua.toml" "$TMP/starter/.neoconf.json" ~/.config/nvim/
-
-A=<this-skill-dir>/assets/lazyvim
-cp "$A/lazyvim.json" "$A/lazy-lock.json" ~/.config/nvim/
-cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" ~/.config/nvim/lua/config/
-cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" "$A/lua/plugins/blink.lua" ~/.config/nvim/lua/plugins/
-```
-
-Leave `$TMP` for the OS to clean up.
-
-What each asset does:
-
-| File | Effect |
-| --- | --- |
-| `lazyvim.json` | Turns on the extras: `lang.typescript`, `lang.vue`, `lang.python`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml`, `lang.markdown` |
-| `lazy-lock.json` | Plugin commits known to work together |
-| `lua/plugins/colorscheme.lua` | Catppuccin Mocha with `transparent_background`, plus One Dark / One Dark Pro kept lazy for previewing |
-| `lua/config/keymaps.lua` | `Ctrl+P` find file, `Ctrl+B` file tree, `Ctrl+/` comment (LazyVim already has `Ctrl+S`); Windows-style `Ctrl+C`/`X`/`V` copy, cut, paste, `Ctrl+Z`/`Y` undo, redo, `Ctrl+A` select all |
-| `lua/config/options.lua` | Windows-style selection: Shift (+Ctrl) + arrows/Home/End select, a plain arrow ends the selection, typing replaces it (`keymodel=startsel,stopsel`, `selectmode=key`); on WSL, `Ctrl+V` reads the Windows clipboard through PowerShell, since Windows Terminal ignores OSC 52 reads |
-| `lua/plugins/explorer.lua` | File tree (neo-tree) shows everything except `.git`, including dotfiles and git-ignored files like `.claude/`; file finder (fzf-lua) includes dotfiles but skips git-ignored files |
-| `lua/plugins/markdownlint.lua` | Points the Markdown linter and formatter at `~/.markdownlint-cli2.yaml` |
-| `lua/plugins/blink.lua` | Frees `Ctrl+Y` for redo in Insert mode: LazyVim maps it to accept a completion (Enter still does) |
-
-#### Markdown lint rules
-
-markdownlint's defaults flag every line over 80 characters and every inline HTML tag, which is noisy for READMEs and PR descriptions that use `<details>`. Install the global rules (line length 120, inline HTML allowed). If `~/.markdownlint-cli2.yaml` already exists, show the user both files and ask before replacing it.
-
-```bash
-cp <this-skill-dir>/assets/lazyvim/markdownlint-cli2.yaml ~/.markdownlint-cli2.yaml
-```
-
-#### Install plugins, language servers and parsers
-
-Two headless passes. `Lazy! restore` checks out the pinned plugins. `install-wait.lua` then builds the syntax parsers and installs the language servers and formatters through Mason, blocking until both finish — a plain `+qa` quits mid-download and aborts them, and LazyVim only starts Mason installs on an event that never fires headless. A few minutes on first run.
-
-```bash
-cd ~ && ~/.local/bin/nvim --headless "+Lazy! restore" +qa 2>&1 | tail -1
-~/.local/bin/nvim --headless -c "Lazy! load nvim-treesitter mason.nvim" -c "luafile <this-skill-dir>/assets/lazyvim/install-wait.lua" 2>&1 | tail -2
-```
-
-Expect `parsers: N installed` and `mason: all packages installed`. If it reports missing packages, show the user the matching `ERROR` lines from `~/.local/state/nvim/mason.log` (usually a missing tool such as `unzip`) rather than retrying blindly.
-
-#### Verify
-
-Open a TypeScript file headless and check the theme, the language server and the shortcuts:
-
-```bash
-T=$(mktemp -d) && echo 'const x: number = 1' > "$T/t.ts" && cd "$T" && \
-~/.local/bin/nvim --headless t.ts -c 'doautocmd User VeryLazy' -c 'sleep 15' \
-  -c 'lua io.stdout:write("scheme=" .. vim.g.colors_name .. " bg=[" .. vim.fn.synIDattr(vim.fn.hlID("Normal"), "bg#") .. "] lsp=" .. table.concat(vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ bufnr = 0 })), ",") .. " C-p=" .. vim.fn.maparg("<C-p>", "n", false, true).desc .. "\n")' \
-  -c 'qa!' 2>&1 | tail -1
-```
-
-Expect `scheme=catppuccin-mocha bg=[] lsp=vtsls C-p=Find Files (VS Code)`. An empty `bg=[]` means the transparent background is active.
-
-Check that the file tree really lists dotfiles — the option only helps if it lands on the explorer LazyVim actually uses (neo-tree in current LazyVim, not snacks):
-
-```bash
-cd <any git repo> && ~/.local/bin/nvim --headless -c 'doautocmd User VeryLazy' -c 'Neotree show' -c 'sleep 2' \
-  -c 'lua for _, b in ipairs(vim.api.nvim_list_bufs()) do if vim.bo[b].filetype == "neo-tree" then for _, l in ipairs(vim.api.nvim_buf_get_lines(b, 0, -1, false)) do if l:match("%s%.%w") then io.stdout:write(vim.trim(l) .. "\n") end end end end' \
-  -c 'qa!' 2>&1 | tail -5
-```
-
-Expect entries such as `.gitignore` or `.github`, and no `(N hidden items)` line.
-
-Check that the Vue and Python language servers attach as well:
-
-```bash
-T=$(mktemp -d) && cd "$T" && echo '{}' > tsconfig.json && \
-printf '<script setup lang="ts">\nconst x: number = 1\n</script>\n' > A.vue && printf 'import math\nmath.pi\n' > t.py && \
-for f in A.vue t.py; do ~/.local/bin/nvim --headless "$f" -c 'doautocmd User VeryLazy' -c 'sleep 15' \
-  -c 'lua io.stdout:write(vim.fn.expand("%") .. ": " .. table.concat(vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ bufnr = 0 })), ",") .. "\n")' \
-  -c 'qa!' 2>&1 | tail -1; done
-```
-
-Expect `A.vue: vue_ls,vtsls` and `t.py: pyright,ruff`. Completion items appear in the menu while typing (e.g. after `math.`). Enter accepts one. Tab does not, because LazyVim keeps Tab for jumping between snippet fields.
-
-Then tell the user:
-
-```
-Neovim is set up (LazyVim). Run nvim in a project folder.
-  Ctrl+P / Space Space   find file        Ctrl+B / Space e   file tree
-  Ctrl+S                 save             Ctrl+/             comment line/selection
-  Space /                search in files  gd / K             definition / type info
-  Space ca               code actions     Space gg           lazygit
-  Space ft               terminal         Space uC           preview colour schemes
-  Shift+arrows           select           Ctrl+C / X / V     copy / cut / paste
-  Ctrl+Z / Ctrl+Y        undo / redo      Ctrl+A             select all
-  Ctrl+Q                 block selection (Ctrl+V pastes)
-  Space (and wait)       menu of every key
-After editing ~/.config/nvim, run :restart — lazy.nvim reloads plugin specs on change but not the colour scheme.
-```
-
-The transparent background only shows through if the terminal itself is translucent (Windows Terminal: Settings → Defaults → Appearance → Background opacity / acrylic). Details, changing the theme, and uninstall: this skill's `references/lazyvim.md`.
+Otherwise (fresh install, or replacing a moved-aside config) follow the **Install** section of `references/lazyvim.md`: Neovim 0.11+ (LazyVim needs newer than mdv's 0.10), the tools it expects (with a sudo hand-off on Linux/WSL without brew), the starter plus this skill's `assets/lazyvim/` files, the global markdownlint rules (ask before replacing an existing `~/.markdownlint-cli2.yaml`), the headless plugin/LSP/parser install, the verify checks, and the key summary to tell the user.
 
 ### 17. Set up Python: uv, a current Python and IPython (optional)
 
@@ -1441,7 +521,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv python install 3.14 --default
 ```
 
-This creates `python`, `python3` and `python3.14` links in `~/.local/bin`. uv marks `--default` as experimental and prints a warning, but the install works. The system `/usr/bin/python3` is not touched, which matters because apt and other OS tools depend on it. The links only take effect if `~/.local/bin` comes before `/usr/bin` in PATH. Check with `zsh -i -c 'command -v python3'`. If that does not print `~/.local/bin/python3`, add the `setup-zsh local-bin` block from Step 15.
+This creates `python`, `python3` and `python3.14` links in `~/.local/bin`. uv marks `--default` as experimental and prints a warning, but the install works. The system `/usr/bin/python3` is not touched, which matters because apt and other OS tools depend on it. The links only take effect if `~/.local/bin` comes before `/usr/bin` in PATH. Check with `zsh -i -c 'command -v python3'`. If that does not print `~/.local/bin/python3`, add the `setup-zsh local-bin` block from `references/mdv.md` (**Make sure ~/.local/bin is on PATH**).
 
 uv's Python is marked as externally managed, so a global `pip install` is refused. Packages go into a project venv (`uv venv`, then `uv pip install <pkg>`), and command-line tools go in with `uv tool install`.
 
@@ -1486,9 +566,7 @@ Skip this step if `which btop` returned INSTALLED in Step 2.
 brew install btop
 ```
 
-**If LINUX or WSL without brew:**
-
-**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+**If LINUX or WSL without brew:** **IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
 
 ```bash
 # Please run this command manually, then confirm when done:
@@ -1521,119 +599,20 @@ Use AskUserQuestion: "Which folder holds your projects?" with the folders found 
 
 #### If MACOS: Ghostty
 
-Ghostty is the recommended terminal on macOS: it restores tabs, splits and their folders after Cmd+Q, and its keybinds can hand Shift/Ctrl+arrows to zsh. Check and install:
-
-```bash
-test -d /Applications/Ghostty.app && echo "Ghostty: INSTALLED" || echo "Ghostty: MISSING"
-```
-
-If MISSING, use AskUserQuestion: "Install Ghostty as your terminal?" with options "Yes, install Ghostty (Recommended)" and "No, keep my terminal". If yes:
-
-```bash
-brew install --cask ghostty
-```
-
-The config lives at `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`. Read it with the Read tool if it exists and back it up first (`cp "$F" "$F.bak-$(date +%Y%m%d-%H%M%S)"`); add only the lines whose key/keybind is not already set, and never overwrite the file with a fresh one. Create the directory and file if missing.
-
-```ghostty
-window-save-state = always
-
-# Leave Shift+arrows and Shift+Home/End to zsh (zsh-shift-select) instead of adjusting the terminal selection.
-keybind = shift+arrow_left=unbind
-keybind = shift+arrow_right=unbind
-keybind = shift+home=unbind
-keybind = shift+end=unbind
-
-# Cmd+Left/Right send Home/End instead of Ctrl+A/Ctrl+E (Ctrl+A is select-all in zsh, Step 7);
-# Shift+Cmd+Left/Right select to the line start/end.
-keybind = super+arrow_left=csi:H
-keybind = super+arrow_right=csi:F
-keybind = super+shift+arrow_left=csi:1;2H
-keybind = super+shift+arrow_right=csi:1;2F
-
-# Ctrl+Left/Right jump by word in zsh and in Claude's prompt (both read Esc b / Esc f as word moves).
-keybind = ctrl+arrow_left=esc:b
-keybind = ctrl+arrow_right=esc:f
-
-# Option+V reaches Claude as Alt+V (its image/text paste) instead of typing a character.
-keybind = alt+v=esc:v
-
-# A free-spinning mouse wheel (Logitech MX) sends bursts of notches; 3 lines each jumps whole pages.
-mouse-scroll-multiplier = precision:1,discrete:1
-```
-
-The scroll setting only covers Ghostty's own scrollback: inside herdr, herdr scrolls (Step 20).
-
-`window-save-state = always` restores windows, tabs, splits and their working directories after Cmd+Q; running programs are not restored (the herdr auto-start in Step 20 covers herdr).
-
-Don't bind `ctrl+v` in Ghostty: zsh (`_paste_from_clipboard`, Step 7) and nvim (the LazyVim keymaps) handle Ctrl+V themselves, and Claude Code needs to receive it (below). Only `alt+v` is remapped; changing `macos-option-as-alt` instead would break the Option characters of non-US layouts.
-
-**If Claude Code is installed** (`command -v claude`): make Ctrl+V and Option+V paste in its prompt. Both keys run Claude's image paste, which attaches an image from the clipboard and falls back to pasting text when there is none. Read `~/.claude/keybindings.json` first and merge into it; only create it if it does not exist:
-
-```json
-{
-  "$schema": "https://www.schemastore.org/claude-code-keybindings.json",
-  "$docs": "https://code.claude.com/docs/en/keybindings",
-  "bindings": [
-    {
-      "context": "Chat",
-      "bindings": {
-        "ctrl+v": "chat:imagePaste",
-        "meta+v": "chat:imagePaste"
-      }
-    }
-  ]
-}
-```
-
-Claude Code reads the file at start, so restart it afterwards. A macOS screenshot only reaches the clipboard if screenshots are set to copy there (`/base-setup:setup-macos`) or taken with Cmd+Ctrl+Shift+4.
-
-Optional, ask before adding (AskUserQuestion, multiSelect) — these are taste, not needed for anything else:
-
-```ghostty
-# New windows start in the work directory instead of the home folder.
-working-directory = ~/<WORK_DIR>
-tab-inherit-working-directory = false
-
-# Translucent, blurred background (the LazyVim theme from Step 16 shows it through).
-background-opacity = 0.8
-background-blur = true
-```
-
-Ghostty picks up config changes after Cmd+Shift+, (reload config) or a restart.
+Follow the **Ghostty (macOS)** section of `references/terminal.md`: check for Ghostty and offer to install it (asks "Install Ghostty as your terminal?"; it restores tabs, splits and folders after Cmd+Q and can hand Shift/Ctrl+arrows to zsh), merge the keybinds and settings into `config.ghostty` (back it up, add only missing keys, never overwrite), set Claude Code's Ctrl+V / Option+V paste keys if Claude Code is installed, and offer the optional work-directory and translucency settings (AskUserQuestion, multiSelect).
 
 #### If WSL: Windows Terminal profile for herdr
 
 There is no auto-start in `~/.zshrc` on WSL; a dedicated Windows Terminal profile starts the herdr TUI (installed in Step 20) instead. It is only for the TUI; the Herdr app is its own window. Use AskUserQuestion: "Add a Windows Terminal profile that opens straight into the herdr TUI?" — "Yes (Recommended)" / "No, I won't use the herdr TUI". If no, skip the rest of this step.
 
-Locate `settings.json` with the same loop as Step 12, read it with the Read tool, back it up (`cp`, `.bak-<timestamp>` suffix), and if no profile named `herdr` exists, add one to `profiles.list` with the Edit tool. Generate the GUID with `cat /proc/sys/kernel/random/uuid`.
-
-```json
-{
-    "guid": "{<new GUID>}",
-    "name": "herdr",
-    "commandline": "wsl.exe -d <distro> --cd <linux home>/<WORK_DIR> -- zsh -lic herdr"
-},
-```
-
-`<distro>` is `$WSL_DISTRO_NAME` (e.g. `Ubuntu`) and `<linux home>` the absolute `$HOME` inside WSL (e.g. `/home/alice`). `zsh -lic` runs a login, interactive shell so herdr sees the same `PATH` as a normal tab. Copy `font`/`colorScheme` from the distro's existing profile if it sets them, so the herdr tab looks the same.
-
-Then ask (AskUserQuestion): "Make herdr the default Windows Terminal profile?" — "Yes" / "No". If yes, set the top-level `"defaultProfile"` to the new GUID. Windows Terminal reloads `settings.json` on save.
+If yes, follow the **Windows Terminal profile for herdr (WSL)** section of `references/terminal.md`: add a `herdr` profile to `settings.json` (back it up first), then ask "Make herdr the default Windows Terminal profile?".
 
 ### 20. Install herdr: the TUI, the app, or both (optional)
 
-[herdr](https://herdr.dev) runs AI coding agents (Claude Code, Codex, etc.) side by side,
-with a sidebar that tracks each agent's status. It comes in two independent products that
-can be installed side by side:
+[herdr](https://herdr.dev) runs AI coding agents (Claude Code, Codex, etc.) side by side, with a sidebar that tracks each agent's status. It comes in two independent products that can be installed side by side; nothing else in this skill depends on either:
 
-- **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal,
-  Ghostty). Resumes Claude Code after a restart by itself. Extras below: herdr-spin,
-  notifications, mdv-restore.
-- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL
-  and shows through WSLg. Claude Code and mdv come back after a reboot through
-  herdr-agent-resume and a zsh block.
-
-Nothing else in this skill depends on either.
+- **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal, Ghostty). Resumes Claude Code after a restart by itself. Extras: herdr-spin, notifications, mdv-restore.
+- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL and shows through WSLg. Claude Code and mdv come back after a reboot through herdr-agent-resume and a zsh block.
 
 **1. Check what is installed.**
 
@@ -1642,238 +621,11 @@ which herdr 2>/dev/null && herdr --version || echo "herdr TUI: NOT INSTALLED"
 command -v herdr-app >/dev/null && echo "herdr app: INSTALLED" || echo "herdr app: NOT INSTALLED"
 ```
 
-**2. Ask which one to set up.** Use AskUserQuestion: "Which herdr do you want to set up?"
-with options "Herdr TUI", "Herdr app", "Both" and "Neither". Mention what is already
-installed in the question; picking an installed one still runs its configuration below.
+**2. Ask which one to set up.** Use AskUserQuestion: "Which herdr do you want to set up?" with options "Herdr TUI", "Herdr app", "Both" and "Neither". Mention what is already installed in the question; picking an installed one still runs its configuration.
 
 - **Neither:** skip to Step 21.
-- **Herdr app** or **Both:** follow this skill's `references/herdr-app.md` from top to
-  bottom. With **Herdr app** alone, skip the rest of this step afterwards and go to Step 21.
-- **Herdr TUI** or **Both:** continue below. If the TUI is `NOT INSTALLED`, install it with
-  herdr's official installer — this works the same on Linux,
-  macOS, and WSL, and does not need sudo (it installs to the user's own PATH, e.g.
-  `~/.local/bin`):
-
-  ```bash
-  curl -fsSL https://herdr.dev/install.sh | sh
-  ```
-
-  Verify:
-
-  ```bash
-  herdr --version
-  ```
-
-  If the install or verification fails, report the exact error to the user and skip
-  the rest of this step — do not retry automatically (see Error Handling below).
-
-**3. If MACOS and Ghostty is the terminal: start herdr with Ghostty.** Ghostty restores
-tabs after Cmd+Q but not the programs in them; this block reopens herdr in the first
-Ghostty tab or window only — never in a second tab, never inside herdr itself. Skip if
-`~/.zshrc` already contains `_herdr_client_running`. Otherwise use AskUserQuestion: "Start
-herdr automatically when Ghostty opens?" — "Yes (Recommended)" / "No".
-
-If yes, back up `~/.zshrc` and use the Edit tool to put this block at the **very top of
-`~/.zshrc`, above the p10k instant-prompt block** (`# Enable Powerlevel10k instant prompt`).
-p10k's instant prompt takes over the terminal during startup, and a TUI started after it
-freezes the tab. If `command -v herdr` is not `~/.local/bin/herdr`, use that path instead.
-
-```zsh
-# Ghostty doesn't restore running programs: reopen herdr in one tab only, across all windows.
-# Above p10k's instant prompt, which takes over the terminal and freezes a TUI started later.
-_herdr_client_running() {
-  ps -axo tty=,command= | awk '$1 != "??" && $2 ~ /(^|\/)herdr$/ {found=1} END {exit !found}'
-}
-_herdr_unlock() { rm -f "$1/pid"; rmdir "$1" 2>/dev/null; }
-if [[ -o interactive && "$TERM_PROGRAM" == ghostty && -z "$HERDR_ENV" ]] && ! _herdr_client_running; then
-  _herdr_lock="${TMPDIR:-/tmp}/herdr-autostart.lock"
-  # A lock left by a shell that died (crash, closed tab) is stale; clear it.
-  [[ -d $_herdr_lock ]] && ! kill -0 "$(<$_herdr_lock/pid)" 2>/dev/null && _herdr_unlock "$_herdr_lock"
-  # mkdir is atomic, so only one of several tabs restoring at once gets the lock.
-  if mkdir "$_herdr_lock" 2>/dev/null; then
-    print $$ > "$_herdr_lock/pid"
-    "$HOME/.local/bin/herdr"
-    _herdr_unlock "$_herdr_lock"
-  fi
-  unset _herdr_lock
-fi
-```
-
-Quitting herdr drops back to the normal zsh prompt in that tab. On WSL, the Windows
-Terminal profile from Step 19 does this job instead; nothing goes into `~/.zshrc`.
-
-**4. herdr is now installed** (either just now, or already). Check its version against
-herdr-spin's minimum (0.8.2), and check what's already configured:
-
-```bash
-herdr --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
-test -f "$HOME/.config/herdr-spin/spin.py" && echo "herdr-spin: INSTALLED" || echo "herdr-spin: MISSING"
-grep -q '\[ui\.toast\]' "$HOME/.config/herdr/config.toml" 2>/dev/null && echo "notifications: CONFIGURED" || echo "notifications: MISSING"
-test -x ~/.local/bin/mdv && { herdr plugin list 2>/dev/null | grep -q 'local.mdv-restore' && echo "mdv-restore: INSTALLED" || echo "mdv-restore: MISSING"; }
-```
-
-The last line prints nothing when mdv (Step 15) is not installed; then don't offer mdv-restore below.
-
-Compare the version against `0.8.2` (e.g. `printf '%s\n0.8.2\n' "$VERSION" | sort -V | head -1` —
-if that prints `0.8.2`, the installed version is new enough). If it's older, tell the
-user herdr-spin needs 0.8.2+ and suggest `herdr update` (or their package manager, if
-they installed via Homebrew/mise/Nix), then don't offer herdr-spin below — notifications
-have no version requirement and can still be offered.
-
-**Wheel scrolling.** herdr captures the mouse and scrolls its own scrollback, 3 lines per
-wheel notch, whatever the terminal is set to; a free-spinning wheel (Logitech MX) jumps
-pages at a time. Skip if `~/.config/herdr/config.toml` already sets `mouse_scroll_lines`.
-Otherwise use AskUserQuestion: "Scroll 1 line per mouse wheel notch in herdr?" — "Yes
-(Recommended)" / "No". If yes, read the file with the Read tool and add the key to its
-existing `[ui]` table (add a `[ui]` table only if there is none; a second one is a TOML
-error):
-
-```toml
-[ui]
-mouse_scroll_lines = 1
-```
-
-Apply with `herdr server reload-config`; no restart needed.
-
-Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
-check passed). If all are already configured, report that and skip to Step 21.
-
-Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
-installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
-its built-in spinner in 0.8.0 for performance reasons, with no setting to bring it back —
-this plugin restores one glyph per agent state in the sidebar), "Agent notifications"
-(a toast when a background agent finishes or needs input, so you don't have to keep
-glancing at the sidebar) and "Reopen mdv after a restart (mdv-restore)" (mdv panes come
-back on the same files after a herdr server restart, without showing up as agents in the
-sidebar).
-
-If the user picks none, skip to Step 21.
-
-**5. If "Animated agent spinner (herdr-spin)" was picked:**
-
-a. Copy this skill's `assets/herdr-spin/spin.py` and `assets/herdr-spin/herdr-plugin.toml`
-   (in the same skill directory as this file) into `~/.config/herdr-spin/`:
-
-   ```bash
-   mkdir -p ~/.config/herdr-spin
-   cp <this-skill-dir>/assets/herdr-spin/spin.py <this-skill-dir>/assets/herdr-spin/herdr-plugin.toml ~/.config/herdr-spin/
-   ```
-
-b. Register the plugin with herdr:
-
-   ```bash
-   herdr plugin link ~/.config/herdr-spin
-   herdr plugin list
-   ```
-
-   Confirm the output lists `local.spin ... enabled`. If it doesn't, report the output
-   to the user and stop this sub-step.
-
-c. Update herdr's sidebar config. Read `~/.config/herdr/config.toml` with the Read tool.
-   This edit is additive — never overwrite an existing config file with a fresh one:
-
-   - If the file has no `[ui.sidebar.agents]` table, use Edit to append one.
-   - If it already has one, merge `rows` into it instead of adding a second table.
-
-   Target shape:
-
-   ```toml
-   [ui.sidebar.agents]
-   rows = [
-     [
-       { token = "$w", fg = "#fabd2f", bold = true, dim = false },
-       { token = "$b", fg = "#fb4934", bold = true, dim = false },
-       { token = "$d", fg = "#b8bb26", dim = false },
-       { token = "$i", fg = "#b8bb26", dim = false },
-       "workspace",
-       "tab",
-     ],
-     ["agent"],
-   ]
-   ```
-
-   This drops `state_icon` (herdr's default first column) in favor of four metadata
-   tokens, one per agent state — a metadata token carries a single fixed colour, so the
-   plugin needs one per state rather than one shared column. The hex values are herdr's
-   gruvbox palette; on another theme, swap them for that theme's yellow/red/green.
-
-d. Apply the config and start the animator:
-
-   ```bash
-   herdr server reload-config
-   python3 ~/.config/herdr-spin/spin.py
-   ```
-
-   Herdr only fires the plugin's `[[startup]]` hook when its server starts, not when a
-   plugin is linked, so this first run has to be by hand.
-
-e. Verify:
-
-   ```bash
-   test -f "/tmp/herdr-spin-$UID/spin.lock" && echo "animator running" || echo "animator not running"
-   ```
-
-   If not running, check `/tmp/herdr-spin-$UID/spin.log` for errors.
-
-   Tell the user: restart after editing the script with
-   `python3 ~/.config/herdr-spin/spin.py --restart`, and see this skill's
-   `references/herdr-spin.md` for tuning the frame rate, troubleshooting a blank icon
-   column, and uninstalling.
-
-**6. If "Agent notifications" was picked:**
-
-Read `~/.config/herdr/config.toml` with the Read tool — same additive-merge caution as
-above. Use Edit to append (or Write to create the file if it doesn't exist):
-
-```toml
-[ui.toast]
-delivery = "herdr"
-delay_seconds = 1
-
-[ui.toast.herdr]
-position = "bottom-right"
-```
-
-`delivery = "herdr"` is an in-app toast. Mention the alternatives to the user: `"terminal"`
-also works over SSH (an outer-terminal notification instead of an in-app one), and
-`"system"` uses the OS notification service — on macOS this needs
-`brew install terminal-notifier` for full functionality (click-to-focus); without it,
-herdr falls back to `osascript`, which shows up as "Script Editor" in Notification Center
-and can't focus the terminal.
-
-Apply:
-
-```bash
-herdr server reload-config
-```
-
-**7. If "Reopen mdv after a restart (mdv-restore)" was picked:**
-
-The mdv launcher records each pane's open files under `~/.local/state/mdv-restore/` and
-deletes the entry when mdv quits with `q`; this plugin's `[[startup]]` hook reopens the
-recorded ones after the server restarts. It replaces the earlier launcher, which reported
-mdv to herdr as an agent (`herdr pane report-agent`) and so listed every open file in the
-agent sidebar. If Step 15 reported `~/.local/bin/mdv` as outdated and the update was
-skipped, install the launcher now, since the old one never writes the state the plugin
-reads:
-
-```bash
-install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv
-```
-
-Copy and register the plugin:
-
-```bash
-mkdir -p ~/.config/herdr-mdv-restore
-cp <this-skill-dir>/assets/mdv-restore/herdr-plugin.toml <this-skill-dir>/assets/mdv-restore/restore.sh ~/.config/herdr-mdv-restore/
-herdr plugin link ~/.config/herdr-mdv-restore
-herdr plugin list
-```
-
-Confirm the output lists `local.mdv-restore ... enabled`. Nothing else is needed: the hook
-runs on the next server start. Tell the user what happens after `herdr server stop` and
-`herdr`: mdv panes return on the same files, a pane quit with `q` returns as a plain
-shell, and `herdr plugin log list --plugin local.mdv-restore` shows what the hook did.
+- **Herdr app** or **Both:** follow this skill's `references/herdr-app.md` from top to bottom. With **Herdr app** alone, skip the rest of this step afterwards and go to Step 21.
+- **Herdr TUI** or **Both:** then follow `references/herdr-tui.md` from top to bottom: install with herdr's official installer if `NOT INSTALLED` (no sudo; on failure report the exact error and skip the rest of this step, no automatic retry), the Ghostty auto-start block on macOS (asks "Start herdr automatically when Ghostty opens?"), the version check against herdr-spin's 0.8.2 minimum, 1-line wheel scrolling (asks "Scroll 1 line per mouse wheel notch in herdr?"), and a multiSelect "herdr is installed. Set up any of these?" offering only what is still missing: herdr-spin, agent notifications, mdv-restore (only if mdv is installed).
 
 ### 21. Apply Configuration
 
@@ -1911,7 +663,6 @@ If any step fails:
 - **NEVER clone git repos into the current directory** - always specify the full target path
 - **Skip components that are already installed** - report them as "already installed"
 - **Detect WSL vs native Linux vs macOS first** - this affects Zsh installation and font paths
-- **Use `--unattended` flag** for Oh My Zsh installer to prevent interactive prompts
 - **On macOS**, Zsh is pre-installed - skip Zsh installation, fonts go to `~/Library/Fonts`
 - **On macOS**, `brew` is used instead of `apt` if any packages are needed
 - **glow never auto-detects terminal width.** If tables render squeezed, the `glow()` function from Step 14 is not loaded - check `which glow` returns a function rather than `/usr/bin/glow`.

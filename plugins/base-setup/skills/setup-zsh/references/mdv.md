@@ -1,8 +1,103 @@
 # mdv reference
 
-Details for the mdv step that don't need to be in the main skill flow: what each file
-does, how the clipboard path works, troubleshooting, updating the pinned versions, and
-how to remove it.
+Step 15 sends you here. **Install** below is the install procedure; the sections after it
+are details that don't need to be in the main skill flow: what each file does, how the
+clipboard path works, troubleshooting, updating the pinned versions, and how to remove it.
+
+## Install
+
+Everything installs under `$HOME` — no sudo. Needs `git`, `curl`, `tar` and access to GitHub.
+Run the subsections in order (an update from Step 15 runs only the ones it names).
+
+### Neovim 0.10 or newer
+
+The launcher runs `~/.local/bin/nvim`. Check what is there:
+
+```bash
+test -x ~/.local/bin/nvim && ~/.local/bin/nvim --version | head -1 || echo "MISSING"
+```
+
+- **0.10 or newer** → keep it and continue with the next section.
+- **MISSING, but `command -v nvim` finds a 0.10+ build elsewhere** (Homebrew, apt) → link it and continue:
+
+  ```bash
+  mkdir -p ~/.local/bin && ln -s "$(command -v nvim)" ~/.local/bin/nvim
+  ```
+
+- **Otherwise** → install the pinned release tarball into `~/.local/opt`. Distribution packages are often older than 0.10 (Ubuntu 24.04 ships 0.9.5), and the config needs `vim.base64`, `vim.ui.clipboard.osc52` and `nvim_ui_send`, all 0.10 APIs. A system Neovim is never touched.
+
+```bash
+NVIM_VERSION=v0.12.4
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64)  ASSET=nvim-linux-x86_64 ;;
+  Linux-aarch64) ASSET=nvim-linux-arm64 ;;
+  Darwin-arm64)  ASSET=nvim-macos-arm64 ;;
+  Darwin-x86_64) ASSET=nvim-macos-x86_64 ;;
+  *) echo "unsupported platform: $(uname -s)-$(uname -m)"; exit 1 ;;
+esac
+mkdir -p ~/.local/opt ~/.local/bin
+curl -fsSL -o "/tmp/$ASSET.tar.gz" "https://github.com/neovim/neovim/releases/download/$NVIM_VERSION/$ASSET.tar.gz"
+[[ "$(uname -s)" == Darwin ]] && xattr -c "/tmp/$ASSET.tar.gz"
+tar -xzf "/tmp/$ASSET.tar.gz" -C ~/.local/opt
+ln -sfn "$HOME/.local/opt/$ASSET/bin/nvim" ~/.local/bin/nvim
+~/.local/bin/nvim --version | head -1
+```
+
+The `xattr -c` on macOS drops the quarantine flag so Gatekeeper does not block the unsigned binary.
+
+### Copy the launcher and config
+
+The files live in this skill's `assets/mdv/`. `NVIM_APPNAME=mdv` keeps the config in `~/.config/mdv`, so an existing `~/.config/nvim` is never touched.
+
+```bash
+mkdir -p ~/.config/mdv/lua
+cp <this-skill-dir>/assets/mdv/init.lua <this-skill-dir>/assets/mdv/lazy-lock.json ~/.config/mdv/
+cp <this-skill-dir>/assets/mdv/lua/mdreflow.lua <this-skill-dir>/assets/mdv/lua/mdview.lua ~/.config/mdv/lua/
+install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv
+```
+
+### Install the plugins
+
+lazy.nvim bootstraps itself on the first start, and `Lazy! restore` checks out the commits pinned in `lazy-lock.json`. Headless, about ten seconds:
+
+```bash
+NVIM_APPNAME=mdv ~/.local/bin/nvim --headless "+Lazy! restore" +qa 2>&1 | tail -3
+ls ~/.local/share/mdv/lazy
+```
+
+Expect five directories: `catppuccin`, `lazy.nvim`, `render-markdown.nvim`, `rose-pine`, `tokyonight.nvim`.
+
+### Make sure ~/.local/bin is on PATH
+
+```bash
+zsh -i -c 'command -v mdv' 2>/dev/null || echo "NOT ON PATH"
+```
+
+If it prints NOT ON PATH, read `~/.zshrc` with the Read tool and, unless a `.local/bin` PATH export is already there, use the Edit tool to append:
+
+```zsh
+# >>> setup-zsh local-bin >>>
+export PATH="$HOME/.local/bin:$PATH"
+# <<< setup-zsh local-bin <<<
+```
+
+### Verify
+
+```bash
+NVIM_APPNAME=mdv ~/.local/bin/nvim --headless "+lua print(vim.g.clipboard.name)" +qa 2>&1 | tail -1
+```
+
+Expect `osc52`. Then tell the user:
+
+```
+mdv is installed. Try it on any Markdown file: mdv README.md
+  /  search      q  quit      g?  all keys
+  Drag-select with the mouse: the text is on your clipboard the moment you release the button.
+  Keyboard: v or V to select, y to copy.
+  Several files: mdv docs/*.md (Tab / Shift-Tab switches). From a pipe: some-command | mdv
+```
+
+Copies travel as OSC 52 through the terminal, so they reach the Windows clipboard from WSL without `clip.exe` (which mangles non-ASCII text) and work inside Herdr panes.
 
 ## Files
 

@@ -1,7 +1,144 @@
 # LazyVim reference
 
-Details for the LazyVim step that don't need to be in the main skill flow: what each
-file does, changing the theme, known quirks, and how to remove it.
+Step 16 sends you here. **Install** below is the install procedure; the sections after it
+are details that don't need to be in the main skill flow: what each file does, changing
+the theme, known quirks, and how to remove it.
+
+## Install
+
+Run the subsections in order. An existing LazyVim config that only gains extras (Step 16)
+runs just the two headless passes under **Install plugins, language servers and parsers**,
+with `Lazy! install` instead of `Lazy! restore`.
+
+### Neovim 0.11 or newer
+
+Uses the same `~/.local/bin/nvim` as mdv. If Step 15 ran, it is already there. Otherwise follow the **Neovim 0.10 or newer** subsection of `references/mdv.md`, with one difference: LazyVim needs **0.11+**, so a system Neovim older than that is not good enough to link — install the pinned tarball instead.
+
+```bash
+~/.local/bin/nvim --version | head -1
+```
+
+### Tools LazyVim expects
+
+`git`, a C compiler, `node` and `unzip` are required (Mason unpacks some tools, e.g. `stylua`, from zip files and fails without it); `rg` (ripgrep) powers text search, `fd` file search, `tree-sitter` builds syntax parsers, `lazygit` backs `<Space>gg`.
+
+```bash
+for c in git cc node unzip rg fd tree-sitter lazygit; do printf "%s: " $c; command -v $c >/dev/null && echo OK || echo MISSING; done
+```
+
+**If MACOS, or LINUX/WSL with linuxbrew available** — install whatever is missing:
+
+```bash
+brew install unzip ripgrep fd tree-sitter-cli lazygit
+```
+
+(`tree-sitter-cli` is the formula with the `tree-sitter` binary; plain `tree-sitter` is only the library.)
+
+**If LINUX or WSL without brew:**
+
+**IMPORTANT: Claude cannot run sudo commands.** Output the following and wait for confirmation:
+
+```bash
+# Please run these commands manually, then confirm when done:
+sudo apt install -y build-essential unzip ripgrep fd-find
+mkdir -p ~/.local/bin && ln -sf "$(command -v fdfind)" ~/.local/bin/fd
+```
+
+Then, without sudo: `npm install -g tree-sitter-cli`. lazygit is optional here; without it only `<Space>gg` does nothing.
+
+If `node` is missing, point the user to Step 10 (NVM) or their Node install before continuing — the TypeScript, ESLint and Prettier tools are Node programs.
+
+### Install the config
+
+The LazyVim starter provides `init.lua` and the plugin bootstrap; this skill's `assets/lazyvim/` layers the choices on top (what each file does: **Files** below). Clone the starter into a temp directory so its `.git` never lands in `~/.config/nvim`:
+
+```bash
+TMP=$(mktemp -d)
+git clone -q --depth 1 https://github.com/LazyVim/starter "$TMP/starter"
+mkdir -p ~/.config/nvim
+cp -r "$TMP/starter/init.lua" "$TMP/starter/lua" "$TMP/starter/stylua.toml" "$TMP/starter/.neoconf.json" ~/.config/nvim/
+
+A=<this-skill-dir>/assets/lazyvim
+cp "$A/lazyvim.json" "$A/lazy-lock.json" ~/.config/nvim/
+cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" ~/.config/nvim/lua/config/
+cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" "$A/lua/plugins/blink.lua" ~/.config/nvim/lua/plugins/
+```
+
+Leave `$TMP` for the OS to clean up.
+
+`lazyvim.json` turns on the extras `lang.typescript`, `lang.vue`, `lang.python`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml` and `lang.markdown`; `lazy-lock.json` pins plugin commits known to work together.
+
+### Markdown lint rules
+
+markdownlint's defaults flag every line over 80 characters and every inline HTML tag, which is noisy for READMEs and PR descriptions that use `<details>`. Install the global rules (line length 120, inline HTML allowed). If `~/.markdownlint-cli2.yaml` already exists, show the user both files and ask before replacing it.
+
+```bash
+cp <this-skill-dir>/assets/lazyvim/markdownlint-cli2.yaml ~/.markdownlint-cli2.yaml
+```
+
+### Install plugins, language servers and parsers
+
+Two headless passes. `Lazy! restore` checks out the pinned plugins. `install-wait.lua` then builds the syntax parsers and installs the language servers and formatters through Mason, blocking until both finish — a plain `+qa` quits mid-download and aborts them, and LazyVim only starts Mason installs on an event that never fires headless. A few minutes on first run.
+
+```bash
+cd ~ && ~/.local/bin/nvim --headless "+Lazy! restore" +qa 2>&1 | tail -1
+~/.local/bin/nvim --headless -c "Lazy! load nvim-treesitter mason.nvim" -c "luafile <this-skill-dir>/assets/lazyvim/install-wait.lua" 2>&1 | tail -2
+```
+
+Expect `parsers: N installed` and `mason: all packages installed`. If it reports missing packages, show the user the matching `ERROR` lines from `~/.local/state/nvim/mason.log` (usually a missing tool such as `unzip`) rather than retrying blindly.
+
+### Verify
+
+Open a TypeScript file headless and check the theme, the language server and the shortcuts:
+
+```bash
+T=$(mktemp -d) && echo 'const x: number = 1' > "$T/t.ts" && cd "$T" && \
+~/.local/bin/nvim --headless t.ts -c 'doautocmd User VeryLazy' -c 'sleep 15' \
+  -c 'lua io.stdout:write("scheme=" .. vim.g.colors_name .. " bg=[" .. vim.fn.synIDattr(vim.fn.hlID("Normal"), "bg#") .. "] lsp=" .. table.concat(vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ bufnr = 0 })), ",") .. " C-p=" .. vim.fn.maparg("<C-p>", "n", false, true).desc .. "\n")' \
+  -c 'qa!' 2>&1 | tail -1
+```
+
+Expect `scheme=catppuccin-mocha bg=[] lsp=vtsls C-p=Find Files (VS Code)`. An empty `bg=[]` means the transparent background is active.
+
+Check that the file tree really lists dotfiles — the option only helps if it lands on the explorer LazyVim actually uses (neo-tree in current LazyVim, not snacks):
+
+```bash
+cd <any git repo> && ~/.local/bin/nvim --headless -c 'doautocmd User VeryLazy' -c 'Neotree show' -c 'sleep 2' \
+  -c 'lua for _, b in ipairs(vim.api.nvim_list_bufs()) do if vim.bo[b].filetype == "neo-tree" then for _, l in ipairs(vim.api.nvim_buf_get_lines(b, 0, -1, false)) do if l:match("%s%.%w") then io.stdout:write(vim.trim(l) .. "\n") end end end end' \
+  -c 'qa!' 2>&1 | tail -5
+```
+
+Expect entries such as `.gitignore` or `.github`, and no `(N hidden items)` line.
+
+Check that the Vue and Python language servers attach as well:
+
+```bash
+T=$(mktemp -d) && cd "$T" && echo '{}' > tsconfig.json && \
+printf '<script setup lang="ts">\nconst x: number = 1\n</script>\n' > A.vue && printf 'import math\nmath.pi\n' > t.py && \
+for f in A.vue t.py; do ~/.local/bin/nvim --headless "$f" -c 'doautocmd User VeryLazy' -c 'sleep 15' \
+  -c 'lua io.stdout:write(vim.fn.expand("%") .. ": " .. table.concat(vim.tbl_map(function(c) return c.name end, vim.lsp.get_clients({ bufnr = 0 })), ",") .. "\n")' \
+  -c 'qa!' 2>&1 | tail -1; done
+```
+
+Expect `A.vue: vue_ls,vtsls` and `t.py: pyright,ruff`. Completion items appear in the menu while typing (e.g. after `math.`). Enter accepts one. Tab does not, because LazyVim keeps Tab for jumping between snippet fields.
+
+Then tell the user:
+
+```
+Neovim is set up (LazyVim). Run nvim in a project folder.
+  Ctrl+P / Space Space   find file        Ctrl+B / Space e   file tree
+  Ctrl+S                 save             Ctrl+/             comment line/selection
+  Space /                search in files  gd / K             definition / type info
+  Space ca               code actions     Space gg           lazygit
+  Space ft               terminal         Space uC           preview colour schemes
+  Shift+arrows           select           Ctrl+C / X / V     copy / cut / paste
+  Ctrl+Z / Ctrl+Y        undo / redo      Ctrl+A             select all
+  Ctrl+Q                 block selection (Ctrl+V pastes)
+  Space (and wait)       menu of every key
+After editing ~/.config/nvim, run :restart — lazy.nvim reloads plugin specs on change but not the colour scheme.
+```
+
+The transparent background only shows through if the terminal itself is translucent (Windows Terminal: Settings → Defaults → Appearance → Background opacity / acrylic).
 
 ## Files
 
