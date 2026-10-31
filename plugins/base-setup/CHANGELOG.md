@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.10.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.9.1...base-setup-v1.10.0) (2026-10-31)
+
+
+### Features
+
+* **base-setup:** reopen mdv after herdr restart via a plugin ([97c969f](https://github.com/Nagell/claude-marketplace/commit/97c969fbb955bfda106c33a3c0cf1c2b355f7a47))
+* **base-setup:** reopen mdv after herdr restart via a plugin ([2f78e9c](https://github.com/Nagell/claude-marketplace/commit/2f78e9c59c4bf66405a86c558f3ff2a333e8d8c1))
+
+
+### Bug Fixes
+
+* **base-setup:** refresh outdated mdv files in setup-zsh ([e364164](https://github.com/Nagell/claude-marketplace/commit/e36416459a66c73d2515348c812851fa57419f1b))
+* **base-setup:** refresh outdated mdv files in setup-zsh ([9776b37](https://github.com/Nagell/claude-marketplace/commit/9776b37b3e5e57a183057b94f7180b913b519c76))
+
 ## [1.9.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.9.0...base-setup-v1.9.1) (2026-10-31)
 
 
