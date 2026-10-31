@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.9.0...base-setup-v1.9.1) (2026-10-31)
+
+
+### Bug Fixes
+
+* **base-setup:** draw the statusline context bar with ■ and ─ ([ae02baf](https://github.com/Nagell/claude-marketplace/commit/ae02baf38edaa5fb3775137ddd1b856295a548fd))
+* **base-setup:** draw the statusline context bar with ■ and ─ ([008ddbe](https://github.com/Nagell/claude-marketplace/commit/008ddbe7a884ed64ee5841bf04a31bdc85484902))
+
 ## [1.9.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.8.0...base-setup-v1.9.0) (2026-10-25)
 
 
