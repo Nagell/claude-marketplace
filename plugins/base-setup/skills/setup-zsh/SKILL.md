@@ -1699,7 +1699,10 @@ herdr-spin's minimum (0.8.2), and check what's already configured:
 herdr --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
 test -f "$HOME/.config/herdr-spin/spin.py" && echo "herdr-spin: INSTALLED" || echo "herdr-spin: MISSING"
 grep -q '\[ui\.toast\]' "$HOME/.config/herdr/config.toml" 2>/dev/null && echo "notifications: CONFIGURED" || echo "notifications: MISSING"
+test -x ~/.local/bin/mdv && { herdr plugin list 2>/dev/null | grep -q 'local.mdv-restore' && echo "mdv-restore: INSTALLED" || echo "mdv-restore: MISSING"; }
 ```
+
+The last line prints nothing when mdv (Step 15) is not installed; then don't offer mdv-restore below.
 
 Compare the version against `0.8.2` (e.g. `printf '%s\n0.8.2\n' "$VERSION" | sort -V | head -1` —
 if that prints `0.8.2`, the installed version is new enough). If it's older, tell the
@@ -1723,16 +1726,18 @@ mouse_scroll_lines = 1
 Apply with `herdr server reload-config`; no restart needed.
 
 Only ask about things that are still `MISSING` (and, for herdr-spin, only if the version
-check passed). If both are already configured, report that and skip to Step 21.
+check passed). If all are already configured, report that and skip to Step 21.
 
 Use AskUserQuestion (multiSelect) with whichever of these still apply: "herdr is
 installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herdr dropped
 its built-in spinner in 0.8.0 for performance reasons, with no setting to bring it back —
-this plugin restores one glyph per agent state in the sidebar) and "Agent notifications"
+this plugin restores one glyph per agent state in the sidebar), "Agent notifications"
 (a toast when a background agent finishes or needs input, so you don't have to keep
-glancing at the sidebar).
+glancing at the sidebar) and "Reopen mdv after a restart (mdv-restore)" (mdv panes come
+back on the same files after a herdr server restart, without showing up as agents in the
+sidebar).
 
-If the user picks neither, skip to Step 21.
+If the user picks none, skip to Step 21.
 
 **5. If "Animated agent spinner (herdr-spin)" was picked:**
 
@@ -1831,6 +1836,34 @@ Apply:
 ```bash
 herdr server reload-config
 ```
+
+**7. If "Reopen mdv after a restart (mdv-restore)" was picked:**
+
+The mdv launcher records each pane's open files under `~/.local/state/mdv-restore/` and
+deletes the entry when mdv quits with `q`; this plugin's `[[startup]]` hook reopens the
+recorded ones after the server restarts. It replaces the earlier launcher, which reported
+mdv to herdr as an agent (`herdr pane report-agent`) and so listed every open file in the
+agent sidebar. If Step 15 reported `~/.local/bin/mdv` as outdated and the update was
+skipped, install the launcher now, since the old one never writes the state the plugin
+reads:
+
+```bash
+install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv
+```
+
+Copy and register the plugin:
+
+```bash
+mkdir -p ~/.config/herdr-mdv-restore
+cp <this-skill-dir>/assets/mdv-restore/herdr-plugin.toml <this-skill-dir>/assets/mdv-restore/restore.sh ~/.config/herdr-mdv-restore/
+herdr plugin link ~/.config/herdr-mdv-restore
+herdr plugin list
+```
+
+Confirm the output lists `local.mdv-restore ... enabled`. Nothing else is needed: the hook
+runs on the next server start. Tell the user what happens after `herdr server stop` and
+`herdr`: mdv panes return on the same files, a pane quit with `q` returns as a plain
+shell, and `herdr plugin log list --plugin local.mdv-restore` shows what the hook did.
 
 ### 21. Apply Configuration
 

@@ -18,27 +18,24 @@ if [[ $# -eq 0 ]]; then
   exec env NVIM_APPNAME=mdv "${NVIM}" -R -c 'setfiletype markdown' -
 fi
 
-# Inside herdr, report "mdv <absolute paths>" as the pane's resume command so a herdr restart
-# reopens the same files, and release the pane on quit. Best effort: herdr being slow or absent
-# never blocks mdv. herdr rejects resume arguments containing an apostrophe, so those skip it.
-herdr_report() {
-  [[ -n "${HERDR_PANE_ID:-}" && -x "${HERDR_BIN_PATH:-}" ]] || return 0
-  local args=() a
+# Inside herdr, record "<this launcher> <absolute paths>" in a per-pane state file so the
+# mdv-restore herdr plugin can reopen the same files after a server restart. The file is
+# removed only when nvim exits cleanly (q); a killed server or pty leaves it for the plugin.
+# State is keyed by the server socket so named sessions never restore into each other.
+state_file=""
+if [[ -n "${HERDR_PANE_ID:-}" && -n "${HERDR_SOCKET_PATH:-}" ]]; then
+  state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/mdv-restore/${HERDR_SOCKET_PATH//[^A-Za-z0-9._-]/_}"
+  state_file="${state_dir}/${HERDR_PANE_ID//\//_}"
+  self="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
+  args=()
   for a in "$@"; do
     [[ "$a" != -* && -e "$a" ]] && a="$(cd "$(dirname "$a")" && pwd)/$(basename "$a")"
-    [[ "$a" == *"'"* ]] && return 0
     args+=("$a")
   done
-  "$HERDR_BIN_PATH" pane report-agent "$HERDR_PANE_ID" --source mdv --agent mdv --state idle \
-    -- mdv "${args[@]}" >/dev/null 2>&1 &
-}
-herdr_release() {
-  [[ -n "${HERDR_PANE_ID:-}" && -x "${HERDR_BIN_PATH:-}" ]] || return 0
-  "$HERDR_BIN_PATH" pane release-agent "$HERDR_PANE_ID" --source mdv --agent mdv >/dev/null 2>&1 || true
-}
+  mkdir -p "$state_dir" && printf '%s\0' "$self" "${args[@]}" >"$state_file" || state_file=""
+fi
 
-herdr_report "$@"
 status=0
 env NVIM_APPNAME=mdv "${NVIM}" -R "$@" || status=$?
-herdr_release
+[[ -n "$state_file" && "$status" -eq 0 ]] && rm -f "$state_file"
 exit "$status"

@@ -1,0 +1,9 @@
+id = "local.mdv-restore"
+name = "mdv restore"
+version = "0.1.0"
+min_herdr_version = "0.9.3"
+description = "Reopens mdv Markdown viewers in their panes after a server restart"
+platforms = ["linux", "macos"]
+
+[[startup]]
+command = ["/usr/bin/env", "bash", "restore.sh"]
