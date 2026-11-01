@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Windows default browser
+Comment=Opens links in the default Windows browser
+Exec=<HOME>/.local/bin/open-in-windows %u
+NoDisplay=true
+MimeType=x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/about;x-scheme-handler/unknown;text/html;

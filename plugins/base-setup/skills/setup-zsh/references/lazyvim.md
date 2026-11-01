@@ -8,7 +8,8 @@ the theme, known quirks, and how to remove it.
 
 Run the subsections in order. An existing LazyVim config that only gains extras (Step 16)
 runs just the two headless passes under **Install plugins, language servers and parsers**,
-with `Lazy! install` instead of `Lazy! restore`.
+with `Lazy! install` instead of `Lazy! restore`, and can add `resume.lua` as described at the
+end of **Install the config**.
 
 ### Neovim 0.11 or newer
 
@@ -60,11 +61,15 @@ cp -r "$TMP/starter/init.lua" "$TMP/starter/lua" "$TMP/starter/stylua.toml" "$TM
 
 A=<this-skill-dir>/assets/lazyvim
 cp "$A/lazyvim.json" "$A/lazy-lock.json" ~/.config/nvim/
-cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" ~/.config/nvim/lua/config/
+cp "$A/lua/config/keymaps.lua" "$A/lua/config/options.lua" "$A/lua/config/resume.lua" ~/.config/nvim/lua/config/
 cp "$A/lua/plugins/colorscheme.lua" "$A/lua/plugins/explorer.lua" "$A/lua/plugins/markdownlint.lua" "$A/lua/plugins/blink.lua" ~/.config/nvim/lua/plugins/
+grep -q 'require("config.resume")' ~/.config/nvim/lua/config/autocmds.lua 2>/dev/null \
+  || printf '\n-- Keep the herdr restart record in step with the open files (setup-zsh resume)\nrequire("config.resume")\n' >> ~/.config/nvim/lua/config/autocmds.lua
 ```
 
 Leave `$TMP` for the OS to clean up.
+
+`resume.lua` keeps the record of the `setup-zsh resume` zsh block (Step 20) in step with the files open in nvim, so a herdr server restart or Herdr app reboot reopens them, the current one first. It only acts when the zsh wrapper started nvim inside a herdr pane or Herdr app terminal; elsewhere, and for an nvim that git opens as an editor, it does nothing. An existing LazyVim config can get it the same way: copy `resume.lua` and append the `require` line.
 
 `lazyvim.json` turns on the extras `lang.typescript`, `lang.vue`, `lang.python`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml` and `lang.markdown`; `lazy-lock.json` pins plugin commits known to work together.
 
@@ -149,6 +154,7 @@ The transparent background only shows through if the terminal itself is transluc
 | `~/.config/nvim/lazy-lock.json` | `assets/lazyvim/lazy-lock.json` | Plugin commits that `Lazy! restore` checks out |
 | `~/.config/nvim/lua/config/keymaps.lua` | `assets/lazyvim/lua/config/keymaps.lua` | VS Code- and Windows-style shortcuts |
 | `~/.config/nvim/lua/config/options.lua` | `assets/lazyvim/lua/config/options.lua` | Windows-style selection (`keymodel`, `selectmode`); replaces the starter's copy |
+| `~/.config/nvim/lua/config/resume.lua` | `assets/lazyvim/lua/config/resume.lua` | Keeps the herdr restart record in step with the open files; loaded by a `require` line appended to `autocmds.lua` |
 | `~/.config/nvim/lua/plugins/colorscheme.lua` | `assets/lazyvim/lua/plugins/colorscheme.lua` | Catppuccin Mocha, transparent; One Dark themes for previewing |
 | `~/.config/nvim/lua/plugins/explorer.lua` | `assets/lazyvim/lua/plugins/explorer.lua` | Tree shows all files; finder includes dotfiles |
 | `~/.config/nvim/lua/plugins/markdownlint.lua` | `assets/lazyvim/lua/plugins/markdownlint.lua` | Passes `--config ~/.markdownlint-cli2.yaml` to lint and format |

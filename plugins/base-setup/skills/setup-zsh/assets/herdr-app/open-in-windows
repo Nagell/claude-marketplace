@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Open a URL or file from WSL in the default Windows app (browser for http/https), so links
+# clicked in WSLg apps such as the Herdr app land in the Windows browser, not a Linux one.
+# explorer.exe copes with & and ? in URLs (cmd.exe start does not) and always exits 1.
+target="${1:?usage: open-in-windows URL|FILE}"
+case "$target" in
+  http://* | https://* | mailto:*) ;;
+  file://*) target="$(wslpath -w "${target#file://}")" ;;
+  *) [[ -e "$target" ]] && target="$(wslpath -w "$target")" ;;
+esac
+cd /mnt/c 2>/dev/null || true  # Windows programs warn about a Linux working directory
+explorer.exe "$target"
+exit 0

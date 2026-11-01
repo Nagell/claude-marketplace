@@ -16,9 +16,11 @@ themselves (OSC 7501); Claude Code reports it out of the box.
 command -v herdr-app && command -v hc && hc --version || echo "herdr-app: MISSING"
 test -d ~/.config/herdr-app/mods/agent-resume && echo "agent-resume: INSTALLED" || echo "agent-resume: MISSING"
 grep -q '# >>> setup-zsh herdr-app >>>' ~/.zshrc && echo "zsh block: OK" || echo "zsh block: MISSING"
+grep -q '# >>> setup-zsh resume >>>' ~/.zshrc && echo "resume block: OK" || echo "resume block: MISSING"
 ```
 
-Skip the sections whose part is already in place.
+Skip the sections whose part is already in place. Run section 6 anyway when `~/.zshrc`
+contains `_hc_resumable` or `mdv-resume` (an earlier version of the zsh block).
 
 ## 2. Install
 
@@ -50,9 +52,14 @@ Windows into the user's fonts, no sudo:
 ```bash
 mkdir -p ~/.local/share/fonts/windows
 cp /mnt/c/Windows/Fonts/segoeui*.ttf /mnt/c/Windows/Fonts/arial.ttf /mnt/c/Windows/Fonts/arialbd.ttf \
-   /mnt/c/Windows/Fonts/ariali.ttf /mnt/c/Windows/Fonts/arialbi.ttf ~/.local/share/fonts/windows/
+   /mnt/c/Windows/Fonts/ariali.ttf /mnt/c/Windows/Fonts/arialbi.ttf \
+   /mnt/c/Windows/Fonts/seguisym.ttf ~/.local/share/fonts/windows/
 fc-cache -f ~/.local/share/fonts >/dev/null
 ```
+
+Segoe UI Symbol (`seguisym.ttf`) is there for the Braille characters btop and other TUIs draw
+graphs with: the Nerd Font has none, and without it Linux falls back to the blocky Unifont.
+`fc-match ':charset=2800-28ff' family` should print `Segoe UI Symbol`.
 
 **Terminal font.** The Nerd Font from Step 4 lives on Windows; WSLg apps only see Linux
 fonts, so p10k's icons are missing until it is copied over too. For MesloLGS NF:
@@ -86,6 +93,25 @@ Start menu has **Herdr (<distro>)** in the distro's folder. Tell the user to pin
 the Start menu (right-click > Pin to taskbar), not from the running window: pinning a
 running WSLg window stores WSLg's remote-window host, and the pin breaks ("The item
 'Program' ... was changed or moved").
+
+**Links open in the Windows browser.** The app asks Linux (`xdg-open`) to open a clicked
+link, which picks a browser installed inside WSL if there is one. Install a small handler
+that passes links to `explorer.exe`, so they open in the default Windows browser, and make
+it the Linux default for web links (back up `~/.config/mimeapps.list` first if it exists):
+
+```bash
+install -m 755 <this-skill-dir>/assets/herdr-app/open-in-windows ~/.local/bin/open-in-windows
+mkdir -p ~/.local/share/applications
+sed "s|<HOME>|$HOME|" <this-skill-dir>/assets/herdr-app/open-in-windows.desktop \
+  > ~/.local/share/applications/open-in-windows.desktop
+for m in x-scheme-handler/http x-scheme-handler/https x-scheme-handler/about x-scheme-handler/unknown text/html; do
+  xdg-mime default open-in-windows.desktop "$m"
+done
+xdg-mime query default x-scheme-handler/https
+```
+
+Expect `open-in-windows.desktop`. This also covers terminal tools that open links through
+`xdg-open` (`gh pr view --web`). Other URL schemes, such as `claude-cli`, keep their handlers.
 
 ## 4. App settings
 
@@ -124,10 +150,17 @@ python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py
 
 Section 6 makes the resume automatic; Ctrl+Shift+R stays as the manual way.
 
-## 6. zsh block: automatic resume and start folder
+## 6. zsh blocks: automatic resume and start folder
 
-Read `~/.zshrc`. Unless it already contains `# >>> setup-zsh herdr-app >>>`, append
-`<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` at the end, with both `<WORK_DIR>`
+Two blocks, split by job: the `setup-zsh resume` block records what runs in a terminal, the
+`setup-zsh herdr-app` block restores it in the shell that comes back. The herdr TUI's
+mdv-restore plugin reads the same resume block's records, so it is shared between both.
+
+Read `~/.zshrc`. If it contains `_hc_resumable` or `mdv-resume`, it has an earlier version:
+see the end of this section instead. Unless it already contains `# >>> setup-zsh resume >>>`, read
+`<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end.
+Then, unless `~/.zshrc` contains `# >>> setup-zsh herdr-app >>>`, append
+`<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` after it, with both `<WORK_DIR>`
 replaced by the Step 19 folder:
 
 ```bash
@@ -141,19 +174,30 @@ would launch the herdr TUI inside the first app terminal. If `~/.zshrc` contains
 `_herdr_client_running` and its `if` line lacks `-z "$HC_TERMINAL_ID"`, add that condition
 with the Edit tool, next to `-z "$HERDR_ENV"`.
 
-The block only acts in app terminals (`HC_TERMINAL_ID` set):
+In app terminals (`HC_TERMINAL_ID` set) they do this:
 
 - **Claude Code / Codex:** when a restored shell finds an `agent-resume` label, it runs one
   resume pass in the background, so sessions come back without Ctrl+Shift+R. Skipped when
   section 5 was declined.
-- **mdv:** the mdv launcher (Step 15) records its files in an `mdv-resume` label; a
-  restored shell types the same `mdv` command again. `q` clears the label, so a viewer
-  that was closed stays closed.
+- **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
+  the folder and the exact command in a `cmd-resume` label while the program runs, and
+  clear it when the program ends with the shell still alive, however it was quit. After a
+  reboot the shell is gone too, so the label stays, and the herdr-app block in the restored
+  shell types `cd <folder> && <command>` again. With the LazyVim config from Step 16, nvim
+  keeps the label in step with the files open inside it and reopens them, the current one
+  first (its swap file offers any unsaved edits); splits and tabs inside nvim do not come
+  back. `some-command | mdv` is not recorded. To add another program, add its name to the
+  `for _resume_cmd in ...` list in the resume block.
 - **Start folder:** a new shell that starts in `~` moves to `~/<WORK_DIR>`.
 
-It needs `jq` (Step 14) and the current mdv launcher; if Step 15 reported
-`~/.local/bin/mdv` as outdated and the update was skipped, install it now with
-`install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv`.
+They need `jq` (Step 14).
+
+An earlier version kept the wrapper inside the herdr-app block, and an even earlier one
+only reopened mdv from an `mdv-resume` label the mdv launcher wrote. If `~/.zshrc` contains
+`_hc_resumable` or `mdv-resume`, replace the whole block between the `setup-zsh herdr-app`
+markers with the current resume asset followed by the current herdr-app asset, and update
+`~/.local/bin/mdv` if Step 15 reported it as outdated: the launcher no longer records
+anything.
 
 ## 7. Verify
 
@@ -165,7 +209,7 @@ hc server status | jq -c '{version, live}'
 ```
 
 Tell the user how to try the full cycle: open Claude Code and an mdv in app terminals, run
-`wsl --shutdown` (WSL) or reboot, reopen Herdr. The mdv panes reopen by themselves and
+`wsl --shutdown` (WSL) or reboot, reopen Herdr. The mdv terminals reopen by themselves and
 Claude Code comes back on its conversation a few seconds later. `hc server restart` is no
 test: herdr-core keeps programs running through a planned restart.
 
@@ -180,5 +224,11 @@ rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock
 ```
 
-Then remove the `setup-zsh herdr-app` block from `~/.zshrc`, and on WSL
+On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
+`~/.local/share/applications/open-in-windows.desktop`) and point web links back at a Linux
+browser with `xdg-mime default <browser>.desktop x-scheme-handler/https` (same for `http`
+and `text/html`), if one is installed.
+
+Then remove the `setup-zsh herdr-app` block from `~/.zshrc` (and the `setup-zsh resume`
+block, unless the herdr TUI's mdv-restore plugin still uses it), and on WSL
 `sudo rm /usr/share/applications/herdr-app.desktop`.

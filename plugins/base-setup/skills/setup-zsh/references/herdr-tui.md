@@ -70,10 +70,8 @@ herdr-spin's minimum (0.8.2), and check what's already configured:
 herdr --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1
 test -f "$HOME/.config/herdr-spin/spin.py" && echo "herdr-spin: INSTALLED" || echo "herdr-spin: MISSING"
 grep -q '\[ui\.toast\]' "$HOME/.config/herdr/config.toml" 2>/dev/null && echo "notifications: CONFIGURED" || echo "notifications: MISSING"
-test -x ~/.local/bin/mdv && { herdr plugin list 2>/dev/null | grep -q 'local.mdv-restore' && echo "mdv-restore: INSTALLED" || echo "mdv-restore: MISSING"; }
+herdr plugin list 2>/dev/null | grep -q 'local.mdv-restore' && echo "mdv-restore: INSTALLED" || echo "mdv-restore: MISSING"
 ```
-
-The last line prints nothing when mdv (Step 15) is not installed; then don't offer mdv-restore below.
 
 Compare the version against `0.8.2` (e.g. `printf '%s\n0.8.2\n' "$VERSION" | sort -V | head -1` —
 if that prints `0.8.2`, the installed version is new enough). If it's older, tell the
@@ -108,9 +106,9 @@ installed. Set up any of these?" — "Animated agent spinner (herdr-spin)" (herd
 its built-in spinner in 0.8.0 for performance reasons, with no setting to bring it back —
 this plugin restores one glyph per agent state in the sidebar), "Agent notifications"
 (a toast when a background agent finishes or needs input, so you don't have to keep
-glancing at the sidebar) and "Reopen mdv after a restart (mdv-restore)" (mdv panes come
-back on the same files after a herdr server restart, without showing up as agents in the
-sidebar).
+glancing at the sidebar) and "Reopen nvim, btop, lazygit and mdv after a restart
+(mdv-restore)" (panes running them come back after a herdr server restart, nvim and mdv on
+the same files, without showing up as agents in the sidebar).
 
 If the user picks none, skip to Step 21.
 
@@ -212,19 +210,36 @@ Apply:
 herdr server reload-config
 ```
 
-## 8. If "Reopen mdv after a restart (mdv-restore)" was picked
+## 8. If "Reopen nvim, btop, lazygit and mdv after a restart (mdv-restore)" was picked
 
-The mdv launcher records each pane's open files under `~/.local/state/mdv-restore/` and
-deletes the entry when mdv quits with `q`; this plugin's `[[startup]]` hook reopens the
-recorded ones after the server restarts. It replaces the earlier launcher, which reported
-mdv to herdr as an agent (`herdr pane report-agent`) and so listed every open file in the
-agent sidebar. If Step 15 reported `~/.local/bin/mdv` as outdated and the update was
-skipped, install the launcher now, since the old one never writes the state the plugin
-reads:
+Two parts. The `setup-zsh resume` block in `~/.zshrc` wraps nvim, btop, lazygit and mdv in
+zsh functions that record the folder and the exact command as JSON under
+`~/.local/state/mdv-restore/<server socket>/<pane id>` while the program runs, and delete
+the record when it ends with the shell still alive. A stopped server kills the shell too,
+so the record stays. The plugin's `[[startup]]` hook then types
+` cd <folder> && <command>` into each pane that still exists. With the LazyVim config from
+Step 16, nvim keeps its record in step with the files open inside it. The plugin keeps its
+old name and paths from when it only reopened mdv.
+
+Read `~/.zshrc`. Unless it already contains `# >>> setup-zsh resume >>>`, read
+`<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end of
+`~/.zshrc`, then check the syntax:
+
+```bash
+zsh -n ~/.zshrc && echo "syntax ok"
+```
+
+It needs `jq` (Step 14). If Step 15 reported `~/.local/bin/mdv` as outdated and the update
+was skipped, install the launcher now: older launchers write their own records in a
+NUL-separated format the plugin no longer reads, while the current one leaves recording to
+the zsh block:
 
 ```bash
 install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv
 ```
+
+Records left in the old format are dropped once, on the next server start, so mdv panes
+open before this update come back as plain shells that one time.
 
 Copy and register the plugin:
 
@@ -237,5 +252,6 @@ herdr plugin list
 
 Confirm the output lists `local.mdv-restore ... enabled`. Nothing else is needed: the hook
 runs on the next server start. Tell the user what happens after `herdr server stop` and
-`herdr`: mdv panes return on the same files, a pane quit with `q` returns as a plain
-shell, and `herdr plugin log list --plugin local.mdv-restore` shows what the hook did.
+`herdr`: panes running nvim, btop, lazygit or mdv start them again in the same folder
+(nvim and mdv on the same files), a pane whose program was quit returns as a plain shell,
+`some-command | mdv` is not recorded, and `herdr plugin log list --plugin local.mdv-restore` shows what the hook did.
