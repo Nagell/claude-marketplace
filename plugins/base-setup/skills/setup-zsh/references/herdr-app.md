@@ -15,11 +15,12 @@ themselves (OSC 7501); Claude Code reports it out of the box.
 ```bash
 command -v herdr-app && command -v hc && hc --version || echo "herdr-app: MISSING"
 test -d ~/.config/herdr-app/mods/agent-resume && echo "agent-resume: INSTALLED" || echo "agent-resume: MISSING"
+test -d ~/.config/herdr-app/mods/reviewer && echo "reviewer: INSTALLED" || echo "reviewer: MISSING"
 grep -q '# >>> setup-zsh herdr-app >>>' ~/.zshrc && echo "zsh block: OK" || echo "zsh block: MISSING"
 grep -q '# >>> setup-zsh resume >>>' ~/.zshrc && echo "resume block: OK" || echo "resume block: MISSING"
 ```
 
-Skip the sections whose part is already in place. Run section 6 anyway when `~/.zshrc`
+Skip the sections whose part is already in place. Run section 7 anyway when `~/.zshrc`
 contains `_hc_resumable` or `mdv-resume` (an earlier version of the zsh block).
 
 ## 2. Install
@@ -120,7 +121,53 @@ Read `~/.config/herdr-app/settings.json` (it exists after the first start; creat
 `"MesloLGS NF"` or `"FiraCode Nerd Font"`. Leave `zoom` alone: WSLg does not pass Windows
 display scaling through, so users set it to taste.
 
-## 5. Resume Claude Code after a reboot (herdr-agent-resume)
+## 5. Changes panel with syntax highlighting (herdr-reviewer)
+
+The shipped Changes panel shows diffs without syntax highlighting, and Herdr takes only
+fixes for its shipped mods (features are meant to be built as your own mod).
+[herdr-reviewer](https://github.com/vytasgavelis/herdr-reviewer) replaces it:
+syntax-colored diffs, scopes (uncommitted, last commit, branch), and line comments it sends
+to an agent ("Ask about diff"). It only runs `git diff`, `git rev-parse` and `hc send`.
+
+Use AskUserQuestion: "Replace the Changes panel with herdr-reviewer (syntax-colored diffs,
+line comments for the agent)?" - "Yes (Recommended)" / "No". If yes:
+
+```bash
+mkdir -p ~/.local/src
+git -C ~/.local/src/herdr-reviewer pull -q 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/vytasgavelis/herdr-reviewer ~/.local/src/herdr-reviewer
+cp -r ~/.local/src/herdr-reviewer/mods/reviewer ~/.config/herdr-app/mods/
+herdr-app check ~/.config/herdr-app/mods/reviewer
+```
+
+Expect `check passed`. Shipped layouts are read-only (replaced on every start), so clone
+`main` and point the clone's Changes block at the mod. This talks to the running app;
+start it first (`herdr-app &`) if it is not. Skip the clone if
+`~/.config/herdr-app/layouts/my-main.json` exists, since an existing name is refused:
+
+```bash
+herdr-app do layout.clone '{"name":"main","as":"my-main"}'
+```
+
+The clone also switches the window to `my-main`. Read
+`~/.config/herdr-app/layouts/my-main.json` and use the Edit tool to change the block with
+`"id": "changes"` from `"mod": "changes"` to `"mod": "reviewer"`, so it reads
+`{"id": "changes", "type": "block", "content": {"mod": "reviewer"}}`. The app reloads
+layouts live; `herdr-app status` should show `"layout": "my-main"` and `"errors": []`.
+
+Tell the user it opens from the same Changes button (top right), with "Uncommitted ▾" and
+"Ask about diff" in its header. Ctrl+Shift+L or
+`herdr-app do layout.switch '{"name":"main"}'` goes back to the shipped panel. Herdr never
+updates the mod or the cloned layout; to update the mod, run `git pull` in
+`~/.local/src/herdr-reviewer` and the `cp` line again.
+
+**Known issue:** at a Herdr zoom other than 1, diff rows overlap and changed lines show
+darker stripes. It is a herdr-app list bug (rows spaced in unzoomed pixels), fixed by
+[herdr-app#296](https://github.com/herdrdev/herdr-app/pull/296); the stripes are cosmetic
+and go away with the herdr-app release that includes it. Don't patch the mod for it: once
+the app is fixed, a patched mod would zoom its rows twice.
+
+## 6. Resume Claude Code after a reboot (herdr-agent-resume)
 
 The app keeps terminals across window restarts, but a reboot or `wsl --shutdown` brings
 them back as bare shells, and the app does not resume agents by design (herdr-core#13).
@@ -148,9 +195,9 @@ be allowed to do; give the user the command to run with `!`:
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py
 ```
 
-Section 6 makes the resume automatic; Ctrl+Shift+R stays as the manual way.
+Section 7 makes the resume automatic; Ctrl+Shift+R stays as the manual way.
 
-## 6. zsh blocks: automatic resume and start folder
+## 7. zsh blocks: automatic resume and start folder
 
 Two blocks, split by job: the `setup-zsh resume` block records what runs in a terminal, the
 `setup-zsh herdr-app` block restores it in the shell that comes back. The herdr TUI's
@@ -178,7 +225,7 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
 
 - **Claude Code / Codex:** when a restored shell finds an `agent-resume` label, it runs one
   resume pass in the background, so sessions come back without Ctrl+Shift+R. Skipped when
-  section 5 was declined.
+  section 6 was declined.
 - **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
   the folder and the exact command in a `cmd-resume` label while the program runs, and
   clear it when the program ends with the shell still alive, however it was quit. After a
@@ -199,7 +246,7 @@ markers with the current resume asset followed by the current herdr-app asset, a
 `~/.local/bin/mdv` if Step 15 reported it as outdated: the launcher no longer records
 anything.
 
-## 7. Verify
+## 8. Verify
 
 Start the app (`herdr-app &`, or the Start menu entry on WSL). Then, from a terminal
 outside it:
@@ -221,7 +268,15 @@ Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 ```bash
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
-  ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock
+  ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock \
+  ~/.local/src/herdr-reviewer
+```
+
+To remove only herdr-reviewer, switch back to the shipped layout first:
+
+```bash
+herdr-app do layout.switch '{"name":"main"}'
+rm -rf ~/.config/herdr-app/mods/reviewer ~/.config/herdr-app/layouts/my-main.json ~/.local/src/herdr-reviewer
 ```
 
 On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,

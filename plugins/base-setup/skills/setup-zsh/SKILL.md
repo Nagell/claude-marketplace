@@ -635,7 +635,7 @@ If yes, follow the **Windows Terminal profile for herdr (WSL)** section of `refe
 [herdr](https://herdr.dev) runs AI coding agents (Claude Code, Codex, etc.) side by side, with a sidebar that tracks each agent's status. It comes in two independent products that can be installed side by side; nothing else in this skill depends on either:
 
 - **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal, Ghostty). Resumes Claude Code after a restart by itself. Extras: herdr-spin, notifications, reopen nvim, btop, lazygit and mdv after a restart (mdv-restore).
-- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL and shows through WSLg. Claude Code, nvim, btop, lazygit and mdv come back after a reboot through herdr-agent-resume and two zsh blocks.
+- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL and shows through WSLg. Claude Code, nvim, btop, lazygit and mdv come back after a reboot through herdr-agent-resume and two zsh blocks. Optional: herdr-reviewer replaces the Changes panel (syntax-colored diffs, line comments for the agent).
 
 **1. Check what is installed.**
 
