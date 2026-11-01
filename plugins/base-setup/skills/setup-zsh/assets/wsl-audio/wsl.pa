@@ -1,0 +1,7 @@
+# PulseAudio for WSL: runs as the Windows user so it can reach the real
+# microphone; WSL connects over TCP on localhost only.
+# Record only: with playback the module fails whenever no output device is
+# connected, and WSL apps keep using WSLg for sound output.
+load-module module-waveout source_name=wavein playback=0 record=1
+load-module module-native-protocol-tcp auth-ip-acl=127.0.0.1
+set-default-source wavein
