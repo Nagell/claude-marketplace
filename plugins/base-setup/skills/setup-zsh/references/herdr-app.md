@@ -135,6 +135,12 @@ sed "s|<WORK_DIR>|$WORK_DIR|g" <this-skill-dir>/assets/herdr-app/zshrc-block.zsh
 zsh -n ~/.zshrc && echo "syntax ok"
 ```
 
+**macOS with the herdr TUI auto-start.** The app's terminals report
+`TERM_PROGRAM=ghostty`, so the Ghostty auto-start block from `references/herdr-tui.md`
+would launch the herdr TUI inside the first app terminal. If `~/.zshrc` contains
+`_herdr_client_running` and its `if` line lacks `-z "$HC_TERMINAL_ID"`, add that condition
+with the Edit tool, next to `-z "$HERDR_ENV"`.
+
 The block only acts in app terminals (`HC_TERMINAL_ID` set):
 
 - **Claude Code / Codex:** when a restored shell finds an `agent-resume` label, it runs one

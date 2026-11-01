@@ -39,11 +39,12 @@ freezes the tab. If `command -v herdr` is not `~/.local/bin/herdr`, use that pat
 ```zsh
 # Ghostty doesn't restore running programs: reopen herdr in one tab only, across all windows.
 # Above p10k's instant prompt, which takes over the terminal and freezes a TUI started later.
+# Not in Herdr app terminals (HC_TERMINAL_ID): their terminal also reports TERM_PROGRAM=ghostty.
 _herdr_client_running() {
   ps -axo tty=,command= | awk '$1 != "??" && $2 ~ /(^|\/)herdr$/ {found=1} END {exit !found}'
 }
 _herdr_unlock() { rm -f "$1/pid"; rmdir "$1" 2>/dev/null; }
-if [[ -o interactive && "$TERM_PROGRAM" == ghostty && -z "$HERDR_ENV" ]] && ! _herdr_client_running; then
+if [[ -o interactive && "$TERM_PROGRAM" == ghostty && -z "$HERDR_ENV" && -z "$HC_TERMINAL_ID" ]] && ! _herdr_client_running; then
   _herdr_lock="${TMPDIR:-/tmp}/herdr-autostart.lock"
   # A lock left by a shell that died (crash, closed tab) is stale; clear it.
   [[ -d $_herdr_lock ]] && ! kill -0 "$(<$_herdr_lock/pid)" 2>/dev/null && _herdr_unlock "$_herdr_lock"
