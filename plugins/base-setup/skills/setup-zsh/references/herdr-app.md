@@ -94,6 +94,25 @@ the Start menu (right-click > Pin to taskbar), not from the running window: pinn
 running WSLg window stores WSLg's remote-window host, and the pin breaks ("The item
 'Program' ... was changed or moved").
 
+**Links open in the Windows browser.** The app asks Linux (`xdg-open`) to open a clicked
+link, which picks a browser installed inside WSL if there is one. Install a small handler
+that passes links to `explorer.exe`, so they open in the default Windows browser, and make
+it the Linux default for web links (back up `~/.config/mimeapps.list` first if it exists):
+
+```bash
+install -m 755 <this-skill-dir>/assets/herdr-app/open-in-windows ~/.local/bin/open-in-windows
+mkdir -p ~/.local/share/applications
+sed "s|<HOME>|$HOME|" <this-skill-dir>/assets/herdr-app/open-in-windows.desktop \
+  > ~/.local/share/applications/open-in-windows.desktop
+for m in x-scheme-handler/http x-scheme-handler/https x-scheme-handler/about x-scheme-handler/unknown text/html; do
+  xdg-mime default open-in-windows.desktop "$m"
+done
+xdg-mime query default x-scheme-handler/https
+```
+
+Expect `open-in-windows.desktop`. This also covers terminal tools that open links through
+`xdg-open` (`gh pr view --web`). Other URL schemes, such as `claude-cli`, keep their handlers.
+
 ## 4. App settings
 
 Read `~/.config/herdr-app/settings.json` (it exists after the first start; create it with
@@ -204,6 +223,11 @@ python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock
 ```
+
+On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
+`~/.local/share/applications/open-in-windows.desktop`) and point web links back at a Linux
+browser with `xdg-mime default <browser>.desktop x-scheme-handler/https` (same for `http`
+and `text/html`), if one is installed.
 
 Then remove the `setup-zsh herdr-app` block from `~/.zshrc` (and the `setup-zsh resume`
 block, unless the herdr TUI's mdv-restore plugin still uses it), and on WSL
