@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.13.0...base-setup-v1.14.0) (2026-11-01)
+
+
+### Features
+
+* **base-setup:** offer herdr-reviewer as the Herdr app Changes panel ([805bd61](https://github.com/Nagell/claude-marketplace/commit/805bd61cdfdbd4ba327871bfa4e47739f58df0f9))
+* **base-setup:** Offer herdr-reviewer as the Herdr app Changes panel ([4d20540](https://github.com/Nagell/claude-marketplace/commit/4d20540d944bea3822ec3f1c4190831c89b86b32))
+
 ## [1.13.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.12.0...base-setup-v1.13.0) (2026-11-01)
 
 
