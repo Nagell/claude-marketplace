@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.12.0...base-setup-v1.13.0) (2026-11-01)
+
+
+### Features
+
+* **base-setup:** Record Claude Code voice through Windows PulseAudio on WSL ([2dace54](https://github.com/Nagell/claude-marketplace/commit/2dace548152a72d42ef5191d65cb421eda3a7135))
+* **base-setup:** record Claude voice via Windows PulseAudio on WSL ([e5a0b5b](https://github.com/Nagell/claude-marketplace/commit/e5a0b5b0fe6e6f840ae54632ac176c557382dee2))
+
 ## [1.12.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.11.0...base-setup-v1.12.0) (2026-11-01)
 
 
