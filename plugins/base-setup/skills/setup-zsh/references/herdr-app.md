@@ -50,9 +50,14 @@ Windows into the user's fonts, no sudo:
 ```bash
 mkdir -p ~/.local/share/fonts/windows
 cp /mnt/c/Windows/Fonts/segoeui*.ttf /mnt/c/Windows/Fonts/arial.ttf /mnt/c/Windows/Fonts/arialbd.ttf \
-   /mnt/c/Windows/Fonts/ariali.ttf /mnt/c/Windows/Fonts/arialbi.ttf ~/.local/share/fonts/windows/
+   /mnt/c/Windows/Fonts/ariali.ttf /mnt/c/Windows/Fonts/arialbi.ttf \
+   /mnt/c/Windows/Fonts/seguisym.ttf ~/.local/share/fonts/windows/
 fc-cache -f ~/.local/share/fonts >/dev/null
 ```
+
+Segoe UI Symbol (`seguisym.ttf`) is there for the Braille characters btop and other TUIs draw
+graphs with: the Nerd Font has none, and without it Linux falls back to the blocky Unifont.
+`fc-match ':charset=2800-28ff' family` should print `Segoe UI Symbol`.
 
 **Terminal font.** The Nerd Font from Step 4 lives on Windows; WSLg apps only see Linux
 fonts, so p10k's icons are missing until it is copied over too. For MesloLGS NF:
