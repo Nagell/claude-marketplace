@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.11.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.10.0...base-setup-v1.11.0) (2026-11-01)
+
+
+### Features
+
+* **base-setup:** Herdr app in setup-zsh, plus a smaller SKILL.md ([ddb5f28](https://github.com/Nagell/claude-marketplace/commit/ddb5f280eebecbf1d9515ebf3c339152a8d73b10))
+* **base-setup:** set up the Herdr app in setup-zsh ([42ef0fb](https://github.com/Nagell/claude-marketplace/commit/42ef0fb2dfa1ead2a34f12ae66dd2ff9ff02b3d7))
+
+
+### Bug Fixes
+
+* **base-setup:** close setup-zsh gaps on fresh Debian and WSL ([533d8e9](https://github.com/Nagell/claude-marketplace/commit/533d8e9892779b14f46d2d91c00290fa6d9ed70c))
+* **base-setup:** keep the herdr TUI auto-start out of Herdr app terminals ([15e5b4e](https://github.com/Nagell/claude-marketplace/commit/15e5b4e4fd25a0dac3d8d1c67eac65b98943da75))
+
 ## [1.10.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.9.1...base-setup-v1.10.0) (2026-10-31)
 
 
