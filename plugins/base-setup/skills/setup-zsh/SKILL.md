@@ -632,8 +632,8 @@ If yes, follow the **Windows Terminal profile for herdr (WSL)** section of `refe
 
 [herdr](https://herdr.dev) runs AI coding agents (Claude Code, Codex, etc.) side by side, with a sidebar that tracks each agent's status. It comes in two independent products that can be installed side by side; nothing else in this skill depends on either:
 
-- **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal, Ghostty). Resumes Claude Code after a restart by itself. Extras: herdr-spin, notifications, mdv-restore.
-- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL and shows through WSLg. Claude Code and mdv come back after a reboot through herdr-agent-resume and a zsh block.
+- **Herdr TUI** (`herdr`): a terminal app that runs inside your terminal (Windows Terminal, Ghostty). Resumes Claude Code after a restart by itself. Extras: herdr-spin, notifications, reopen nvim, btop, lazygit and mdv after a restart (mdv-restore).
+- **Herdr app** (`herdr-app` + herdr-core `hc`): a native window. On WSL it runs inside WSL and shows through WSLg. Claude Code, nvim, btop, lazygit and mdv come back after a reboot through herdr-agent-resume and two zsh blocks.
 
 **1. Check what is installed.**
 
@@ -646,7 +646,7 @@ command -v herdr-app >/dev/null && echo "herdr app: INSTALLED" || echo "herdr ap
 
 - **Neither:** skip to Step 21.
 - **Herdr app** or **Both:** follow this skill's `references/herdr-app.md` from top to bottom. With **Herdr app** alone, skip the rest of this step afterwards and go to Step 21.
-- **Herdr TUI** or **Both:** then follow `references/herdr-tui.md` from top to bottom: install with herdr's official installer if `NOT INSTALLED` (no sudo; on failure report the exact error and skip the rest of this step, no automatic retry), the Ghostty auto-start block on macOS (asks "Start herdr automatically when Ghostty opens?"), the version check against herdr-spin's 0.8.2 minimum, 1-line wheel scrolling (asks "Scroll 1 line per mouse wheel notch in herdr?"), and a multiSelect "herdr is installed. Set up any of these?" offering only what is still missing: herdr-spin, agent notifications, mdv-restore (only if mdv is installed).
+- **Herdr TUI** or **Both:** then follow `references/herdr-tui.md` from top to bottom: install with herdr's official installer if `NOT INSTALLED` (no sudo; on failure report the exact error and skip the rest of this step, no automatic retry), the Ghostty auto-start block on macOS (asks "Start herdr automatically when Ghostty opens?"), the version check against herdr-spin's 0.8.2 minimum, 1-line wheel scrolling (asks "Scroll 1 line per mouse wheel notch in herdr?"), and a multiSelect "herdr is installed. Set up any of these?" offering only what is still missing: herdr-spin, agent notifications, reopen nvim, btop, lazygit and mdv after a restart (mdv-restore).
 
 ### 21. Apply Configuration
 

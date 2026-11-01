@@ -111,9 +111,9 @@ Copies travel as OSC 52 through the terminal, so they reach the Windows clipboar
 | `~/.config/mdv/colorscheme.txt`             | written by `\c`                 | Remembered colour scheme (per machine, not shipped)                      |
 | `~/.local/share/mdv/lazy/`                  | `Lazy! restore`                 | lazy.nvim, render-markdown.nvim, catppuccin, tokyonight, rose-pine       |
 | `~/.local/opt/nvim-*/`, `~/.local/bin/nvim` | Neovim release tarball          | Neovim itself, only when the step had to install one                     |
-| `~/.config/herdr-mdv-restore/`              | `assets/mdv-restore/`           | herdr plugin that reopens mdv after a restart (Step 20, optional)        |
-| `~/.local/state/mdv-restore/`               | written by the launcher         | Open files per herdr pane, read by the plugin                            |
-| `mdv-resume` label on an app terminal       | written by the launcher         | Open files per Herdr app terminal, read by the `~/.zshrc` block          |
+| `~/.config/herdr-mdv-restore/`              | `assets/mdv-restore/`           | herdr plugin that reopens nvim, btop, lazygit and mdv after a restart (Step 20, optional) |
+| `~/.local/state/mdv-restore/`               | written by the resume zsh block and nvim | Command and folder per herdr pane, read by the plugin           |
+| `cmd-resume` label on an app terminal       | written by the resume zsh block and nvim | Command and folder per Herdr app terminal, for reopening after a reboot |
 
 `assets/mdv/` is the source of truth. A change made on a machine's `~/.config/mdv` goes
 back into the assets, and the lock file travels with it.
@@ -146,28 +146,14 @@ code page and turns `ż` into `┼╝`. Paste is a stub that returns the last co
 never pastes, and Windows Terminal does not answer OSC 52 reads, so the built-in paste
 would block for up to ten seconds.
 
-**Reopened after a herdr restart.** Inside a herdr pane (`HERDR_PANE_ID` set), the wrapper
-writes the launcher path and the absolute file paths to
-`~/.local/state/mdv-restore/<server socket>/<pane id>`, and deletes that file only when nvim
-exits cleanly (`q`). A stopped server or a closed terminal leaves it in place. The
-`local.mdv-restore` herdr plugin (Step 20) runs once after each server start: for every
-file whose pane still exists it types the mdv command into that pane's shell, with a
-leading space so zsh's `hist_ignore_space` keeps it out of history; entries for panes
-that are gone are deleted. Keying the folder by the server socket keeps named herdr
-sessions from restoring into each other's panes. Not covered: `some-command | mdv` (no
-file to reopen). Without the plugin, the state files are written but nothing reads them.
-
-This replaces the first version, which reported `mdv <paths>` to herdr as the pane's
-resume command through `herdr pane report-agent`. That reused herdr's own agent restore,
-but herdr then listed every open mdv as an agent in the sidebar, and it rejected paths
-containing an apostrophe. herdr has no way to keep a reported agent out of the sidebar.
-
-**Reopened in the Herdr app.** Inside a Herdr app terminal (`HC_TERMINAL_ID` set), the
-wrapper stores the same launcher path and files as a JSON array in the terminal's
-`mdv-resume` label (`hc label`) and clears it on a clean quit. herdr-core keeps labels across
-a reboot and gives a lost terminal a fresh shell with the same address; the `setup-zsh
-herdr-app` block in `~/.zshrc` (`references/herdr-app.md`) finds the label there and types
-the mdv command as the shell's first command. No plugin is involved.
+**Reopened after a restart.** Not the launcher's job: it only runs nvim. The
+`setup-zsh resume` block in `~/.zshrc` wraps `mdv`, like nvim, btop and lazygit, in a zsh
+function that records the folder and command while it runs: a JSON file under
+`~/.local/state/mdv-restore/` per herdr pane, read by the mdv-restore plugin
+(`references/herdr-tui.md`), or a `cmd-resume` label per Herdr app terminal, read by the
+`setup-zsh herdr-app` block (`references/herdr-app.md`). `some-command | mdv` is not
+recorded. An earlier launcher reported mdv to herdr as an agent
+(`herdr pane report-agent`), which listed every open mdv in the agent sidebar.
 
 ## Keys
 
