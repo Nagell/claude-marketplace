@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.12.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.11.0...base-setup-v1.12.0) (2026-11-01)
+
+
+### Features
+
+* **base-setup:** open Herdr app links in the Windows browser on WSL ([f049738](https://github.com/Nagell/claude-marketplace/commit/f049738983d842855bdaf00b25c093e17cc676f8))
+* **base-setup:** reopen nvim, btop and lazygit after a herdr restart ([122f9d9](https://github.com/Nagell/claude-marketplace/commit/122f9d93df4c1cff33e098600e113dd941d207cb))
+* **base-setup:** reopen nvim, btop and lazygit after a herdr restart ([e5f05f6](https://github.com/Nagell/claude-marketplace/commit/e5f05f6d05ae0583e1af93b8fe6b4b19ded39891))
+
+
+### Bug Fixes
+
+* **base-setup:** give the Herdr app a Braille font on WSL ([da2b598](https://github.com/Nagell/claude-marketplace/commit/da2b59806cbce66ef196d5354c184a9cb9b635e2))
+
 ## [1.11.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.10.0...base-setup-v1.11.0) (2026-11-01)
 
 
