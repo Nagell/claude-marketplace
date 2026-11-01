@@ -14,7 +14,7 @@ This file is the run order: do Steps 1-21 in sequence. Long procedures live next
 
 - `scripts/install-font.sh` — Nerd Font install (Step 4)
 - `assets/zshrc/*.zsh` — the blocks Steps 6, 7, 8 and 14 put into `~/.zshrc`. To add one, Read the asset with the Read tool, then insert its exact content with the Edit tool (Write for a fresh `~/.zshrc`) at the place the step names.
-- `references/*.md` — step details: `glow.md`, `mdv.md`, `lazyvim.md`, `terminal.md`, `herdr-tui.md`, `herdr-app.md`, `herdr-spin.md`
+- `references/*.md` — step details: `glow.md`, `mdv.md`, `lazyvim.md`, `terminal.md`, `herdr-tui.md`, `herdr-app.md`, `herdr-spin.md`, `wsl-audio.md`
 
 Each step below says what it checks, when to skip, which question to ask, and where the details are.
 
@@ -272,6 +272,8 @@ ctl.default pulse
 - new_string: `export PULSE_SERVER=unix:/mnt/wslg/runtime-dir/pulse/native` + blank line + `# Zinit - auto-installs itself if missing`
 
 Report what was configured. Inform the user that audio input (microphone) is now routed through WSLg — tools like Claude Code `/voice` should work after reopening the terminal.
+
+**Microphone that survives WSLg hangs:** WSLg's microphone link can fail after a few dictations and hang its PulseAudio until `wsl --shutdown` (more often when a Windows dictation app shares the microphone). Unless `~/.zshrc` already contains `# >>> setup-zsh claude-pulse >>>`, use AskUserQuestion: "Record Claude Code voice through a PulseAudio server on Windows instead of WSLg? Needs a Windows install and mirrored networking" with options "Yes (Recommended)" and "No, keep WSLg". On yes, follow `references/wsl-audio.md` from top to bottom.
 
 ### 10. Port Bash Environment to Zsh
 
