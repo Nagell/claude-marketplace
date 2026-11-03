@@ -290,7 +290,8 @@ accident; quit from the app menu or the Dock instead. Ask before applying it (As
 go into `AT_SIGN_KEYS` at the top of the script.
 
 The excluded apps are the `EXCLUDED_APPS` bundle IDs at the top of the script: Ghostty
-(`com.mitchellh.ghostty`), Terminal (`com.apple.Terminal`) and VS Code (`com.microsoft.VSCode`).
+(`com.mitchellh.ghostty`), Terminal (`com.apple.Terminal`), the Herdr app (`dev.herdr.app`) and
+VS Code (`com.microsoft.VSCode`).
 Add others there and re-run; find an app's ID with
 `mdls -name kMDItemCFBundleIdentifier -raw /Applications/<App>.app`.
 
