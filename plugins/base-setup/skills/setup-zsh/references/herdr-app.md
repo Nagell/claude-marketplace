@@ -121,6 +121,40 @@ Read `~/.config/herdr-app/settings.json` (it exists after the first start; creat
 `"MesloLGS NF"` or `"FiraCode Nerd Font"`. Leave `zoom` alone: WSLg does not pass Windows
 display scaling through, so users set it to taste.
 
+**macOS only: Ctrl shortcuts.** On macOS the app ships a Cmd-only keymap in
+`~/.config/herdr-app/keys.json` (it exists after the first start and reloads on save). Use
+AskUserQuestion: "Add Windows-style Ctrl shortcuts to the Herdr app? App commands go on
+Ctrl+Shift (Ctrl+Shift+P palette, Ctrl+Shift+T new tab, Ctrl+Shift+E/O split), so plain
+Ctrl+letters stay with the terminal. The Cmd shortcuts keep working." with options "Yes, add
+Ctrl shortcuts" and "No, keep Cmd only". If yes, merge this skill's
+`assets/herdr-app/keys-ctrl-macos.json` into it. The merge is additive: a key the user
+already bound to something else stays as it is and is printed.
+
+```bash
+python3 -I - <this-skill-dir>/assets/herdr-app/keys-ctrl-macos.json "$HOME/.config/herdr-app/keys.json" <<'EOF'
+import json
+import sys
+
+additions = json.load(open(sys.argv[1]))
+path = sys.argv[2]
+keys = json.load(open(path))
+for section, bindings in additions.items():
+    target = keys.setdefault(section, {})
+    for key, action in bindings.items():
+        if target.get(key, action) != action:
+            print(f"kept {section} {key} = {target[key]} (skill wanted {action})")
+        else:
+            target[key] = action
+with open(path, "w") as f:
+    json.dump(keys, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+EOF
+sleep 1; cat "$HOME/.config/herdr-app/keys.error" 2>/dev/null || echo "keys.json accepted"
+```
+
+If Herdr rejects the file, it keeps the last good keymap and writes the reason to
+`keys.error`. Report that, and any `kept ...` lines, to the user.
+
 ## 5. Changes panel with syntax highlighting (herdr-reviewer)
 
 The shipped Changes panel shows diffs without syntax highlighting, and Herdr takes only
