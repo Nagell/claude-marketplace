@@ -1,13 +1,13 @@
 ---
 name: setup-macos
-description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, fast key repeat, and numbered workspaces per screen - FlashSpace workspaces on Caps Lock hotkeys, a SketchyBar top bar, Rectangle window snapping with gaps, the native menu bar auto-hidden
+description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, fast key repeat, and numbered workspaces per screen - FlashSpace workspaces on Caps Lock hotkeys, a SketchyBar top bar, Rectangle window snapping with gaps, the native menu bar auto-hidden, and AltTab on Cmd+Tab to switch windows rather than apps
 disable-model-invocation: true
 ---
 
 # Setup macOS
 
 Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, Karabiner-Elements,
-key repeat, and a workspace setup (FlashSpace, SketchyBar, Rectangle). Run this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
+key repeat, a workspace setup (FlashSpace, SketchyBar, Rectangle) and AltTab. Run this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
 keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 5 to be done.
 
 Every step is idempotent and can be re-run. Each one backs up the preferences or file it changes
@@ -549,7 +549,46 @@ Please run:  open -a Rectangle
 
 After changing any Rectangle setting later, `pkill -x Rectangle` and open it again.
 
-### 14. Done
+### 14. AltTab: Windows-style window switcher
+
+macOS's Cmd+Tab switches apps, not windows, so a second Chrome window can't be reached from it.
+[AltTab](https://alt-tab-macos.netlify.app) lists every window with a preview. The settings below
+put it on Cmd+Tab (the key next to the space bar, where Alt+Tab sits on Windows), drop its second
+shortcut so it takes no Option shortcut, start it at login and hide its menu bar icon.
+
+`assets/alttab/settings.plist` holds those four keys. AltTab stores a shortcut as an archived
+`SRShortcut`, which `defaults write` can't produce, so the file carries one saved from the app.
+AltTab caches its settings, so quit it before writing:
+
+```bash
+brew install --cask alt-tab
+A=com.lwouis.alt-tab-macos
+pkill -x AltTab || true
+defaults export $A - > "$BK/$A.plist"
+python3 -I - "<this-skill-dir>/assets/alttab/settings.plist" <<'EOF'
+import plistlib
+import subprocess
+import sys
+
+domain = "com.lwouis.alt-tab-macos"
+current = subprocess.run(["defaults", "export", domain, "-"], capture_output=True, check=True)
+settings = plistlib.loads(current.stdout)
+settings.update(plistlib.load(open(sys.argv[1], "rb")))
+subprocess.run(["defaults", "import", domain, "-"], input=plistlib.dumps(settings), check=True)
+EOF
+defaults read $A holdShortcut
+```
+
+The last command should print `string = "\U2318"`. Output this and wait:
+
+```
+Please run:  open -a AltTab
+  - Allow it under Accessibility and Screen Recording (Screen Recording gives the previews).
+  - Cmd+Tab now shows every window. With the menu bar icon hidden, open the settings with
+    defaults write com.lwouis.alt-tab-macos menubarIconShown -string true, then restart AltTab.
+```
+
+### 15. Done
 
 Report what was applied and where the backups are (`$BK`, plus `karabiner.json.bak-*`). Then tell
 the user:
