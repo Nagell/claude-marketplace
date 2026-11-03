@@ -243,7 +243,9 @@ mdv-restore plugin reads the same resume block's records, so it is shared betwee
 
 Read `~/.zshrc`. If it contains `_hc_resumable` or `mdv-resume`, it has an earlier version:
 see the end of this section instead. Unless it already contains `# >>> setup-zsh resume >>>`, read
-`<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end.
+`<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end. If
+the block is there but lacks `localtraps`, it is an earlier version that loses its record on a
+macOS reboot: replace everything between the `setup-zsh resume` markers with the asset.
 Then, unless `~/.zshrc` contains `# >>> setup-zsh herdr-app >>>`, append
 `<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` after it, with both `<WORK_DIR>`
 replaced by the Step 19 folder:
@@ -283,9 +285,10 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
   a shell already brought back. Skipped when section 6 was declined.
 - **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
   the folder and the exact command in a `cmd-resume` label while the program runs, and
-  clear it when the program ends with the shell still alive, however it was quit. After a
-  reboot the shell is gone too, so the label stays, and the herdr-app block in the restored
-  shell types `cd <folder> && <command>` again. With the LazyVim config from Step 16, nvim
+  clear it when the program ends with the shell still alive, however it was quit. A macOS
+  reboot sends SIGTERM to every process: the program quits, but the interactive shell
+  ignores it, so the wrapper catches it and keeps the label. The herdr-app block in the
+  restored shell then types `cd <folder> && <command>` again. With the LazyVim config from Step 16, nvim
   keeps the label in step with the files open inside it and reopens them, the current one
   first (its swap file offers any unsaved edits); splits and tabs inside nvim do not come
   back. `some-command | mdv` is not recorded. To add another program, add its name to the
@@ -315,7 +318,10 @@ Tell the user how to try the full cycle: open Claude Code and an mdv in app term
 Claude Code comes back on its conversation a few seconds later. `hc server restart` is no
 test: herdr-core keeps programs running through a planned restart. Without a reboot,
 `hc server stop && hc server start` from a terminal outside the app ends every program and
-brings the terminals back as shells, the same as a reboot.
+brings the terminals back as shells. It does not send the shells SIGTERM the way a macOS
+reboot does; to check that part, find an mdv terminal's shell and nvim PIDs
+(`hc get <t> --json | jq .pid`, then `pgrep -P <pid>`), `kill -TERM` all of them at once, and
+confirm the terminal's `cmd-resume` label is still set (`hc get <t> --json | jq .labels`).
 
 Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 `agent.next`), and the app takes Ctrl+Shift+T/N/O/R and Alt+arrows / Alt+H/J/K/L for itself.
