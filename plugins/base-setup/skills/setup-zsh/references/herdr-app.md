@@ -218,18 +218,22 @@ Use AskUserQuestion: "Bring Claude Code sessions back after a reboot in the Herd
 mkdir -p ~/.local/src
 git -C ~/.local/src/herdr-agent-resume pull -q 2>/dev/null \
   || git clone -q --depth 1 https://github.com/thuanlm215/herdr-agent-resume ~/.local/src/herdr-agent-resume
-python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --dry-run
+python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --update --auto --dry-run
 ```
 
-The dry run lists the mod folder, the Ctrl+Shift+R shortcut and `~/.claude/settings.json`.
-The real install edits Claude Code's settings (after backing them up), which you may not
-be allowed to do; give the user the command to run with `!`:
+The dry run lists the mod folder, the Ctrl+Shift+R shortcut, `~/.claude/settings.json` and
+`Startup lines: ~/.zshrc`. `--auto` adds an `agent-resume` block to `~/.zshrc` so each
+restored shell starts its own agent; a single resume pass skips shells that are still busy
+starting up when it reaches them, so with many terminals some agents stay as bare shells.
+The real install edits Claude Code's settings and `~/.zshrc` (after backing them up), which
+you may not be allowed to do; give the user the command to run with `!`:
 
 ```bash
-python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py
+python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --update --auto
 ```
 
-Section 7 makes the resume automatic; Ctrl+Shift+R stays as the manual way.
+Section 7 adds the zsh blocks that make this work with p10k; Ctrl+Shift+R stays as the
+manual way.
 
 ## 7. zsh blocks: automatic resume and start folder
 
@@ -249,6 +253,22 @@ sed "s|<WORK_DIR>|$WORK_DIR|g" <this-skill-dir>/assets/herdr-app/zshrc-block.zsh
 zsh -n ~/.zshrc && echo "syntax ok"
 ```
 
+**After section 6's `--auto` install.** The installer's `# >>> agent-resume >>>` block starts
+the agent from the shell's first precmd, where p10k's instant prompt still redirects stdin
+and stdout: Claude falls into `--print` mode and exits with "No deferred tool marker found",
+Codex exits with code 1, and the mod then forgets those sessions as if they were quit. If
+`~/.zshrc` contains `# >>> agent-resume >>>` but not
+`# >>> setup-zsh agent-resume-line-init >>>`, append
+`<this-skill-dir>/assets/herdr-app/agent-resume-line-init.zsh` at the end. It must come
+after the installer's block, since it moves that block's hook to line-init (where the
+herdr-app block already reopens mdv and btop); if the installer has not run yet, append it
+once it has:
+
+```bash
+cat <this-skill-dir>/assets/herdr-app/agent-resume-line-init.zsh >> ~/.zshrc
+zsh -n ~/.zshrc && echo "syntax ok"
+```
+
 **macOS with the herdr TUI auto-start.** The app's terminals report
 `TERM_PROGRAM=ghostty`, so the Ghostty auto-start block from `references/herdr-tui.md`
 would launch the herdr TUI inside the first app terminal. If `~/.zshrc` contains
@@ -257,9 +277,10 @@ with the Edit tool, next to `-z "$HERDR_ENV"`.
 
 In app terminals (`HC_TERMINAL_ID` set) they do this:
 
-- **Claude Code / Codex:** when a restored shell finds an `agent-resume` label, it runs one
-  resume pass in the background, so sessions come back without Ctrl+Shift+R. Skipped when
-  section 6 was declined.
+- **Claude Code / Codex:** a restored shell with an `agent-resume` label starts its own
+  agent once the line editor is up (the installer's block, moved by the line-init block).
+  The herdr-app block's background resume pass still runs as a fallback and skips sessions
+  a shell already brought back. Skipped when section 6 was declined.
 - **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
   the folder and the exact command in a `cmd-resume` label while the program runs, and
   clear it when the program ends with the shell still alive, however it was quit. After a
@@ -292,7 +313,9 @@ hc server status | jq -c '{version, live}'
 Tell the user how to try the full cycle: open Claude Code and an mdv in app terminals, run
 `wsl --shutdown` (WSL) or reboot, reopen Herdr. The mdv terminals reopen by themselves and
 Claude Code comes back on its conversation a few seconds later. `hc server restart` is no
-test: herdr-core keeps programs running through a planned restart.
+test: herdr-core keeps programs running through a planned restart. Without a reboot,
+`hc server stop && hc server start` from a terminal outside the app ends every program and
+brings the terminals back as shells, the same as a reboot.
 
 Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 `agent.next`), and the app takes Ctrl+Shift+T/N/O/R and Alt+arrows / Alt+H/J/K/L for itself.
@@ -318,6 +341,6 @@ On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
 browser with `xdg-mime default <browser>.desktop x-scheme-handler/https` (same for `http`
 and `text/html`), if one is installed.
 
-Then remove the `setup-zsh herdr-app` block from `~/.zshrc` (and the `setup-zsh resume`
-block, unless the herdr TUI's mdv-restore plugin still uses it), and on WSL
-`sudo rm /usr/share/applications/herdr-app.desktop`.
+Then remove the `setup-zsh herdr-app` and `setup-zsh agent-resume-line-init` blocks from
+`~/.zshrc` (and the `setup-zsh resume` block, unless the herdr TUI's mdv-restore plugin
+still uses it), and on WSL `sudo rm /usr/share/applications/herdr-app.desktop`.
