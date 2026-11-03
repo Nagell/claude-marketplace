@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.16.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.0...base-setup-v1.16.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **base-setup:** keep the resume record when macOS reboots ([e7b6084](https://github.com/Nagell/claude-marketplace/commit/e7b60841ce30649b90acd32c067fa3aa7eb76afc))
+* **base-setup:** keep the resume record when macOS reboots ([a17cd11](https://github.com/Nagell/claude-marketplace/commit/a17cd1127c079af8fd6a972a29809a2b531381e4))
+
 ## [1.16.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.15.0...base-setup-v1.16.0) (2026-11-03)
 
 
