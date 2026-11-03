@@ -25,6 +25,7 @@ from pathlib import Path
 EXCLUDED_APPS = [
     "com.mitchellh.ghostty",
     "com.apple.Terminal",
+    "dev.herdr.app",
     "com.microsoft.VSCode",
 ]
 
