@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.14.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.14.0...base-setup-v1.14.1) (2026-11-03)
+
+
+### Bug Fixes
+
+* **base-setup:** keep Ctrl keys for zsh in the Herdr app ([47fb8b3](https://github.com/Nagell/claude-marketplace/commit/47fb8b386c564617ac7781f59ec02eee9cc18b87))
+* **base-setup:** keep Ctrl keys for zsh in the Herdr app ([5b36ae0](https://github.com/Nagell/claude-marketplace/commit/5b36ae0678c9b37f63592ea3304ca15d9fd10d0f))
+
 ## [1.14.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.13.0...base-setup-v1.14.0) (2026-11-01)
 
 
