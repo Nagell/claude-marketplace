@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.16.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.15.0...base-setup-v1.16.0) (2026-11-03)
+
+
+### Features
+
+* **base-setup:** add AltTab window switcher to setup-macos ([af471ad](https://github.com/Nagell/claude-marketplace/commit/af471ad1d2a848c97f11a95bf1fcd7b2432fba36))
+* **base-setup:** add AltTab window switcher to setup-macos ([5827728](https://github.com/Nagell/claude-marketplace/commit/58277284fd7a73fbf49f7a23f179d085b86e12e0))
+
+
+### Bug Fixes
+
+* **base-setup:** resume every Herdr app agent under p10k ([3e0cc52](https://github.com/Nagell/claude-marketplace/commit/3e0cc5272d72a4b6dceb3b936a249e9904ef6771))
+* **base-setup:** resume every Herdr app agent under p10k ([d9cae63](https://github.com/Nagell/claude-marketplace/commit/d9cae63f7dc3bed11f4405281cd89b40c3ffbd75))
+
 ## [1.15.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.14.1...base-setup-v1.15.0) (2026-11-03)
 
 
