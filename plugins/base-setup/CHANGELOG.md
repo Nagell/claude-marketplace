@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.15.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.14.1...base-setup-v1.15.0) (2026-11-03)
+
+
+### Features
+
+* **base-setup:** add Ctrl shortcuts for the Herdr app on macOS ([9d5b47a](https://github.com/Nagell/claude-marketplace/commit/9d5b47a43684e3170911ff1074581ae223df9fc2))
+* **base-setup:** Ctrl shortcuts for the Herdr app and Ctrl+F find ([ff43cc7](https://github.com/Nagell/claude-marketplace/commit/ff43cc764a6c37f21d141e8c910ff216782d57a3))
+* **base-setup:** map Ctrl+F to find in browsers, Finder and Slack ([4f06d76](https://github.com/Nagell/claude-marketplace/commit/4f06d762e3402be1c8af3a5573a5118a30062843))
+
 ## [1.14.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.14.0...base-setup-v1.14.1) (2026-11-03)
 
 
