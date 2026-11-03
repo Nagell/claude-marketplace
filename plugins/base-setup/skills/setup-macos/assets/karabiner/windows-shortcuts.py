@@ -38,6 +38,7 @@ BROWSERS = [
 ]
 
 SLACK = "com.tinyspeck.slackmacgap"
+FINDER = "com.apple.finder"
 
 # Karabiner matches physical key positions in US terms, so on QWERTZ layouts the Z and Y
 # rules swap. Add every enabled QWERTZ layout (Swiss German, Austrian, Czech, ...) here.
@@ -73,6 +74,11 @@ def in_browsers():
 
 def in_slack():
     return {"type": "frontmost_application_if", "bundle_identifiers": anchored([SLACK])}
+
+
+def in_find_apps():
+    return {"type": "frontmost_application_if",
+            "bundle_identifiers": anchored([*BROWSERS, FINDER, SLACK])}
 
 
 def layout(condition_type):
@@ -189,6 +195,8 @@ def build_rules(work_dir, caps_lock_hyper=False):
          ]},
         {"description": "Windows: Ctrl+Shift+I opens developer tools (browsers)",
          "manipulators": [remap("i", ctrl_shift, "i", ["command", "option"], in_browsers())]},
+        {"description": "Windows: Ctrl+F finds (browsers, Finder, Slack)",
+         "manipulators": [remap("f", ctrl, "f", ["command"], in_find_apps())]},
         {"description": "Windows: Ctrl+Shift+C code, Ctrl+K link (Slack)",
          "manipulators": [
              remap("c", ctrl_shift, "c", ["command", "shift"], in_slack()),

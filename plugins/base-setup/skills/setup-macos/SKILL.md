@@ -278,6 +278,7 @@ The rules:
 | Ctrl+B / I / U | Cmd+B / I / U (bold, italic, underline) | not in terminals, VS Code |
 | Ctrl+T / Ctrl+Shift+T | Cmd+T new tab / Cmd+Shift+T reopen closed tab | Chrome, Chrome for Testing, Firefox, Safari |
 | Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Chrome for Testing, Firefox, Safari |
+| Ctrl+F | Cmd+F (find) | Chrome, Chrome for Testing, Firefox, Safari, Finder, Slack |
 | Ctrl+Shift+C / Ctrl+K | Cmd+Shift+C code / Cmd+Shift+U link | Slack |
 | Ctrl+Shift+Esc | Cmd+Option+Esc (Force Quit Applications) | all apps |
 | Option+Shift+S | Cmd+Shift+4 (area screenshot) | all apps |
