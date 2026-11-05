@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.16.2](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.1...base-setup-v1.16.2) (2026-11-05)
+
+
+### Bug Fixes
+
+* **base-setup:** wait for the shell's SIGTERM before dropping the record ([49475bc](https://github.com/Nagell/claude-marketplace/commit/49475bceffacc1ecb1781e1f1a3aaf6fde601389))
+
 ## [1.16.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.0...base-setup-v1.16.1) (2026-11-03)
 
 
