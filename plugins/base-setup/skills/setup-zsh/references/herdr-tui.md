@@ -223,7 +223,7 @@ old name and paths from when it only reopened mdv.
 
 Read `~/.zshrc`. Unless it already contains `# >>> setup-zsh resume >>>`, read
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end of
-`~/.zshrc`. If the block is there but lacks `localtraps`, it is an earlier version that loses
+`~/.zshrc`. If the block is there but lacks `zselect`, it is an earlier version that loses
 its record on a macOS reboot: replace everything between the `setup-zsh resume` markers with
 the asset. Then check the syntax:
 
