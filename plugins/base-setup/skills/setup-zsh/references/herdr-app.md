@@ -244,7 +244,7 @@ mdv-restore plugin reads the same resume block's records, so it is shared betwee
 Read `~/.zshrc`. If it contains `_hc_resumable` or `mdv-resume`, it has an earlier version:
 see the end of this section instead. Unless it already contains `# >>> setup-zsh resume >>>`, read
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end. If
-the block is there but lacks `localtraps`, it is an earlier version that loses its record on a
+the block is there but lacks `zselect`, it is an earlier version that loses its record on a
 macOS reboot: replace everything between the `setup-zsh resume` markers with the asset.
 Then, unless `~/.zshrc` contains `# >>> setup-zsh herdr-app >>>`, append
 `<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` after it, with both `<WORK_DIR>`
@@ -287,7 +287,9 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
   the folder and the exact command in a `cmd-resume` label while the program runs, and
   clear it when the program ends with the shell still alive, however it was quit. A macOS
   reboot sends SIGTERM to every process: the program quits, but the interactive shell
-  ignores it, so the wrapper catches it and keeps the label. The herdr-app block in the
+  ignores it, so the wrapper catches it and keeps the label. When the program quits before
+  the shell's own SIGTERM arrives, a non-zero exit makes the wrapper wait half a second for
+  it. The herdr-app block in the
   restored shell then types `cd <folder> && <command>` again. With the LazyVim config from Step 16, nvim
   keeps the label in step with the files open inside it and reopens them, the current one
   first (its swap file offers any unsaved edits); splits and tabs inside nvim do not come
@@ -320,7 +322,7 @@ test: herdr-core keeps programs running through a planned restart. Without a reb
 `hc server stop && hc server start` from a terminal outside the app ends every program and
 brings the terminals back as shells. It does not send the shells SIGTERM the way a macOS
 reboot does; to check that part, find an mdv terminal's shell and nvim PIDs
-(`hc get <t> --json | jq .pid`, then `pgrep -P <pid>`), `kill -TERM` all of them at once, and
+(`hc get <t> --json | jq .pid`, then `pgrep -P <pid>`), `kill -TERM` nvim and then the shell, and
 confirm the terminal's `cmd-resume` label is still set (`hc get <t> --json | jq .labels`).
 
 Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
