@@ -27,11 +27,14 @@ if [[ -o interactive && ( -n $HC_TERMINAL_ID || -n $HERDR_PANE_ID ) ]]; then
       | jq -Rsc --arg cwd "$PWD" '{cwd: $cwd, argv: (split("\u0000") | .[:-1])}')"
     # A macOS reboot sends SIGTERM to every process. The program quits on it, but an
     # interactive zsh ignores it and would go on to remove the record the restore needs.
+    # The program can die before the shell's own SIGTERM arrives, so a failed exit (nvim
+    # exits 1 on SIGTERM) waits half a second for it; a normal quit exits 0 and never waits.
     setopt localtraps
     local stopping=0
     trap 'stopping=1' TERM
     SETUP_ZSH_RESUME=1 command "$@"
     local rc=$?
+    (( rc )) && zmodload zsh/zselect && zselect -t 50
     (( stopping )) || _resume_record
     return $rc
   }
