@@ -15,13 +15,16 @@ themselves (OSC 7501); Claude Code reports it out of the box.
 ```bash
 command -v herdr-app && command -v hc && hc --version || echo "herdr-app: MISSING"
 test -d ~/.config/herdr-app/mods/agent-resume && echo "agent-resume: INSTALLED" || echo "agent-resume: MISSING"
-test -d ~/.config/herdr-app/mods/reviewer && echo "reviewer: INSTALLED" || echo "reviewer: MISSING"
+test -f ~/.config/herdr-app/layouts/my-nested-tabs.json && echo "my-nested-tabs: INSTALLED" || echo "my-nested-tabs: MISSING"
+for m in over9k-switcher walkthrough linear; do test -d ~/.config/herdr-app/mods/$m && echo "$m: INSTALLED" || echo "$m: MISSING"; done
+test -d ~/.config/herdr-app/mods/reviewer && echo "reviewer: INSTALLED (earlier version of this guide)"
 grep -q '# >>> setup-zsh herdr-app >>>' ~/.zshrc && echo "zsh block: OK" || echo "zsh block: MISSING"
 grep -q '# >>> setup-zsh resume >>>' ~/.zshrc && echo "resume block: OK" || echo "resume block: MISSING"
 ```
 
-Skip the sections whose part is already in place. Run section 7 anyway when `~/.zshrc`
-contains `_hc_resumable` or `mdv-resume` (an earlier version of the zsh block).
+Skip the sections whose part is already in place. Run section 8 anyway when `~/.zshrc`
+contains `_hc_resumable` or `mdv-resume` (an earlier version of the zsh block). When
+`reviewer` is installed, section 5 replaces it.
 
 ## 2. Install
 
@@ -155,53 +158,127 @@ sleep 1; cat "$HOME/.config/herdr-app/keys.error" 2>/dev/null || echo "keys.json
 If Herdr rejects the file, it keeps the last good keymap and writes the reason to
 `keys.error`. Report that, and any `kept ...` lines, to the user.
 
-## 5. Changes panel with syntax highlighting (herdr-reviewer)
+## 5. Sidebar with tabs, side panels and agent details (herdr-nested-tabs)
 
-The shipped Changes panel shows diffs without syntax highlighting, and Herdr takes only
-fixes for its shipped mods (features are meant to be built as your own mod).
-[herdr-reviewer](https://github.com/vytasgavelis/herdr-reviewer) replaces it:
-syntax-colored diffs, scopes (uncommitted, last commit, branch), and line comments it sends
-to an agent ("Ask about diff"). It only runs `git diff`, `git rev-parse` and `hc send`.
+The shipped window shows only the selected space's tabs, in the top bar; the Changes panel
+has no syntax colours. This section sets up the personal layout `my-nested-tabs`:
 
-Use AskUserQuestion: "Replace the Changes panel with herdr-reviewer (syntax-colored diffs,
-line comments for the agent)?" - "Yes (Recommended)" / "No". If yes:
+- **Sidebar** ([herdr-nested-tabs](https://github.com/Nagell/herdr-nested-tabs)): each
+  space lists its tabs under it, with a fold arrow, one status column (spinner working,
+  red dot blocked, blue dot done), and for Claude Code and Codex agents model · effort ·
+  context % · time since the last reply. Claude's sub-agents sit behind a count chip. The
+  top bar keeps Files and Changes and drops its tab buttons.
+- **Side panel:** [Better Files and Better Changes](https://github.com/munza/herdr-mods)
+  with syntax colours, plus [Over9k](https://github.com/herunan/herdr-over9k)'s
+  **Timeline** (the focused agent's conversation, prompt by prompt) as a third button.
+- **Usage strip** (Over9k Usage) at the bottom of the sidebar: Claude's and Codex's 5-hour
+  and weekly limits.
+
+Use AskUserQuestion: "Set up the Herdr app sidebar that lists every space's tabs, with
+agent details, syntax-coloured Files/Changes panels, Timeline and Usage?" - "Yes
+(Recommended)" / "No". If yes, start the app if it is not running (`herdr-app &`), then
+fetch and copy the mods. `Nagell/herdr-mods` carries the syntax colouring until
+munza/herdr-mods merges it ([PR](https://github.com/munza/herdr-mods/pull/9)); clone munza's repo once it has.
 
 ```bash
 mkdir -p ~/.local/src
-git -C ~/.local/src/herdr-reviewer pull -q 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/vytasgavelis/herdr-reviewer ~/.local/src/herdr-reviewer
-cp -r ~/.local/src/herdr-reviewer/mods/reviewer ~/.config/herdr-app/mods/
-herdr-app check ~/.config/herdr-app/mods/reviewer
+git -C ~/.local/src/herdr-nested-tabs pull -q 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/Nagell/herdr-nested-tabs ~/.local/src/herdr-nested-tabs
+git -C ~/.local/src/herdr-over9k pull -q 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/herunan/herdr-over9k ~/.local/src/herdr-over9k
+git -C ~/.local/src/herdr-mods pull -q 2>/dev/null \
+  || git clone -q --depth 1 -b feat/syntax-colouring https://github.com/Nagell/herdr-mods ~/.local/src/herdr-mods
+M=~/.config/herdr-app/mods
+S=~/.local/src
+cp -r "$S"/herdr-nested-tabs/mods/nested-tabs "$S"/herdr-nested-tabs/mods/tabs-bar "$M"/
+cp -r "$S"/herdr-mods/better-files/mods/better-files "$S"/herdr-mods/better-changes/mods/better-changes "$M"/
+cp -r "$S"/herdr-over9k/over9k-timeline/mods/over9k-prompts "$S"/herdr-over9k/over9k-usage/mods/over9k-usage "$M"/
+for m in nested-tabs tabs-bar better-files better-changes over9k-prompts over9k-usage; do herdr-app check "$M/$m"; done
 ```
 
-Expect `check passed`. Shipped layouts are read-only (replaced on every start), so clone
-`main` and point the clone's Changes block at the mod. This talks to the running app;
-start it first (`herdr-app &`) if it is not. Skip the clone if
-`~/.config/herdr-app/layouts/my-main.json` exists, since an existing name is refused:
+Expect six `check passed`. Before copying on a fresh machine, tell the user what the mods
+run and read (Herdr's rule for mods other people made; each repo's `RECIPE.md` lists it
+under "Built from"): the sidebar runs `git`, `ps`, `lsof`, `hc` and `python3` scripts that
+read Claude Code's and Codex's session files; Better Files/Changes run `git`; Timeline
+reads the focused agent's conversation file.
+
+Herdr adds a mod whose `mod.json` has a `place` (Better Changes, Timeline, Usage) to the
+layout on screen as a new block. Run `herdr-app status`: if `layout` is a personal layout
+(not `main`, `terminals` or `win98`), read it and remove any block for those three mods
+that the layout didn't have before.
+
+Copy this skill's layout, unless one with that name already exists (never overwrite the
+user's), switch to it and merge the sidebar's keys with the section 4 merge snippet
+(pass `~/.local/src/herdr-nested-tabs/keys.json` as its first argument):
 
 ```bash
-herdr-app do layout.clone '{"name":"main","as":"my-main"}'
+test -e ~/.config/herdr-app/layouts/my-nested-tabs.json \
+  || cp <this-skill-dir>/assets/herdr-app/my-nested-tabs.json ~/.config/herdr-app/layouts/
+herdr-app do layout.switch '{"name":"my-nested-tabs"}'
+herdr-app status | jq -c '{layout, errors}'
 ```
 
-The clone also switches the window to `my-main`. Read
-`~/.config/herdr-app/layouts/my-main.json` and use the Edit tool to change the block with
-`"id": "changes"` from `"mod": "changes"` to `"mod": "reviewer"`, so it reads
-`{"id": "changes", "type": "block", "content": {"mod": "reviewer"}}`. The app reloads
-layouts live; `herdr-app status` should show `"layout": "my-main"` and `"errors": []`.
+Expect `"layout":"my-nested-tabs"` and `"errors":[]`. Tell the user:
 
-Tell the user it opens from the same Changes button (top right), with "Uncommitted ▾" and
-"Ask about diff" in its header. Ctrl+Shift+L or
-`herdr-app do layout.switch '{"name":"main"}'` goes back to the shipped panel. Herdr never
-updates the mod or the cloned layout; to update the mod, run `git pull` in
-`~/.local/src/herdr-reviewer` and the `cp` line again.
+- **Tabs** are listed under each space. A tab with several terminals folds; a middle click
+  closes a tab.
+- **Cmd+Shift+I** switches agent details between one line (Compact) and two (Detailed);
+  the button in the Spaces header does the same. **Cmd+Shift+T** brings the tab buttons
+  back to the top bar, and hides them again.
+- **Files, Changes and Timeline** open from the top-right buttons.
+- **Usage's Claude row** stays empty until Over9k's own Claude status line is on. Its setup
+  button (in the strip) does that by editing `~/.claude/settings.json`; leave it to the
+  user. The Codex row works without it.
+- **Ctrl+Shift+L** or `herdr-app do layout.switch '{"name":"main"}'` goes back to the
+  shipped window.
 
-**Known issue:** at a Herdr zoom other than 1, diff rows overlap and changed lines show
-darker stripes. It is a herdr-app list bug (rows spaced in unzoomed pixels), fixed by
-[herdr-app#296](https://github.com/herdrdev/herdr-app/pull/296); the stripes are cosmetic
-and go away with the herdr-app release that includes it. Don't patch the mod for it: once
-the app is fixed, a patched mod would zoom its rows twice.
+Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
+`cp` lines again; the layout and keys stay as they are.
 
-## 6. Resume Claude Code after a reboot (herdr-agent-resume)
+**Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
+or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
+(Better Changes replaces the reviewer's Changes panel):
+
+```bash
+rm -rf ~/.config/herdr-app/mods/reviewer ~/.config/herdr-app/layouts/my-main.json ~/.local/src/herdr-reviewer
+```
+
+## 6. Popups: agent switcher, Walkthrough, Linear (optional)
+
+Use AskUserQuestion (multiSelect): "Add any of these Herdr app popups?" with:
+
+- **Agent switcher (Ctrl+Tab):** [Over9k Switcher](https://github.com/herunan/herdr-over9k),
+  the recently used agents, Ctrl+Tab again for the next one. It takes Ctrl+Tab from "next
+  tab"; Ctrl+Shift+Tab stays "previous tab".
+- **Walkthrough (Cmd+Shift+K):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
+  explains a change step by step in reading order (uncommitted, branch, a PR, the agent's
+  last turn). Each Generate runs a small `claude` request (about $0.002 with Haiku).
+- **Linear (Cmd+L), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
+  lists your Linear issues and makes a worktree per issue. On first open it downloads its
+  helper program (checksum-verified) and signs in to Linear with OAuth; some Linear
+  workspaces need an admin to approve its OAuth app ("Herdr Plugin") first.
+
+For each one picked, fetch it, copy its mod, check it and merge its keys with the section
+4 snippet:
+
+| Popup | Repo (into `~/.local/src`) | Mod folder | Keys file |
+| --- | --- | --- | --- |
+| Agent switcher | `herunan/herdr-over9k` (from section 5) | `over9k-switcher/mods/over9k-switcher` | `over9k-switcher/keys.json` |
+| Walkthrough | `dmazlum/herdr-walkthrough` | `mods/walkthrough` | `keys.json` |
+| Linear | `mrolafsson/herdr-linear` | `app/mods/linear` | `app/keys.json` |
+
+```bash
+R=dmazlum/herdr-walkthrough   # or mrolafsson/herdr-linear
+git -C ~/.local/src/${R#*/} pull -q 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/$R ~/.local/src/${R#*/}
+cp -r ~/.local/src/herdr-walkthrough/mods/walkthrough ~/.config/herdr-app/mods/
+herdr-app check ~/.config/herdr-app/mods/walkthrough
+```
+
+Expect `check passed` for each. The keys merge keeps a key the user already bound to
+something else and prints it; report those.
+
+## 7. Resume Claude Code after a reboot (herdr-agent-resume)
 
 The app keeps terminals across window restarts, but a reboot or `wsl --shutdown` brings
 them back as bare shells, and the app does not resume agents by design (herdr-core#13).
@@ -232,10 +309,10 @@ you may not be allowed to do; give the user the command to run with `!`:
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --update --auto
 ```
 
-Section 7 adds the zsh blocks that make this work with p10k; Ctrl+Shift+R stays as the
+Section 8 adds the zsh blocks that make this work with p10k; Ctrl+Shift+R stays as the
 manual way.
 
-## 7. zsh blocks: automatic resume and start folder
+## 8. zsh blocks: automatic resume and start folder
 
 Two blocks, split by job: the `setup-zsh resume` block records what runs in a terminal, the
 `setup-zsh herdr-app` block restores it in the shell that comes back. The herdr TUI's
@@ -255,7 +332,7 @@ sed "s|<WORK_DIR>|$WORK_DIR|g" <this-skill-dir>/assets/herdr-app/zshrc-block.zsh
 zsh -n ~/.zshrc && echo "syntax ok"
 ```
 
-**After section 6's `--auto` install.** The installer's `# >>> agent-resume >>>` block starts
+**After section 7's `--auto` install.** The installer's `# >>> agent-resume >>>` block starts
 the agent from the shell's first precmd, where p10k's instant prompt still redirects stdin
 and stdout: Claude falls into `--print` mode and exits with "No deferred tool marker found",
 Codex exits with code 1, and the mod then forgets those sessions as if they were quit. If
@@ -282,7 +359,7 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
 - **Claude Code / Codex:** a restored shell with an `agent-resume` label starts its own
   agent once the line editor is up (the installer's block, moved by the line-init block).
   The herdr-app block's background resume pass still runs as a fallback and skips sessions
-  a shell already brought back. Skipped when section 6 was declined.
+  a shell already brought back. Skipped when section 7 was declined.
 - **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
   the folder and the exact command in a `cmd-resume` label while the program runs, and
   clear it when the program ends with the shell still alive, however it was quit. A macOS
@@ -306,7 +383,7 @@ markers with the current resume asset followed by the current herdr-app asset, a
 `~/.local/bin/mdv` if Step 15 reported it as outdated: the launcher no longer records
 anything.
 
-## 8. Verify
+## 9. Verify
 
 Start the app (`herdr-app &`, or the Start menu entry on WSL). Then, from a terminal
 outside it:
@@ -334,14 +411,19 @@ Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock \
-  ~/.local/src/herdr-reviewer
+  ~/.local/src/herdr-nested-tabs ~/.local/src/herdr-mods ~/.local/src/herdr-over9k \
+  ~/.local/src/herdr-walkthrough ~/.local/src/herdr-linear ~/.local/share/herdr-linear ~/.cache/over9k
 ```
 
-To remove only herdr-reviewer, switch back to the shipped layout first:
+To remove only the sidebar layout and popups from sections 5 and 6, switch back to the
+shipped layout first, then delete their keys from `~/.config/herdr-app/keys.json` (the
+entries naming `nested-tabs.`, `tabs-bar.`, `over9k-switcher`, `walkthrough` or `linear`):
 
 ```bash
 herdr-app do layout.switch '{"name":"main"}'
-rm -rf ~/.config/herdr-app/mods/reviewer ~/.config/herdr-app/layouts/my-main.json ~/.local/src/herdr-reviewer
+cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes \
+  over9k-prompts over9k-usage over9k-switcher walkthrough linear
+rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json
 ```
 
 On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
