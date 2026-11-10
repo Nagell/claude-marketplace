@@ -226,11 +226,43 @@ Expect `"layout":"my-nested-tabs"` and `"errors":[]`. Tell the user:
   the button in the Spaces header does the same. **Cmd+Shift+T** brings the tab buttons
   back to the top bar, and hides them again.
 - **Files, Changes and Timeline** open from the top-right buttons.
-- **Usage's Claude row** stays empty until Over9k's own Claude status line is on. Its setup
-  button (in the strip) does that by editing `~/.claude/settings.json`; leave it to the
-  user. The Codex row works without it.
+- **Usage's Claude row** fills in after Claude Code's next reply once the status line
+  below is on. The Codex row works without it.
 - **Ctrl+Shift+L** or `herdr-app do layout.switch '{"name":"main"}'` goes back to the
   shipped window.
+
+**Claude's limits for Usage.** Claude Code gives the 5-hour and weekly limits only to a
+status line, so Usage's Claude row needs one that runs Over9k's `claude-statusline.sh`.
+The strip's own setup button replaces any status line the user has. Check what is set:
+
+```bash
+jq -c '.statusLine' ~/.claude/settings.json
+```
+
+- **Names `claude-statusline.sh` in an `over9k` folder:** already on, skip.
+- **`null`:** use AskUserQuestion: "Show Over9k's Claude status line (model, context,
+  cache, limits) under Claude Code's prompt, for Usage's Claude row?" - "Yes
+  (Recommended)" / "No". If yes, run the strip's setup:
+  `sh ~/.config/herdr-app/mods/over9k-usage/setup.sh status on ~/.config/herdr-app/mods/over9k-usage/claude-statusline.sh`.
+- **Anything else (the user's own):** use AskUserQuestion: "Keep your Claude status line
+  and run Over9k's in the background for Usage's Claude row?" - "Keep mine, add Over9k
+  (Recommended)" / "Switch to Over9k's line" / "Skip". "Switch" runs the setup line above
+  (it keeps theirs aside and puts it back when turned off). "Keep mine" installs this
+  skill's wrapper: it runs Over9k's script with its output dropped and shows the saved
+  status line, which Over9k's off switch restores from the same file.
+
+```bash
+S=~/.claude/settings.json
+cp "$S" "$S.bak-statusline"
+jq '.statusLine' "$S" > ~/.claude/.over9k-statusline-was.json
+install -m 755 <this-skill-dir>/assets/herdr-app/statusline-over9k.sh ~/.claude/statusline-over9k.sh
+jq --arg c "sh ~/.claude/statusline-over9k.sh $HOME/.config/herdr-app/mods/over9k-usage/claude-statusline.sh" \
+  '.statusLine = {type: "command", command: $c}' "$S" > "$S.tmp" && [ -s "$S.tmp" ] && mv "$S.tmp" "$S"
+```
+
+These edit Claude Code's settings, which you may not be allowed to do; then give the user
+the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
+holds the limits and the strip shows them.
 
 Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
 `cp` lines again; the layout and keys stay as they are.
