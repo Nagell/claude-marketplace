@@ -1,6 +1,6 @@
 ---
 name: setup-macos
-description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals, fast key repeat, and numbered workspaces per screen - FlashSpace workspaces on Caps Lock hotkeys, a SketchyBar top bar, Rectangle window snapping with gaps, the native menu bar auto-hidden, and AltTab on Cmd+Tab to switch windows rather than apps
+description: Configure macOS for someone coming from Windows - Finder (hidden files, path bar, folders first, sort by kind), screenshots to the clipboard, Spaces hotkeys moved off Ctrl+arrows, Karabiner-Elements rules for Windows-style Ctrl shortcuts outside terminals and Ctrl+click as Cmd+click, fast key repeat, and numbered workspaces per screen - FlashSpace workspaces on Caps Lock hotkeys, a SketchyBar top bar, Rectangle window snapping with gaps, the native menu bar auto-hidden, and AltTab on Cmd+Tab to switch windows rather than apps
 disable-model-invocation: true
 ---
 
@@ -233,19 +233,30 @@ but keep it on under "Allow in the Background".
 Use AskUserQuestion: "Is Karabiner-Elements installed and approved?" — "Yes, done" / "Skip
 Karabiner".
 
-#### Keyboards that also report as a mouse
+#### Keyboards that also report as a mouse, and mice
 
-Karabiner leaves devices that report as both keyboard and pointing device unmodified by default
-— for example a Logitech MX Keys over Bluetooth. List them:
+Karabiner leaves two kinds of device unmodified by default: keyboards that also report as a
+pointing device (for example a Logitech MX Keys over Bluetooth) and mice. List them:
 
 ```bash
 python3 <this-skill-dir>/assets/karabiner/windows-shortcuts.py --list-devices
 ```
 
-Each line is `VENDOR_ID:PRODUCT_ID`, name, transport. If any are listed, use AskUserQuestion
-(multiSelect): "These keyboards also report as a pointing device, so Karabiner ignores them by
-default. Apply the shortcuts to which of them?" with one option per device. Each one picked
-becomes a `--device VENDOR_ID:PRODUCT_ID` argument below.
+Each line is `VENDOR_ID:PRODUCT_ID`, kind (`keyboard` or `mouse`), name, transport. The
+built-in trackpad is never listed: Karabiner is not given it, so Ctrl+click on it stays a
+right-click.
+
+- **Keyboards:** if any are listed, use AskUserQuestion (multiSelect): "These keyboards also
+  report as a pointing device, so Karabiner ignores them by default. Apply the shortcuts to
+  which of them?" with one option per device. Each one picked becomes a
+  `--device VENDOR_ID:PRODUCT_ID` argument below.
+- **Mice:** the Ctrl+click rule only acts on mice Karabiner is allowed to modify. If any are
+  listed, use AskUserQuestion (multiSelect): "Make Ctrl+click act as Cmd+click (open links, new
+  tab, multi-select) with which of these mice? Karabiner then handles their clicks and
+  scrolling; if the mouse's own software (Logi Options+ and similar) stops working for it,
+  switch the mouse off in Karabiner's Devices tab." with one option per mouse. Each one picked
+  becomes a `--mouse VENDOR_ID:PRODUCT_ID` argument below. Checked with a Logitech MX Master 3S
+  and Logi Options+ running.
 
 #### Merge the rules
 
@@ -257,11 +268,12 @@ second time. Preview, then write:
 
 ```bash
 S=<this-skill-dir>/assets/karabiner/windows-shortcuts.py
-python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] --dry-run
-python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...]
+python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] [--mouse VID:PID ...] --dry-run
+python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] [--mouse VID:PID ...]
 ```
 
-Replace `[--device VID:PID ...]` with one `--device` per keyboard picked above, or drop it.
+Replace `[--device VID:PID ...]` with one `--device` per keyboard picked above, and
+`[--mouse VID:PID ...]` with one `--mouse` per mouse, or drop them.
 
 The rules:
 
@@ -280,6 +292,7 @@ The rules:
 | Ctrl+Shift+I | Cmd+Option+I (developer tools) | Chrome, Chrome for Testing, Firefox, Safari |
 | Ctrl+F | Cmd+F (find) | Chrome, Chrome for Testing, Firefox, Safari, Finder, Slack |
 | Ctrl+Shift+C / Ctrl+K | Cmd+Shift+C code / Cmd+Shift+U link | Slack |
+| Ctrl(+Shift/Option)+click | Cmd(+Shift/Option)+click (open a link, new tab, multi-select) | all apps, with the mice passed as `--mouse` |
 | Ctrl+Shift+Esc | Cmd+Option+Esc (Force Quit Applications) | all apps |
 | Option+Shift+S | Cmd+Shift+4 (area screenshot) | all apps |
 | Cmd+Q | `@` (Option+L on German, Option+Q on German – Standard, Shift+2 on other layouts) instead of quitting the app | all apps |
@@ -317,11 +330,13 @@ grep -E 'Load .*karabiner\.json|core_configuration is updated|monitor is started
 ```
 
 Expect a fresh `Load …/karabiner.json...` followed by `core_configuration is updated.`. For each
-keyboard added with `--device`, expect `<name> (device_id:…) hid device events monitor is started
-(grabbed).` — `(observed)` means Karabiner still leaves it alone.
+keyboard added with `--device` and each mouse added with `--mouse`, expect `<name> (device_id:…)
+hid device events monitor is started (grabbed).` — `(observed)` means Karabiner still leaves it
+alone.
 
 Then ask the user to try Ctrl+C / Ctrl+V in a text field (Notes, Safari) and Ctrl+C in Ghostty or
-Terminal, where it must still interrupt a running command.
+Terminal, where it must still interrupt a running command. With a mouse added: Ctrl+click a link
+in a terminal and in a browser (new tab), and the mouse's extra buttons and scrolling.
 
 ### 7. Key repeat
 
@@ -374,12 +389,13 @@ German), and Ctrl+Option is a common dictation push-to-talk key, so neither work
 
 Run the Step 6 script again with `--caps-lock-hyper`, plus `--hide-menu-bar-icon` if the user
 wants Karabiner's menu bar icon gone (AskUserQuestion: "Hide Karabiner's menu bar icon? Remapping
-keeps working" — "Yes (Recommended)" / "No"). Repeat the `--work-dir` and `--device` arguments
-from Step 6, or that step's rules change:
+keeps working" — "Yes (Recommended)" / "No"). Repeat the `--work-dir`, `--device` and `--mouse`
+arguments from Step 6, or that step's rules change:
 
 ```bash
 S=<this-skill-dir>/assets/karabiner/windows-shortcuts.py
-python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] --caps-lock-hyper [--hide-menu-bar-icon]
+python3 "$S" --work-dir "$WORK_DIR" [--device VID:PID ...] [--mouse VID:PID ...] \
+  --caps-lock-hyper [--hide-menu-bar-icon]
 ```
 
 The rule presses Cmd before Ctrl and Option, so the chord never passes through bare Ctrl+Option.
