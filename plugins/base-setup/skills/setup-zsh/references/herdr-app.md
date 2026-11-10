@@ -278,6 +278,25 @@ herdr-app check ~/.config/herdr-app/mods/walkthrough
 Expect `check passed` for each. The keys merge keeps a key the user already bound to
 something else and prints it; report those.
 
+The agent switcher is the exception: Herdr's own keys bind `ctrl-tab` to `tab.next`, so the
+merge keeps that and the switcher gets no key. The user picked it knowing it takes Ctrl+Tab,
+so set it afterwards:
+
+```bash
+python3 -I - "$HOME/.config/herdr-app/keys.json" <<'EOF'
+import json
+import sys
+
+path = sys.argv[1]
+keys = json.load(open(path))
+keys.setdefault("global", {})["ctrl-tab"] = "mod.open:over9k-switcher"
+with open(path, "w") as f:
+    json.dump(keys, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+EOF
+sleep 1; cat "$HOME/.config/herdr-app/keys.error" 2>/dev/null || echo "keys.json accepted"
+```
+
 On Linux and WSL, also merge `{"global": {"alt-shift-w": "mod.open:walkthrough"}}` for
 Walkthrough with the same snippet: `cmd` is the Super/Win key there, which the desktop or
 Windows often takes. Alt+Shift+W is free in Herdr's defaults; Alt+Shift+K is "swap pane up".
