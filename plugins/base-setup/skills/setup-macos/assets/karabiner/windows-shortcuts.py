@@ -6,7 +6,8 @@ duplicated. The file is backed up before it is written. Python 3 standard librar
 
 Usage:
     windows-shortcuts.py [--config PATH] [--work-dir DIR] [--device VID:PID ...]
-                         [--caps-lock-hyper] [--hide-menu-bar-icon] [--dry-run]
+                         [--mouse VID:PID ...] [--caps-lock-hyper] [--hide-menu-bar-icon]
+                         [--dry-run]
     windows-shortcuts.py --list-devices
 """
 
@@ -120,6 +121,20 @@ WINDOW_ARROWS = {
     ],
 }
 
+# On a Mac, Cmd+click is what Ctrl+click is on Windows (open a link, new tab, multi-select);
+# Ctrl+click itself only right-clicks. It acts on mice passed with --mouse: Karabiner leaves
+# mice alone otherwise, and the built-in trackpad is never handed to it.
+CTRL_CLICK = {
+    "description": "Windows: Ctrl+click acts as Cmd+click: open links, new tab, multi-select "
+                   "(all apps)",
+    "manipulators": [{
+        "type": "basic",
+        "from": {"pointing_button": "button1",
+                 "modifiers": {"mandatory": ["control"], "optional": ["shift", "option"]}},
+        "to": [{"pointing_button": "button1", "modifiers": ["left_command"]}],
+    }],
+}
+
 CAPS_LOCK_HYPER = {
     "description": "Caps Lock sends Ctrl+Option+Cmd (workspace and window hotkeys)",
     "manipulators": [{
@@ -202,6 +217,7 @@ def build_rules(work_dir, caps_lock_hyper=False):
              remap("c", ctrl_shift, "c", ["command", "shift"], in_slack()),
              remap("k", ctrl, "u", ["command", "shift"], in_slack()),
          ]},
+        CTRL_CLICK,
         {"description": "Windows: Ctrl+Shift+Esc opens Force Quit Applications (all apps)",
          "manipulators": [everywhere("escape", ctrl_shift, "escape", ["command", "option"])]},
         {"description": "Windows: Option+Shift+S takes an area screenshot (all apps)",
@@ -250,22 +266,17 @@ def merge_rules(profile, rules):
     complex_mods["rules"] = kept + rules
 
 
-def device_entry(vendor_id, product_id):
-    return {
-        "identifiers": {
-            "is_keyboard": True,
-            "is_pointing_device": True,
-            "product_id": product_id,
-            "vendor_id": vendor_id,
-        },
-        "ignore": False,
-    }
+def device_entry(vendor_id, product_id, keyboard=True):
+    identifiers = {"is_keyboard": True} if keyboard else {}
+    identifiers.update({"is_pointing_device": True, "product_id": product_id,
+                        "vendor_id": vendor_id})
+    return {"identifiers": identifiers, "ignore": False}
 
 
-def merge_devices(profile, devices):
+def merge_devices(profile, devices, keyboard=True):
     entries = profile.setdefault("devices", [])
     for vendor_id, product_id in devices:
-        new = device_entry(vendor_id, product_id)
+        new = device_entry(vendor_id, product_id, keyboard)
         entries[:] = [e for e in entries if e.get("identifiers") != new["identifiers"]]
         entries.append(new)
 
@@ -285,7 +296,9 @@ def parse_work_dir(value):
 
 
 def list_devices():
-    """Print keyboards that also report as pointing devices; Karabiner skips those by default."""
+    """Print the devices Karabiner skips by default: keyboards that also report as pointing
+    devices ("keyboard") and mice ("mouse"). The built-in trackpad, which reports no vendor
+    or product ID, is left out."""
     try:
         out = subprocess.run([KARABINER_CLI, "--list-connected-devices"],
                              check=True, capture_output=True, text=True).stdout
@@ -293,12 +306,13 @@ def list_devices():
         sys.exit(f"Could not run karabiner_cli ({err}). Is Karabiner-Elements installed?")
     for dev in json.loads(out):
         ids = dev.get("device_identifiers", {})
-        if ids.get("is_virtual_device"):
+        skip = ids.get("is_virtual_device") or not ids.get("vendor_id")
+        if skip or not ids.get("is_pointing_device"):
             continue
-        if ids.get("is_keyboard") and ids.get("is_pointing_device"):
-            device_id = f'{ids.get("vendor_id")}:{ids.get("product_id")}'
-            name = f'{dev.get("manufacturer", "?")} {dev.get("product", "?")}'
-            print(f'{device_id}\t{name}\t{dev.get("transport", "")}')
+        kind = "keyboard" if ids.get("is_keyboard") else "mouse"
+        device_id = f'{ids.get("vendor_id")}:{ids.get("product_id")}'
+        name = f'{dev.get("manufacturer", "?")} {dev.get("product", "?")}'
+        print(f'{device_id}\t{kind}\t{name}\t{dev.get("transport", "")}')
 
 
 def load(path):
@@ -331,6 +345,8 @@ def main():
                         help="folder under $HOME that Option+E opens (default: Development)")
     parser.add_argument("--device", type=parse_device, action="append", default=[],
                         metavar="VID:PID", help="also modify this keyboard+pointing device")
+    parser.add_argument("--mouse", type=parse_device, action="append", default=[],
+                        metavar="VID:PID", help="modify this mouse, for Ctrl+click")
     parser.add_argument("--caps-lock-hyper", action="store_true",
                         help="make Caps Lock send Ctrl+Option+Cmd for FlashSpace and Rectangle, "
                              "and Option+arrows drive Rectangle")
@@ -338,7 +354,8 @@ def main():
                         help="hide Karabiner's menu bar icon")
     parser.add_argument("--dry-run", action="store_true", help="print the result, write nothing")
     parser.add_argument("--list-devices", action="store_true",
-                        help="list connected keyboards that also report as pointing devices")
+                        help="list connected mice, and keyboards that also report as pointing "
+                             "devices")
     args = parser.parse_args()
 
     if args.list_devices:
@@ -349,6 +366,7 @@ def main():
     profile = selected_profile(config)
     merge_rules(profile, build_rules(args.work_dir, args.caps_lock_hyper))
     merge_devices(profile, args.device)
+    merge_devices(profile, args.mouse, keyboard=False)
     if args.hide_menu_bar_icon:
         config.setdefault("global", {}).update(
             {"show_in_menu_bar": False, "show_profile_name_in_menu_bar": False})
