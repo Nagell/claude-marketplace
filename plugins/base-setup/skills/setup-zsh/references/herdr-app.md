@@ -250,7 +250,7 @@ Use AskUserQuestion (multiSelect): "Add any of these Herdr app popups?" with:
 - **Agent switcher (Ctrl+Tab):** [Over9k Switcher](https://github.com/herunan/herdr-over9k),
   the recently used agents, Ctrl+Tab again for the next one. It takes Ctrl+Tab from "next
   tab"; Ctrl+Shift+Tab stays "previous tab".
-- **Walkthrough (Cmd+Shift+K):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
+- **Walkthrough (Cmd+Shift+K, on Linux/WSL also Alt+Shift+W):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
   explains a change step by step in reading order (uncommitted, branch, a PR, the agent's
   last turn). Each Generate runs a small `claude` request (about $0.002 with Haiku).
 - **Linear (Cmd+L), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
@@ -277,6 +277,10 @@ herdr-app check ~/.config/herdr-app/mods/walkthrough
 
 Expect `check passed` for each. The keys merge keeps a key the user already bound to
 something else and prints it; report those.
+
+On Linux and WSL, also merge `{"global": {"alt-shift-w": "mod.open:walkthrough"}}` for
+Walkthrough with the same snippet: `cmd` is the Super/Win key there, which the desktop or
+Windows often takes. Alt+Shift+W is free in Herdr's defaults; Alt+Shift+K is "swap pane up".
 
 ## 7. Resume Claude Code after a reboot (herdr-agent-resume)
 
