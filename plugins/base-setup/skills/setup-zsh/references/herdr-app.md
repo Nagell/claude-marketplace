@@ -253,7 +253,7 @@ Use AskUserQuestion (multiSelect): "Add any of these Herdr app popups?" with:
 - **Walkthrough (Cmd+Shift+K, on Linux/WSL also Alt+Shift+W):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
   explains a change step by step in reading order (uncommitted, branch, a PR, the agent's
   last turn). Each Generate runs a small `claude` request (about $0.002 with Haiku).
-- **Linear (Cmd+L), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
+- **Linear (Cmd+L, on Linux/WSL also Alt+Shift+N), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
   lists your Linear issues and makes a worktree per issue. On first open it downloads its
   helper program (checksum-verified) and signs in to Linear with OAuth; some Linear
   workspaces need an admin to approve its OAuth app ("Herdr Plugin") first.
@@ -298,8 +298,9 @@ sleep 1; cat "$HOME/.config/herdr-app/keys.error" 2>/dev/null || echo "keys.json
 ```
 
 On Linux and WSL, also merge `{"global": {"alt-shift-w": "mod.open:walkthrough"}}` for
-Walkthrough with the same snippet: `cmd` is the Super/Win key there, which the desktop or
-Windows often takes. Alt+Shift+W is free in Herdr's defaults; Alt+Shift+K is "swap pane up".
+Walkthrough and `{"global": {"alt-shift-n": "mod.open:linear"}}` for Linear with the same
+snippet: `cmd` is the Super/Win key there, which the desktop or Windows often takes. Both are
+free in Herdr's defaults; Alt+Shift+K and Alt+Shift+L are "swap pane up" and "swap pane right".
 
 ## 7. Resume Claude Code after a reboot (herdr-agent-resume)
 
