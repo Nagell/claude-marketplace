@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.18.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.17.0...base-setup-v1.18.0) (2026-11-10)
+
+
+### Features
+
+* **base-setup:** bind Linear to Alt+Shift+N on Linux and WSL ([857adfe](https://github.com/Nagell/claude-marketplace/commit/857adfe4a4ebd753ec8d973aec89383f9ec70e4c))
+* **base-setup:** bind Walkthrough to Alt+Shift+W on Linux and WSL ([6fa8d52](https://github.com/Nagell/claude-marketplace/commit/6fa8d5260f6a3fa1f0afb4cde2b6f364c0e873fc))
+* **base-setup:** Herdr app setup that works on Linux and WSL ([00bcab3](https://github.com/Nagell/claude-marketplace/commit/00bcab32cf182513b46f722dd0e2db9e4dae8dd8))
+* **base-setup:** keep the user's Claude status line for Over9k Usage ([ca83853](https://github.com/Nagell/claude-marketplace/commit/ca83853fe714fc722eb8ca6e4d5acc346c1fd3bb))
+
+
+### Bug Fixes
+
+* **base-setup:** give the agent switcher Ctrl+Tab over Herdr's tab.next ([ad910e3](https://github.com/Nagell/claude-marketplace/commit/ad910e3adebeaa23556c462746fce7cec190151f))
+* **base-setup:** hand Herdr cleanup rm commands to the user, remove layout state ([76dc8d9](https://github.com/Nagell/claude-marketplace/commit/76dc8d963404446fb6ffa439c1fc1dfbc3238c71))
+
 ## [1.17.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.2...base-setup-v1.17.0) (2026-11-10)
 
 
