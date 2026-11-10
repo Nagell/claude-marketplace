@@ -226,21 +226,56 @@ Expect `"layout":"my-nested-tabs"` and `"errors":[]`. Tell the user:
   the button in the Spaces header does the same. **Cmd+Shift+T** brings the tab buttons
   back to the top bar, and hides them again.
 - **Files, Changes and Timeline** open from the top-right buttons.
-- **Usage's Claude row** stays empty until Over9k's own Claude status line is on. Its setup
-  button (in the strip) does that by editing `~/.claude/settings.json`; leave it to the
-  user. The Codex row works without it.
+- **Usage's Claude row** fills in after Claude Code's next reply once the status line
+  below is on. The Codex row works without it.
 - **Ctrl+Shift+L** or `herdr-app do layout.switch '{"name":"main"}'` goes back to the
   shipped window.
+
+**Claude's limits for Usage.** Claude Code gives the 5-hour and weekly limits only to a
+status line, so Usage's Claude row needs one that runs Over9k's `claude-statusline.sh`.
+The strip's own setup button replaces any status line the user has. Check what is set:
+
+```bash
+jq -c '.statusLine' ~/.claude/settings.json
+```
+
+- **Names `claude-statusline.sh` in an `over9k` folder:** already on, skip.
+- **`null`:** use AskUserQuestion: "Show Over9k's Claude status line (model, context,
+  cache, limits) under Claude Code's prompt, for Usage's Claude row?" - "Yes
+  (Recommended)" / "No". If yes, run the strip's setup:
+  `sh ~/.config/herdr-app/mods/over9k-usage/setup.sh status on ~/.config/herdr-app/mods/over9k-usage/claude-statusline.sh`.
+- **Anything else (the user's own):** use AskUserQuestion: "Keep your Claude status line
+  and run Over9k's in the background for Usage's Claude row?" - "Keep mine, add Over9k
+  (Recommended)" / "Switch to Over9k's line" / "Skip". "Switch" runs the setup line above
+  (it keeps theirs aside and puts it back when turned off). "Keep mine" installs this
+  skill's wrapper: it runs Over9k's script with its output dropped and shows the saved
+  status line, which Over9k's off switch restores from the same file.
+
+```bash
+S=~/.claude/settings.json
+cp "$S" "$S.bak-statusline"
+jq '.statusLine' "$S" > ~/.claude/.over9k-statusline-was.json
+install -m 755 <this-skill-dir>/assets/herdr-app/statusline-over9k.sh ~/.claude/statusline-over9k.sh
+jq --arg c "sh ~/.claude/statusline-over9k.sh $HOME/.config/herdr-app/mods/over9k-usage/claude-statusline.sh" \
+  '.statusLine = {type: "command", command: $c}' "$S" > "$S.tmp" && [ -s "$S.tmp" ] && mv "$S.tmp" "$S"
+```
+
+These edit Claude Code's settings, which you may not be allowed to do; then give the user
+the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
+holds the limits and the strip shows them.
 
 Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
 `cp` lines again; the layout and keys stay as they are.
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
-(Better Changes replaces the reviewer's Changes panel):
+(Better Changes replaces the reviewer's Changes panel). base-setup's safety hook blocks
+`rm -rf` under the home folder, so give the user the commands to run with `!`. The second
+line also takes the window state Herdr keeps for the layout and any `.bak` copies:
 
 ```bash
-rm -rf ~/.config/herdr-app/mods/reviewer ~/.config/herdr-app/layouts/my-main.json ~/.local/src/herdr-reviewer
+rm -rf ~/.config/herdr-app/mods/reviewer ~/.local/src/herdr-reviewer
+rm -f ~/.config/herdr-app/layouts/my-main.json ~/.config/herdr-app/layouts/.state/my-main.json ~/.config/herdr-app/layouts/my-main.json.bak*
 ```
 
 ## 6. Popups: agent switcher, Walkthrough, Linear (optional)
@@ -250,10 +285,10 @@ Use AskUserQuestion (multiSelect): "Add any of these Herdr app popups?" with:
 - **Agent switcher (Ctrl+Tab):** [Over9k Switcher](https://github.com/herunan/herdr-over9k),
   the recently used agents, Ctrl+Tab again for the next one. It takes Ctrl+Tab from "next
   tab"; Ctrl+Shift+Tab stays "previous tab".
-- **Walkthrough (Cmd+Shift+K):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
+- **Walkthrough (Cmd+Shift+K, on Linux/WSL also Alt+Shift+W):** [dmazlum's Walkthrough](https://github.com/dmazlum/herdr-walkthrough)
   explains a change step by step in reading order (uncommitted, branch, a PR, the agent's
   last turn). Each Generate runs a small `claude` request (about $0.002 with Haiku).
-- **Linear (Cmd+L), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
+- **Linear (Cmd+L, on Linux/WSL also Alt+Shift+N), optional:** [herdr-linear](https://github.com/mrolafsson/herdr-linear)
   lists your Linear issues and makes a worktree per issue. On first open it downloads its
   helper program (checksum-verified) and signs in to Linear with OAuth; some Linear
   workspaces need an admin to approve its OAuth app ("Herdr Plugin") first.
@@ -277,6 +312,30 @@ herdr-app check ~/.config/herdr-app/mods/walkthrough
 
 Expect `check passed` for each. The keys merge keeps a key the user already bound to
 something else and prints it; report those.
+
+The agent switcher is the exception: Herdr's own keys bind `ctrl-tab` to `tab.next`, so the
+merge keeps that and the switcher gets no key. The user picked it knowing it takes Ctrl+Tab,
+so set it afterwards:
+
+```bash
+python3 -I - "$HOME/.config/herdr-app/keys.json" <<'EOF'
+import json
+import sys
+
+path = sys.argv[1]
+keys = json.load(open(path))
+keys.setdefault("global", {})["ctrl-tab"] = "mod.open:over9k-switcher"
+with open(path, "w") as f:
+    json.dump(keys, f, indent=2, ensure_ascii=False)
+    f.write("\n")
+EOF
+sleep 1; cat "$HOME/.config/herdr-app/keys.error" 2>/dev/null || echo "keys.json accepted"
+```
+
+On Linux and WSL, also merge `{"global": {"alt-shift-w": "mod.open:walkthrough"}}` for
+Walkthrough and `{"global": {"alt-shift-n": "mod.open:linear"}}` for Linear with the same
+snippet: `cmd` is the Super/Win key there, which the desktop or Windows often takes. Both are
+free in Herdr's defaults; Alt+Shift+K and Alt+Shift+L are "swap pane up" and "swap pane right".
 
 ## 7. Resume Claude Code after a reboot (herdr-agent-resume)
 
@@ -407,6 +466,9 @@ Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 
 ## Uninstall
 
+base-setup's safety hook blocks `rm -rf` under the home folder: give the user the commands
+in this section to run with `!`.
+
 ```bash
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
@@ -423,7 +485,7 @@ entries naming `nested-tabs.`, `tabs-bar.`, `over9k-switcher`, `walkthrough` or 
 herdr-app do layout.switch '{"name":"main"}'
 cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes \
   over9k-prompts over9k-usage over9k-switcher walkthrough linear
-rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json
+rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json ~/.config/herdr-app/layouts/.state/my-nested-tabs.json
 ```
 
 On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
