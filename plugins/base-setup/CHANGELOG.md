@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.19.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.18.0...base-setup-v1.19.0) (2026-11-10)
+
+
+### Features
+
+* **base-setup:** Ctrl+click acts as Cmd+click on macOS ([331f41b](https://github.com/Nagell/claude-marketplace/commit/331f41b28c75b28569feb3fe5f78727a50d820ff))
+* **base-setup:** Ctrl+click acts as Cmd+click on macOS ([2c0e154](https://github.com/Nagell/claude-marketplace/commit/2c0e154aac66a25e37a881378a6b0f80ac8e5938))
+
 ## [1.18.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.17.0...base-setup-v1.18.0) (2026-11-10)
 
 
