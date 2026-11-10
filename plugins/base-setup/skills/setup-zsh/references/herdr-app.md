@@ -237,10 +237,13 @@ Herdr never updates copied mods. To update, run the three `git ... pull` lines a
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
-(Better Changes replaces the reviewer's Changes panel):
+(Better Changes replaces the reviewer's Changes panel). base-setup's safety hook blocks
+`rm -rf` under the home folder, so give the user the commands to run with `!`. The second
+line also takes the window state Herdr keeps for the layout and any `.bak` copies:
 
 ```bash
-rm -rf ~/.config/herdr-app/mods/reviewer ~/.config/herdr-app/layouts/my-main.json ~/.local/src/herdr-reviewer
+rm -rf ~/.config/herdr-app/mods/reviewer ~/.local/src/herdr-reviewer
+rm -f ~/.config/herdr-app/layouts/my-main.json ~/.config/herdr-app/layouts/.state/my-main.json ~/.config/herdr-app/layouts/my-main.json.bak*
 ```
 
 ## 6. Popups: agent switcher, Walkthrough, Linear (optional)
@@ -431,6 +434,9 @@ Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 
 ## Uninstall
 
+base-setup's safety hook blocks `rm -rf` under the home folder: give the user the commands
+in this section to run with `!`.
+
 ```bash
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
@@ -447,7 +453,7 @@ entries naming `nested-tabs.`, `tabs-bar.`, `over9k-switcher`, `walkthrough` or 
 herdr-app do layout.switch '{"name":"main"}'
 cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes \
   over9k-prompts over9k-usage over9k-switcher walkthrough linear
-rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json
+rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json ~/.config/herdr-app/layouts/.state/my-nested-tabs.json
 ```
 
 On WSL, also remove the link handler (`~/.local/bin/open-in-windows`,
