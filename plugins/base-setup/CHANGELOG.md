@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.17.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.2...base-setup-v1.17.0) (2026-11-10)
+
+
+### Features
+
+* **base-setup:** Herdr app sidebar with tabs, coloured panels and popups ([376255c](https://github.com/Nagell/claude-marketplace/commit/376255ca74e63e24fa0c0697546762210f6688c5))
+* **base-setup:** Herdr app sidebar with tabs, coloured panels and popups ([01bc946](https://github.com/Nagell/claude-marketplace/commit/01bc94695d62a576983dbefe5c04d8c4762ebe49))
+
 ## [1.16.2](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.16.1...base-setup-v1.16.2) (2026-11-05)
 
 
