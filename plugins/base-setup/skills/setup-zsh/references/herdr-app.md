@@ -160,25 +160,36 @@ If Herdr rejects the file, it keeps the last good keymap and writes the reason t
 
 ## 5. Sidebar with tabs, side panels and agent details (herdr-nested-tabs)
 
-The shipped window shows only the selected space's tabs, in the top bar; the Changes panel
-has no syntax colours. This section sets up the personal layout `my-nested-tabs`:
+The shipped window shows only the selected space's tabs, in the top bar; its Files panel has
+no syntax colours and its Changes panel no commit graph. This section sets up the personal
+layout `my-nested-tabs`:
 
 - **Sidebar** ([herdr-nested-tabs](https://github.com/Nagell/herdr-nested-tabs)): each
   space lists its tabs under it, with a fold arrow, one status column (spinner working,
   red dot blocked, blue dot done), and for Claude Code and Codex agents model · effort ·
   context % · time since the last reply. Claude's sub-agents sit behind a count chip. The
   top bar keeps Files and Changes and drops its tab buttons.
-- **Side panel:** [Better Files and Better Changes](https://github.com/munza/herdr-mods)
-  with syntax colours, plus [Over9k](https://github.com/herunan/herdr-over9k)'s
-  **Timeline** (the focused agent's conversation, prompt by prompt) as a third button.
+- **Side panel:** [Better Files](https://github.com/munza/herdr-mods) with syntax colours;
+  **Git Graph** ([Nagell/herdr-git-graph](https://github.com/Nagell/herdr-git-graph), a fork
+  of werlang/herdr-git-graph) as the Changes panel: the commit graph of the focused
+  terminal's repo, with stage, unstage, discard and commit; and
+  [Over9k](https://github.com/herunan/herdr-over9k)'s **Timeline** (the focused agent's
+  conversation, prompt by prompt) as a third button.
 - **Usage strip** (Over9k Usage) at the bottom of the sidebar: Claude's and Codex's 5-hour
   and weekly limits.
 
 Use AskUserQuestion: "Set up the Herdr app sidebar that lists every space's tabs, with
-agent details, syntax-coloured Files/Changes panels, Timeline and Usage?" - "Yes
-(Recommended)" / "No". If yes, start the app if it is not running (`herdr-app &`), then
+agent details, a syntax-coloured Files panel, Git Graph as Changes, Timeline and Usage?" -
+"Yes (Recommended)" / "No". If yes, start the app if it is not running (`herdr-app &`), then
 fetch and copy the mods. `Nagell/herdr-mods` carries the syntax colouring until
 munza/herdr-mods merges it ([PR](https://github.com/munza/herdr-mods/pull/9)); clone munza's repo once it has.
+
+An existing `~/.local/src/herdr-git-graph` may be a clone of another fork, which the pull
+below would keep installing. Check it first, and ask before moving it aside:
+
+```bash
+git -C ~/.local/src/herdr-git-graph remote get-url origin 2>/dev/null
+```
 
 ```bash
 mkdir -p ~/.local/src
@@ -188,24 +199,27 @@ git -C ~/.local/src/herdr-over9k pull -q 2>/dev/null \
   || git clone -q --depth 1 https://github.com/herunan/herdr-over9k ~/.local/src/herdr-over9k
 git -C ~/.local/src/herdr-mods pull -q 2>/dev/null \
   || git clone -q --depth 1 -b feat/syntax-colouring https://github.com/Nagell/herdr-mods ~/.local/src/herdr-mods
+git -C ~/.local/src/herdr-git-graph pull -q --ff-only 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
 M=~/.config/herdr-app/mods
 S=~/.local/src
 cp -r "$S"/herdr-nested-tabs/mods/nested-tabs "$S"/herdr-nested-tabs/mods/tabs-bar "$M"/
-cp -r "$S"/herdr-mods/better-files/mods/better-files "$S"/herdr-mods/better-changes/mods/better-changes "$M"/
+cp -r "$S"/herdr-mods/better-files/mods/better-files "$S"/herdr-git-graph/mods/git-graph "$M"/
 cp -r "$S"/herdr-over9k/over9k-timeline/mods/over9k-prompts "$S"/herdr-over9k/over9k-usage/mods/over9k-usage "$M"/
-for m in nested-tabs tabs-bar better-files better-changes over9k-prompts over9k-usage; do herdr-app check "$M/$m"; done
+for m in nested-tabs tabs-bar better-files git-graph over9k-prompts over9k-usage; do herdr-app check "$M/$m"; done
 ```
 
 Expect six `check passed`. Before copying on a fresh machine, tell the user what the mods
 run and read (Herdr's rule for mods other people made; each repo's `RECIPE.md` lists it
 under "Built from"): the sidebar runs `git`, `ps`, `lsof`, `hc` and `python3` scripts that
-read Claude Code's and Codex's session files; Better Files/Changes run `git`; Timeline
-reads the focused agent's conversation file.
+read Claude Code's and Codex's session files; Better Files runs `git`; Git Graph runs `git`,
+including `add`, `restore` and `commit` when the user picks them; Timeline reads the
+focused agent's conversation file.
 
-Herdr adds a mod whose `mod.json` has a `place` (Better Changes, Timeline, Usage) to the
-layout on screen as a new block. Run `herdr-app status`: if `layout` is a personal layout
-(not `main`, `terminals` or `win98`), read it and remove any block for those three mods
-that the layout didn't have before.
+Herdr adds a mod whose `mod.json` has a `place` (Timeline, Usage) to the layout on screen
+as a new block. Run `herdr-app status`: if `layout` is a personal layout (not `main`,
+`terminals` or `win98`), read it and remove any block for those two mods that the layout
+didn't have before.
 
 Copy this skill's layout, unless one with that name already exists (never overwrite the
 user's), switch to it and merge the sidebar's keys with the section 4 merge snippet
@@ -225,7 +239,7 @@ Expect `"layout":"my-nested-tabs"` and `"errors":[]`. Tell the user:
 - **Cmd+Shift+I** switches agent details between one line (Compact) and two (Detailed);
   the button in the Spaces header does the same. **Cmd+Shift+T** brings the tab buttons
   back to the top bar, and hides them again.
-- **Files, Changes and Timeline** open from the top-right buttons.
+- **Files, Changes and Timeline** open from the top-right buttons; Changes is Git Graph.
 - **Usage's Claude row** fills in after Claude Code's next reply once the status line
   below is on. The Codex row works without it.
 - **Ctrl+Shift+L** or `herdr-app do layout.switch '{"name":"main"}'` goes back to the
@@ -264,39 +278,21 @@ These edit Claude Code's settings, which you may not be allowed to do; then give
 the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
 holds the limits and the strip shows them.
 
-Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
+Herdr never updates copied mods. To update, run the four `git ... pull` lines and the
 `cp` lines again; the layout, keys and status line stay as they are, since the status line
 calls Usage's `claude-statusline.sh` by its path. With the "Keep mine" wrapper, also run its
 `install -m 755` line, for a newer wrapper.
 
-### Git Graph (optional)
-
-Use AskUserQuestion: "Add Git Graph, a commit graph that opens as a pane beside a terminal,
-with stage, unstage, discard and commit?" - "Yes" / "No". It comes from
-[Nagell/herdr-git-graph](https://github.com/Nagell/herdr-git-graph), a fork of
-werlang/herdr-git-graph that adds those working-tree actions. If yes:
-
-```bash
-git -C ~/.local/src/herdr-git-graph remote get-url origin 2>/dev/null
-```
-
-If that prints another repository (a clone of a different fork), the pull below would
-install that one instead: ask before moving it aside. Then:
-
-```bash
-git -C ~/.local/src/herdr-git-graph pull -q --ff-only 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
-cp -r ~/.local/src/herdr-git-graph/mods/git-graph ~/.config/herdr-app/mods/
-herdr-app check ~/.config/herdr-app/mods/git-graph
-```
-
-Expect `check passed`. Tell the user it opens beside the active terminal with
-`herdr-app do pane.split '{"direction":"right","mod":"git-graph"}'`; it doesn't change the
-layout's Changes panel.
+**Earlier version of this guide (Better Changes).** A `my-nested-tabs` copied before had
+Better Changes as its Changes panel, and the copy above never overwrites it. If its block
+with `"id": "changes"` says `"mod": "better-changes"`, offer to switch it: change that to
+`"mod": "git-graph"` with the Edit tool (Herdr reloads it live; `herdr-app status` should
+show `"errors": []`), then give the user
+`rm -rf ~/.config/herdr-app/mods/better-changes` to run with `!`.
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
-(Better Changes replaces the reviewer's Changes panel). base-setup's safety hook blocks
+(Git Graph replaces the reviewer's Changes panel). base-setup's safety hook blocks
 `rm -rf` under the home folder, so give the user the commands to run with `!`. The second
 line also takes the window state Herdr keeps for the layout and any `.bak` copies:
 
