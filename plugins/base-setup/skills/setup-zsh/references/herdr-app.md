@@ -256,7 +256,7 @@ S=~/.claude/settings.json
 cp "$S" "$S.bak-statusline"
 jq '.statusLine' "$S" > ~/.claude/.over9k-statusline-was.json
 install -m 755 <this-skill-dir>/assets/herdr-app/statusline-over9k.sh ~/.claude/statusline-over9k.sh
-jq --arg c "sh ~/.claude/statusline-over9k.sh $HOME/.config/herdr-app/mods/over9k-usage/claude-statusline.sh" \
+jq --arg c "sh $HOME/.claude/statusline-over9k.sh $HOME/.config/herdr-app/mods/over9k-usage/claude-statusline.sh" \
   '.statusLine = {type: "command", command: $c}' "$S" > "$S.tmp" && [ -s "$S.tmp" ] && mv "$S.tmp" "$S"
 ```
 
@@ -264,34 +264,35 @@ These edit Claude Code's settings, which you may not be allowed to do; then give
 the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
 holds the limits and the strip shows them.
 
-Herdr never updates copied mods. To update Over9k Usage and preserve the existing Claude
-status line, run this skill's `assets/herdr-app/update-over9k-usage.sh`. It refreshes the
-canonical source, copies the complete standalone mod (including `claude-statusline.sh`),
-keeps the display status line and sends the same callback payload to Usage in the background.
-
-```bash
-<this-skill-dir>/assets/herdr-app/update-over9k-usage.sh
-```
+Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
+`cp` lines again; the layout, keys and status line stay as they are, since the status line
+calls Usage's `claude-statusline.sh` by its path. With the "Keep mine" wrapper, also run its
+`install -m 755` line, for a newer wrapper.
 
 ### Git Graph (optional)
 
-Install Git Graph from the maintained `Nagell/herdr-git-graph` fork. Its `sync.sh`
-copies the mod into Herdr's live folder and validates it. It is separate from Better
-Changes, so it does not change the layout's existing Changes panel automatically.
+Use AskUserQuestion: "Add Git Graph, a commit graph that opens as a pane beside a terminal,
+with stage, unstage, discard and commit?" - "Yes" / "No". It comes from
+[Nagell/herdr-git-graph](https://github.com/Nagell/herdr-git-graph), a fork of
+werlang/herdr-git-graph that adds those working-tree actions. If yes:
 
 ```bash
-<this-skill-dir>/assets/herdr-app/update-git-graph.sh
+git -C ~/.local/src/herdr-git-graph remote get-url origin 2>/dev/null
 ```
 
-The installer keeps `origin` on the personal fork, records `werlang/herdr-git-graph` as
-`upstream`, updates both local branches and removes the one-off
-`backup/pre-rebase-stage-commit-discard` branch before syncing the live mod.
-
-Open it beside the active terminal with:
+If that prints another repository (a clone of a different fork), the pull below would
+install that one instead: ask before moving it aside. Then:
 
 ```bash
-herdr-app do pane.split --direction right --mod git-graph
+git -C ~/.local/src/herdr-git-graph pull -q --ff-only 2>/dev/null \
+  || git clone -q --depth 1 https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
+cp -r ~/.local/src/herdr-git-graph/mods/git-graph ~/.config/herdr-app/mods/
+herdr-app check ~/.config/herdr-app/mods/git-graph
 ```
+
+Expect `check passed`. Tell the user it opens beside the active terminal with
+`herdr-app do pane.split '{"direction":"right","mod":"git-graph"}'`; it doesn't change the
+layout's Changes panel.
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
@@ -500,7 +501,8 @@ python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --uninstall
 rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/bin/herdr-core \
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock \
   ~/.local/src/herdr-nested-tabs ~/.local/src/herdr-mods ~/.local/src/herdr-over9k \
-  ~/.local/src/herdr-walkthrough ~/.local/src/herdr-linear ~/.local/share/herdr-linear ~/.cache/over9k
+  ~/.local/src/herdr-walkthrough ~/.local/src/herdr-linear ~/.local/share/herdr-linear ~/.cache/over9k \
+  ~/.local/src/herdr-git-graph
 ```
 
 To remove only the sidebar layout and popups from sections 5 and 6, switch back to the
@@ -510,7 +512,7 @@ entries naming `nested-tabs.`, `tabs-bar.`, `over9k-switcher`, `walkthrough` or 
 ```bash
 herdr-app do layout.switch '{"name":"main"}'
 cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes \
-  over9k-prompts over9k-usage over9k-switcher walkthrough linear
+  over9k-prompts over9k-usage over9k-switcher walkthrough linear git-graph
 rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json ~/.config/herdr-app/layouts/.state/my-nested-tabs.json
 ```
 
