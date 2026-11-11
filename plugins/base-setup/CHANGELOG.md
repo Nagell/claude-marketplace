@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.20.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.20.0...base-setup-v1.20.1) (2026-11-11)
+
+
+### Bug Fixes
+
+* **base-setup:** make Over9k updater self-contained ([844b63f](https://github.com/Nagell/claude-marketplace/commit/844b63fd7340afc0706cd8f11e1474c0bda22d9e))
+
 ## [1.20.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.19.0...base-setup-v1.20.0) (2026-11-11)
 
 
