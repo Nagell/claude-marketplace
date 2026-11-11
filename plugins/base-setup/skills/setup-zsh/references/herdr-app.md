@@ -267,6 +267,25 @@ holds the limits and the strip shows them.
 Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
 `cp` lines again; the layout and keys stay as they are.
 
+### Git Graph (optional)
+
+Install Git Graph from the maintained `Nagell/herdr-git-graph` fork. Its `sync.sh`
+copies the mod into Herdr's live folder and validates it. It is separate from Better
+Changes, so it does not change the layout's existing Changes panel automatically.
+
+```bash
+mkdir -p ~/.local/src
+git -C ~/.local/src/herdr-git-graph pull --ff-only -q 2>/dev/null \
+  || git clone -q https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
+(cd ~/.local/src/herdr-git-graph && ./sync.sh)
+```
+
+Open it beside the active terminal with:
+
+```bash
+herdr-app do pane.split --direction right --mod git-graph
+```
+
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
 (Better Changes replaces the reviewer's Changes panel). base-setup's safety hook blocks
