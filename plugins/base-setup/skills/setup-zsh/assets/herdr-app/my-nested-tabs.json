@@ -148,7 +148,7 @@
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "better-changes"
+                        "mod": "git-graph"
                       }
                     },
                     {
