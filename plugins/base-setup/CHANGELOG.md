@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.21.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.20.1...base-setup-v1.21.0) (2026-11-11)
+
+
+### Features
+
+* **base-setup:** make Git Graph the Herdr app Changes panel ([2b663ff](https://github.com/Nagell/claude-marketplace/commit/2b663ffe580fb860b3337aa8dd89f2e80a168d4a))
+* **base-setup:** make Git Graph the Herdr app Changes panel ([2a23dd1](https://github.com/Nagell/claude-marketplace/commit/2a23dd16bdaa59d6b88777df0de913869e535fed))
+
+
+### Bug Fixes
+
+* **base-setup:** replace Herdr update scripts with plain steps ([356011f](https://github.com/Nagell/claude-marketplace/commit/356011f9721af1ccb8f75f37f55e6b502b7a578b))
+* **base-setup:** replace Herdr update scripts with plain steps, guard status line wrapper ([78c4106](https://github.com/Nagell/claude-marketplace/commit/78c41069b43e3eb8421aa04d6ee1e44b6b1aba97))
+
 ## [1.20.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.20.0...base-setup-v1.20.1) (2026-11-11)
 
 
