@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.20.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.19.0...base-setup-v1.20.0) (2026-11-11)
+
+
+### Features
+
+* **base-setup:** add Git Graph setup ([2b77416](https://github.com/Nagell/claude-marketplace/commit/2b77416e233bf73dc066559cebb02a5983a376ee))
+* **base-setup:** add Herdr mod updaters ([6f7539a](https://github.com/Nagell/claude-marketplace/commit/6f7539a97eca12db6e4ae1b438e6e6f2573fd4f3))
+
 ## [1.19.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.18.0...base-setup-v1.19.0) (2026-11-10)
 
 
