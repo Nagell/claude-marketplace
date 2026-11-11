@@ -285,9 +285,11 @@ calls Usage's `claude-statusline.sh` by its path. With the "Keep mine" wrapper, 
 
 **Earlier version of this guide (Better Changes).** A `my-nested-tabs` copied before had
 Better Changes as its Changes panel, and the copy above never overwrites it. If its block
-with `"id": "changes"` says `"mod": "better-changes"`, offer to switch it: change that to
-`"mod": "git-graph"` with the Edit tool (Herdr reloads it live; `herdr-app status` should
-show `"errors": []`), then give the user
+with `"id": "changes"` says `"mod": "better-changes"`, offer to switch it: change its
+`content` to `{"mod": "git-graph", "props": {"panel": true}}` with the Edit tool. `panel`
+gives Git Graph the panel card, a compact toolbar and an expand-to-tab button; a block that
+already says `git-graph` without it needs only the `props`. Herdr reloads the layout live;
+`herdr-app status` should show `"errors": []`. Then give the user
 `rm -rf ~/.config/herdr-app/mods/better-changes` to run with `!`.
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
