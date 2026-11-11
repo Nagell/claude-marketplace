@@ -264,8 +264,14 @@ These edit Claude Code's settings, which you may not be allowed to do; then give
 the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
 holds the limits and the strip shows them.
 
-Herdr never updates copied mods. To update, run the three `git ... pull` lines and the
-`cp` lines again; the layout and keys stay as they are.
+Herdr never updates copied mods. To update Over9k Usage and preserve the existing Claude
+status line, run this skill's `assets/herdr-app/update-over9k-usage.sh`. It refreshes the
+canonical source, copies the complete standalone mod (including `claude-statusline.sh`),
+keeps the display status line and sends the same callback payload to Usage in the background.
+
+```bash
+<this-skill-dir>/assets/herdr-app/update-over9k-usage.sh
+```
 
 ### Git Graph (optional)
 
@@ -274,11 +280,12 @@ copies the mod into Herdr's live folder and validates it. It is separate from Be
 Changes, so it does not change the layout's existing Changes panel automatically.
 
 ```bash
-mkdir -p ~/.local/src
-git -C ~/.local/src/herdr-git-graph pull --ff-only -q 2>/dev/null \
-  || git clone -q https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
-(cd ~/.local/src/herdr-git-graph && ./sync.sh)
+<this-skill-dir>/assets/herdr-app/update-git-graph.sh
 ```
+
+The installer keeps `origin` on the personal fork, records `werlang/herdr-git-graph` as
+`upstream`, updates both local branches and removes the one-off
+`backup/pre-rebase-stage-commit-discard` branch before syncing the live mod.
 
 Open it beside the active terminal with:
 
