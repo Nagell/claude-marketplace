@@ -16,7 +16,13 @@ else
 fi
 
 rsync -a --delete "$source_dir/over9k-usage/mods/over9k-usage/" "$mod_dir/"
-install -m 755 "$script_dir/statusline-over9k.sh" "$HOME/.claude/statusline-over9k.sh"
+if [ -f "$script_dir/statusline-over9k.sh" ]; then
+  install -m 755 "$script_dir/statusline-over9k.sh" "$HOME/.claude/statusline-over9k.sh"
+else
+  curl -fsSL -o "$HOME/.claude/statusline-over9k.sh" \
+    https://raw.githubusercontent.com/Nagell/claude-marketplace/main/plugins/base-setup/skills/setup-zsh/assets/herdr-app/statusline-over9k.sh
+  chmod 755 "$HOME/.claude/statusline-over9k.sh"
+fi
 
 if [ ! -f "$settings" ]; then
   printf '{}\n' > "$settings"
