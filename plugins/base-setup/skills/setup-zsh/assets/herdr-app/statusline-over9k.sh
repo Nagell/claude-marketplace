@@ -8,4 +8,6 @@
 in=$(cat)
 [ -f "${1:-}" ] && (printf '%s' "$in" | sh "$1" >/dev/null 2>&1 &)
 was=$(jq -r '.command // empty' "$HOME/.claude/.over9k-statusline-was.json" 2>/dev/null)
-[ -n "$was" ] && printf '%s' "$in" | sh -c "$was"
+# A saved command that is this wrapper again would call itself without end.
+case "$was" in *statusline-over9k.sh*) was= ;; esac
+if [ -n "$was" ]; then printf '%s' "$in" | sh -c "$was"; fi
