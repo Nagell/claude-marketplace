@@ -28,6 +28,8 @@ import time
 
 LABEL = "agent-resume"
 RESTART_WINDOW = 120  # seconds between "forgot" and the next "saved" hook
+HC_TIMEOUT = 10  # full pass over every terminal
+HC_TIMEOUT_ONE = 3  # one terminal at shell start, like the mod's HOOK_HC_TIMEOUT
 SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$")
 
 
@@ -36,20 +38,29 @@ def data_dir():
     return os.path.join(app, "data", "agent-resume")
 
 
-def hc(*args):
+def hc(*args, timeout=HC_TIMEOUT):
     hc_bin = shutil.which("hc") or os.path.expanduser("~/.local/bin/hc")
-    r = subprocess.run([hc_bin, *args], capture_output=True, text=True, timeout=10)
+    r = subprocess.run([hc_bin, *args], capture_output=True, text=True, timeout=timeout)
     if r.returncode != 0:
         raise RuntimeError(f"hc {args[0]}: {(r.stderr or r.stdout).strip()}")
     return r.stdout
 
 
 def boot_id():
+    """Something that changes with every boot, or None (same as the mod's boot_id)."""
     try:
         with open("/proc/sys/kernel/random/boot_id") as f:
             return f.read().strip() or None
     except OSError:
-        return None
+        pass
+    try:
+        out = subprocess.run(["sysctl", "-n", "kern.boottime"], capture_output=True, text=True, timeout=5).stdout
+        match = re.search(r"sec = (\d+)", out)
+        if match:
+            return "boottime:" + match.group(1)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return None
 
 
 def read_log(path):
@@ -134,12 +145,13 @@ def log(**fields):
 def main(argv):
     dry_run = "--dry-run" in argv
     terms = [a for a in argv[1:] if a != "--dry-run"]
+    timeout = HC_TIMEOUT_ONE if terms else HC_TIMEOUT
     try:
         if not terms:
-            listed = json.loads(hc("ls", "--json"))
+            listed = json.loads(hc("ls", "--json", timeout=timeout))
             rows = listed.get("terminals", []) if isinstance(listed, dict) else listed
             terms = [t["address"] for t in rows if t.get("state") == "live" and "/" not in t["address"]]
-        terminals = [json.loads(hc("get", t, "--json")) for t in terms]
+        terminals = [json.loads(hc("get", t, "--json", timeout=timeout)) for t in terms]
     except (RuntimeError, OSError, ValueError, subprocess.SubprocessError) as error:
         print(f"agent-resume-fallback: {error}", file=sys.stderr)
         return 0
@@ -156,7 +168,7 @@ def main(argv):
         if dry_run:
             continue
         try:
-            hc("label", term, f"{LABEL}={text}")
+            hc("label", term, f"{LABEL}={text}", timeout=timeout)
             log(terminal=term, outcome="restored", session=now, replaced=was)
         except (RuntimeError, OSError, subprocess.SubprocessError) as error:
             log(terminal=term, outcome=f"error: {error}", session=now, replaced=was)

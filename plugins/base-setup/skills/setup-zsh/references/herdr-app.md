@@ -407,6 +407,12 @@ agent is lost and whose Claude label has no transcript, it reads the mod's log
 label (a restart, not a quit) and `<id>`'s transcript is in the same project folder, it
 rewrites the label to `<id>` and keeps every other field. Anything else stays as it is.
 Changes go to `fallback.jsonl` beside the mod's log; `--dry-run` prints what it would do.
+
+Two limits. The log can't tell a deliberate `/exit` followed by a new `claude` within 120
+seconds from a restart, so in that case a reboot brings the old conversation back too. And
+a restart faster than the mod's 2-second exit grace logs no `forgot`, so the helper has
+nothing to go on and can't help there.
+
 Install it with section 7:
 
 ```bash
