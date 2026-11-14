@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.22.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.21.0...base-setup-v1.22.0) (2026-11-14)
+
+
+### Features
+
+* **setup-zsh:** restore agent-resume label after a Claude restart ([9e261d9](https://github.com/Nagell/claude-marketplace/commit/9e261d942ddb5c16c28a3e96bc5d2c060a3b9394))
+
+
+### Bug Fixes
+
+* **base-setup:** open Git Graph in panel mode in the Changes slot ([2431bb3](https://github.com/Nagell/claude-marketplace/commit/2431bb39e3715b0f6d44bc1e593db2a1eb3e74b0))
+* **base-setup:** open Git Graph in panel mode in the Changes slot ([9f568e7](https://github.com/Nagell/claude-marketplace/commit/9f568e7813005aa01d511af09b9b7eb3966985ae))
+* **setup-zsh:** match mod boot id and hook timeout in resume fallback ([fe7598b](https://github.com/Nagell/claude-marketplace/commit/fe7598b104a34859741f1f23a23a3fbfc20ce745))
+
 ## [1.21.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.20.1...base-setup-v1.21.0) (2026-11-11)
 
 
