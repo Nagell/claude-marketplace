@@ -15,6 +15,7 @@ themselves (OSC 7501); Claude Code reports it out of the box.
 ```bash
 command -v herdr-app && command -v hc && hc --version || echo "herdr-app: MISSING"
 test -d ~/.config/herdr-app/mods/agent-resume && echo "agent-resume: INSTALLED" || echo "agent-resume: MISSING"
+test -f ~/.local/bin/agent-resume-fallback.py && echo "agent-resume-fallback: INSTALLED" || echo "agent-resume-fallback: MISSING"
 test -f ~/.config/herdr-app/layouts/my-nested-tabs.json && echo "my-nested-tabs: INSTALLED" || echo "my-nested-tabs: MISSING"
 for m in over9k-switcher walkthrough linear; do test -d ~/.config/herdr-app/mods/$m && echo "$m: INSTALLED" || echo "$m: MISSING"; done
 test -d ~/.config/herdr-app/mods/reviewer && echo "reviewer: INSTALLED (earlier version of this guide)"
@@ -23,7 +24,8 @@ grep -q '# >>> setup-zsh resume >>>' ~/.zshrc && echo "resume block: OK" || echo
 ```
 
 Skip the sections whose part is already in place. Run section 8 anyway when `~/.zshrc`
-contains `_hc_resumable` or `mdv-resume` (an earlier version of the zsh block). When
+contains `_hc_resumable` or `mdv-resume`, or its herdr-app block lacks
+`agent-resume-fallback` (earlier versions of the zsh block). When
 `reviewer` is installed, section 5 replaces it.
 
 ## 2. Install
@@ -394,6 +396,33 @@ python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --update --auto
 Section 8 adds the zsh blocks that make this work with p10k; Ctrl+Shift+R stays as the
 manual way.
 
+**Restart before the first message.** Restarting Claude Code in a tab makes the mod note
+the new session, and Claude writes no transcript until the first message. A reboot before
+that message leaves the label on an empty session: the resume pass skips it with "no
+saved conversation to resume" and the real conversation is lost. setup-zsh's
+`agent-resume-fallback.py` fixes that label before the mod reads it. For a terminal whose
+agent is lost and whose Claude label has no transcript, it reads the mod's log
+(`~/.config/herdr-app/data/agent-resume/log.jsonl`): when the terminal's last
+`forgot <id>` was followed within 120 seconds by the `saved` hook that wrote the current
+label (a restart, not a quit) and `<id>`'s transcript is in the same project folder, it
+rewrites the label to `<id>` and keeps every other field. Anything else stays as it is.
+Changes go to `fallback.jsonl` beside the mod's log; `--dry-run` prints what it would do.
+
+Two limits. The log can't tell a deliberate `/exit` followed by a new `claude` within 120
+seconds from a restart, so in that case a reboot brings the old conversation back too. And
+a restart faster than the mod's 2-second exit grace logs no `forgot`, so the helper has
+nothing to go on and can't help there.
+
+Install it with section 7:
+
+```bash
+install -m 755 <this-skill-dir>/assets/herdr-app/agent-resume-fallback.py ~/.local/bin/agent-resume-fallback.py
+python3 -I ~/.local/bin/agent-resume-fallback.py --dry-run
+```
+
+The herdr-app block in section 8 runs it. Its tests:
+`python3 -I -B -m unittest discover -s <this-skill-dir>/tests`.
+
 ## 8. zsh blocks: automatic resume and start folder
 
 Two blocks, split by job: the `setup-zsh resume` block records what runs in a terminal, the
@@ -405,6 +434,8 @@ see the end of this section instead. Unless it already contains `# >>> setup-zsh
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end. If
 the block is there but lacks `zselect`, it is an earlier version that loses its record on a
 macOS reboot: replace everything between the `setup-zsh resume` markers with the asset.
+If it contains `# >>> setup-zsh herdr-app >>>` without `agent-resume-fallback`, replace
+everything between the `setup-zsh herdr-app` markers with the asset (same `<WORK_DIR>`).
 Then, unless `~/.zshrc` contains `# >>> setup-zsh herdr-app >>>`, append
 `<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` after it, with both `<WORK_DIR>`
 replaced by the Step 19 folder:
@@ -441,7 +472,9 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
 - **Claude Code / Codex:** a restored shell with an `agent-resume` label starts its own
   agent once the line editor is up (the installer's block, moved by the line-init block).
   The herdr-app block's background resume pass still runs as a fallback and skips sessions
-  a shell already brought back. Skipped when section 7 was declined.
+  a shell already brought back. Before either reads the label, the block runs
+  `agent-resume-fallback.py` (section 7) for its own terminal, and again for all terminals
+  ahead of the pass. Skipped when section 7 was declined.
 - **nvim, btop, lazygit, mdv:** the resume block wraps these in zsh functions that record
   the folder and the exact command in a `cmd-resume` label while the program runs, and
   clear it when the program ends with the shell still alive, however it was quit. A macOS
@@ -498,7 +531,7 @@ rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock \
   ~/.local/src/herdr-nested-tabs ~/.local/src/herdr-mods ~/.local/src/herdr-over9k \
   ~/.local/src/herdr-walkthrough ~/.local/src/herdr-linear ~/.local/share/herdr-linear ~/.cache/over9k \
-  ~/.local/src/herdr-git-graph
+  ~/.local/src/herdr-git-graph ~/.local/bin/agent-resume-fallback.py
 ```
 
 To remove only the sidebar layout and popups from sections 5 and 6, switch back to the
