@@ -148,7 +148,10 @@
                       "id": "changes",
                       "type": "block",
                       "content": {
-                        "mod": "git-graph"
+                        "mod": "git-graph",
+                        "props": {
+                          "panel": true
+                        }
                       }
                     },
                     {
