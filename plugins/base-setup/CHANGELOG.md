@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.22.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.22.0...base-setup-v1.22.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **base-setup:** patch agent-resume and skip gone resume folders ([42f6854](https://github.com/Nagell/claude-marketplace/commit/42f6854a993c54c3da7ce13f3f89b04d083cc9e9))
+* **base-setup:** patch agent-resume and skip gone resume folders ([cd237bc](https://github.com/Nagell/claude-marketplace/commit/cd237bc0487bb31042f63188b939e617d685dca1))
+
 ## [1.22.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.21.0...base-setup-v1.22.0) (2026-11-14)
 
 
