@@ -11,7 +11,9 @@
 # - `cmd-resume` label (the `setup-zsh resume` block: nvim, btop, lazygit, mdv): the restored
 #   shell types `cd <folder> && <command>` once the line editor is up (p10k's instant prompt
 #   still owns the terminal during the first precmd); the leading space keeps it out of
-#   history.
+#   history. mdv records its folder only when it starts, so a folder moved while it ran is
+#   gone: then the shell says what it didn't reopen (zle -M, since the instant prompt
+#   forbids output here) and drops the record.
 # Otherwise new shells start in ~/<WORK_DIR> instead of ~.
 if [[ -o interactive && -n $HC_TERMINAL_ID ]]; then
   _hc_labels=$(hc get "$HC_TERMINAL_ID" --json 2>/dev/null | jq -c '.labels // {}' 2>/dev/null)
@@ -28,7 +30,20 @@ if [[ -o interactive && -n $HC_TERMINAL_ID ]]; then
   fi
   _hc_cmd=$(jq -r '.["cmd-resume"] // empty | fromjson | select(.argv | length > 0)
     | "cd \(.cwd | @sh) && \(.argv | map(@sh) | join(" "))"' <<<"$_hc_labels" 2>/dev/null)
+  _hc_dir=$(jq -r '.["cmd-resume"] // empty | fromjson | .cwd // empty' <<<"$_hc_labels" 2>/dev/null)
   unset _hc_labels _hc_resume _hc_fallback
+  autoload -Uz add-zle-hook-widget
+  if [[ -n $_hc_cmd && ! -d $_hc_dir ]]; then
+    hc label "$HC_TERMINAL_ID" "cmd-resume=" &>/dev/null
+    _hc_gone_msg="Not reopened, its folder is gone:$_hc_cmd"
+    _hc_gone() {
+      add-zle-hook-widget -d line-init _hc_gone
+      zle -M "$_hc_gone_msg"
+      unset _hc_gone_msg
+    }
+    add-zle-hook-widget line-init _hc_gone
+    _hc_cmd=
+  fi
   if [[ -n $_hc_cmd ]]; then
     _hc_reopen_cmd=" $_hc_cmd"
     _hc_reopen() {
@@ -37,11 +52,10 @@ if [[ -o interactive && -n $HC_TERMINAL_ID ]]; then
       unset _hc_reopen_cmd
       zle accept-line
     }
-    autoload -Uz add-zle-hook-widget
     add-zle-hook-widget line-init _hc_reopen
   elif [[ $PWD == $HOME && -d $HOME/<WORK_DIR> ]]; then
     cd $HOME/<WORK_DIR>
   fi
-  unset _hc_cmd
+  unset _hc_cmd _hc_dir
 fi
 # <<< setup-zsh herdr-app <<<

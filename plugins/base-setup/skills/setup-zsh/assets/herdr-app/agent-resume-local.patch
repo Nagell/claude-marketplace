@@ -1,0 +1,128 @@
+diff --git a/mods/agent-resume/agent_resume.py b/mods/agent-resume/agent_resume.py
+index f74d996..a64cd96 100644
+--- a/mods/agent-resume/agent_resume.py
++++ b/mods/agent-resume/agent_resume.py
+@@ -214,6 +214,27 @@ def kiro_launcher(pid, lookup=proc):
+     return original
+ 
+ 
++def codex_launcher(pid, lookup=proc):
++    """The outermost process of the Codex launcher chain the agent runs under.
++
++    npm and Volta start Codex as a `codex` launcher (a shim, then node) that runs the
++    native `codex` binary; without this the launcher reads as an agent above it and
++    every Codex session counts as nested.
++    """
++    top = pid
++    for _ in range(64):
++        info = lookup(pid) if pid and pid > 1 else None
++        parent = lookup(info["ppid"]) if info and info["ppid"] > 1 else None
++        if not parent:
++            break
++        if parent["names"] & AGENTS["codex"]["names"]:
++            top = info["ppid"]
++        elif not parent["names"] & {"node", "bun"}:
++            break
++        pid = info["ppid"]
++    return top
++
++
+ def placement(agent_pid, shell_pid, lookup=proc):
+     """Where the agent runs: "direct" in the terminal's own program, "nested" under
+     another agent (a one-off run from an agent's tool), "outside" when the terminal's
+@@ -370,6 +391,18 @@ def valid_session(value):
+     return isinstance(value, str) and bool(SESSION_RE.fullmatch(value))
+ 
+ 
++def claude_transcript(session, reported, home=None):
++    """Where Claude Code really keeps this session's conversation.
++
++    Resumed from another folder, Claude Code keeps writing to the project folder the
++    session started in, while its hook reports a path under the new folder."""
++    if os.path.isfile(reported):
++        return reported
++    home = home or os.path.expanduser("~")
++    found = glob.glob(os.path.join(home, ".claude", "projects", "*", glob.escape(session) + ".jsonl"))
++    return found[0] if len(found) == 1 else reported
++
++
+ def parse_label(labels):
+     """(saved session, problem). Missing and unsupported legacy labels are quiet."""
+     raw = labels.get(LABEL) if isinstance(labels, dict) else None
+@@ -403,6 +436,8 @@ def parse_label(labels):
+         return None, "invalid session label: at must be a non-negative timestamp"
+     if value.get("boot") is not None and not isinstance(value["boot"], str):
+         return None, "invalid session label: boot must be text"
++    if agent == "claude":
++        value["transcript"] = claude_transcript(value["session"], value["transcript"])
+     raw_args = value.get("args")
+     value["args"] = flat(launch_flags(agent, raw_args)) if isinstance(raw_args, list) else []
+     return value, None
+@@ -563,6 +598,8 @@ def hook(agent, raw, env=None):
+         return "agent process not found"
+     if agent == "kiro":
+         agent_pid = kiro_launcher(agent_pid)
++    elif agent == "codex":
++        agent_pid = codex_launcher(agent_pid)
+     where = placement(agent_pid, shell)
+     if where != "direct":
+         return f"agent runs {where}"
+diff --git a/tests/test_agent_resume.py b/tests/test_agent_resume.py
+index 44de122..84b58ad 100644
+--- a/tests/test_agent_resume.py
++++ b/tests/test_agent_resume.py
+@@ -419,7 +419,11 @@ class ProcessTreeTests(unittest.TestCase):
+             85: (30, {"kiro-cli"}), 95: (85, {"kiro-cli-chat"}), 100: (95, {"bun"}), 110: (100, {"kiro-cli-chat"}),
+             # The same launcher under grok, which is a different agent.
+             46: (30, {"grok"}), 86: (46, {"kiro-cli"}), 96: (86, {"kiro-cli-chat"}),
+-            101: (96, {"bun"}), 111: (101, {"kiro-cli-chat"})}
++            101: (96, {"bun"}), 111: (101, {"kiro-cli-chat"}),
++            # Volta: 120 native codex -> 121 codex launcher -> 122 node -> 30 fish
++            120: (121, {"codex"}), 121: (122, {"codex"}), 122: (30, {"node"}),
++            # codex run by a tool of claude: 130 native codex -> 131 codex launcher -> 80 bash
++            130: (131, {"codex"}), 131: (80, {"codex"})}
+ 
+     def lookup(self, pid):
+         if pid not in self.TREE:
+@@ -442,6 +446,41 @@ class ProcessTreeTests(unittest.TestCase):
+         self.assertEqual(ar.placement(ar.kiro_launcher(110, self.lookup), 30, self.lookup), "direct")
+         self.assertEqual(ar.placement(ar.kiro_launcher(111, self.lookup), 30, self.lookup), "nested")  # grok is in between
+ 
++    def test_codex_launcher_is_part_of_the_agent(self):
++        self.assertEqual(ar.placement(120, 30, self.lookup), "nested")  # the launcher reads as another agent
++        self.assertEqual(ar.codex_launcher(120, self.lookup), 121)
++        self.assertEqual(ar.placement(ar.codex_launcher(120, self.lookup), 30, self.lookup), "direct")
++        self.assertEqual(ar.codex_launcher(70, self.lookup), 70)  # npm: no second codex above
++        self.assertEqual(ar.placement(ar.codex_launcher(130, self.lookup), 30, self.lookup), "nested")
++
++
++class ClaudeTranscriptTests(unittest.TestCase):
++    def setUp(self):
++        self.home = tempfile.mkdtemp()
++        self.started = Path(self.home, ".claude", "projects", "-work-app", f"{SID}.jsonl")
++        self.started.parent.mkdir(parents=True)
++        self.started.write_text("{}\n")
++        self.reported = os.path.join(self.home, ".claude", "projects", "-work", f"{SID}.jsonl")
++
++    def test_finds_a_session_resumed_from_another_folder(self):
++        self.assertEqual(ar.claude_transcript(SID, self.reported, home=self.home), str(self.started))
++
++    def test_keeps_a_reported_path_that_exists(self):
++        self.assertEqual(ar.claude_transcript(SID, str(self.started), home=self.home), str(self.started))
++
++    def test_keeps_the_reported_path_when_nothing_or_too_much_is_found(self):
++        self.assertEqual(ar.claude_transcript(SID2, self.reported, home=self.home), self.reported)
++        twin = Path(self.home, ".claude", "projects", "-other", f"{SID}.jsonl")
++        twin.parent.mkdir(parents=True)
++        twin.write_text("{}\n")
++        self.assertEqual(ar.claude_transcript(SID, self.reported, home=self.home), self.reported)
++
++    def test_plan_resumes_a_label_whose_reported_path_is_wrong(self):
++        lbl = {**label(shell=999), "transcript": self.reported}
++        with mock.patch.object(os.path, "expanduser", return_value=self.home):
++            todo, skipped = run_plan([terminal(lbl=lbl)], file_ok=os.path.isfile)
++        self.assertEqual([t["session"] for t in todo], [SID], skipped)
++
+ 
+ class HookTests(unittest.TestCase):
+     ENV = {"HC_TERMINAL_ID": "t7"}
