@@ -379,10 +379,28 @@ Use AskUserQuestion: "Bring Claude Code sessions back after a reboot in the Herd
 
 ```bash
 mkdir -p ~/.local/src
+git -C ~/.local/src/herdr-agent-resume checkout -q -- . 2>/dev/null  # drop the patch below so the pull fast-forwards
 git -C ~/.local/src/herdr-agent-resume pull -q 2>/dev/null \
   || git clone -q --depth 1 https://github.com/thuanlm215/herdr-agent-resume ~/.local/src/herdr-agent-resume
+git -C ~/.local/src/herdr-agent-resume apply <this-skill-dir>/assets/herdr-app/agent-resume-local.patch
 python3 -I ~/.local/src/herdr-agent-resume/scripts/install.py --update --auto --dry-run
 ```
+
+`agent-resume-local.patch` fixes two cases where the mod (0.4.1) loses sessions, with tests:
+
+- **Codex never saved.** npm and Volta start Codex as a `codex` launcher that runs the
+  native `codex` binary. The hook took the launcher for another agent above it, logged
+  `agent runs nested` and saved nothing. The patch counts the launcher chain as one agent.
+- **Claude resumed from another folder.** Claude Code keeps writing to the project folder
+  the session started in, but its hook reports a transcript path under the new folder. The
+  mod then skipped the session with "no saved conversation to resume". The patch looks a
+  missing transcript up by session id in `~/.claude/projects`; this also mends labels
+  saved before the patch.
+
+The patch goes into the clone, not the installed mod: `install.py --update` refuses to
+replace installed files that were edited. If `git apply` fails, upstream changed those
+lines; check whether it now has both fixes and drop the step if so. Tests:
+`python3 -I -B -m unittest discover -s ~/.local/src/herdr-agent-resume/tests`.
 
 The dry run lists the mod folder, the Ctrl+Shift+R shortcut, `~/.claude/settings.json` and
 `Startup lines: ~/.zshrc`. `--auto` adds an `agent-resume` block to `~/.zshrc` so each
@@ -436,8 +454,9 @@ see the end of this section instead. Unless it already contains `# >>> setup-zsh
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end. If
 the block is there but lacks `zselect`, it is an earlier version that loses its record on a
 macOS reboot: replace everything between the `setup-zsh resume` markers with the asset.
-If it contains `# >>> setup-zsh herdr-app >>>` without `agent-resume-fallback`, replace
-everything between the `setup-zsh herdr-app` markers with the asset (same `<WORK_DIR>`).
+If it contains `# >>> setup-zsh herdr-app >>>` without `agent-resume-fallback` or without
+`_hc_gone`, replace everything between the `setup-zsh herdr-app` markers with the asset
+(same `<WORK_DIR>`).
 Then, unless `~/.zshrc` contains `# >>> setup-zsh herdr-app >>>`, append
 `<this-skill-dir>/assets/herdr-app/zshrc-block.zsh` after it, with both `<WORK_DIR>`
 replaced by the Step 19 folder:
@@ -484,7 +503,9 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
   ignores it, so the wrapper catches it and keeps the label. When the program quits before
   the shell's own SIGTERM arrives, a non-zero exit makes the wrapper wait half a second for
   it. The herdr-app block in the
-  restored shell then types `cd <folder> && <command>` again. With the LazyVim config from Step 16, nvim
+  restored shell then types `cd <folder> && <command>` again. When that folder is gone (moved
+  or deleted while the program ran; only nvim follows its files), the shell types nothing,
+  shows "Not reopened, its folder is gone: <command>" and clears the label. With the LazyVim config from Step 16, nvim
   keeps the label in step with the files open inside it and reopens them, the current one
   first (its swap file offers any unsaved edits); splits and tabs inside nvim do not come
   back. `some-command | mdv` is not recorded. To add another program, add its name to the
