@@ -183,14 +183,22 @@ layout `my-nested-tabs`:
 Use AskUserQuestion: "Set up the Herdr app sidebar that lists every space's tabs, with
 agent details, a syntax-coloured Files panel, Git Graph as Changes, Timeline and Usage?" -
 "Yes (Recommended)" / "No". If yes, start the app if it is not running (`herdr-app &`), then
-fetch and copy the mods. `Nagell/herdr-mods` carries the syntax colouring until
-munza/herdr-mods merges it ([PR](https://github.com/munza/herdr-mods/pull/9)); clone munza's repo once it has.
+fetch and copy the mods.
 
 An existing `~/.local/src/herdr-git-graph` may be a clone of another fork, which the pull
-below would keep installing. Check it first, and ask before moving it aside:
+below would keep installing. Check it first, and ask before moving it aside. An existing
+`~/.local/src/herdr-mods` cloned from `Nagell/herdr-mods` (the fork used before munza merged
+the syntax colouring) is stuck on its old `feat/syntax-colouring` branch: point it at
+munza's `main` instead, which needs no question since it only changes where it pulls from:
 
 ```bash
 git -C ~/.local/src/herdr-git-graph remote get-url origin 2>/dev/null
+if git -C ~/.local/src/herdr-mods remote get-url origin 2>/dev/null | grep -q Nagell/herdr-mods; then
+  git -C ~/.local/src/herdr-mods remote set-url origin https://github.com/munza/herdr-mods
+  git -C ~/.local/src/herdr-mods config remote.origin.fetch '+refs/heads/main:refs/remotes/origin/main'
+  git -C ~/.local/src/herdr-mods fetch -q --depth 1 origin
+  git -C ~/.local/src/herdr-mods checkout -q -B main --track origin/main
+fi
 ```
 
 ```bash
@@ -200,7 +208,7 @@ git -C ~/.local/src/herdr-nested-tabs pull -q 2>/dev/null \
 git -C ~/.local/src/herdr-over9k pull -q 2>/dev/null \
   || git clone -q --depth 1 https://github.com/herunan/herdr-over9k ~/.local/src/herdr-over9k
 git -C ~/.local/src/herdr-mods pull -q 2>/dev/null \
-  || git clone -q --depth 1 -b feat/syntax-colouring https://github.com/Nagell/herdr-mods ~/.local/src/herdr-mods
+  || git clone -q --depth 1 https://github.com/munza/herdr-mods ~/.local/src/herdr-mods
 git -C ~/.local/src/herdr-git-graph pull -q --ff-only 2>/dev/null \
   || git clone -q --depth 1 https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
 M=~/.config/herdr-app/mods
