@@ -202,24 +202,16 @@ fi
 ```
 
 ```bash
-mkdir -p ~/.local/src
-git -C ~/.local/src/herdr-nested-tabs pull -q 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/Nagell/herdr-nested-tabs ~/.local/src/herdr-nested-tabs
-git -C ~/.local/src/herdr-over9k pull -q 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/herunan/herdr-over9k ~/.local/src/herdr-over9k
-git -C ~/.local/src/herdr-mods pull -q 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/munza/herdr-mods ~/.local/src/herdr-mods
-git -C ~/.local/src/herdr-git-graph pull -q --ff-only 2>/dev/null \
-  || git clone -q --depth 1 https://github.com/Nagell/herdr-git-graph ~/.local/src/herdr-git-graph
-M=~/.config/herdr-app/mods
-S=~/.local/src
-cp -r "$S"/herdr-nested-tabs/mods/nested-tabs "$S"/herdr-nested-tabs/mods/tabs-bar "$M"/
-cp -r "$S"/herdr-mods/better-files/mods/better-files "$S"/herdr-git-graph/mods/git-graph "$M"/
-cp -r "$S"/herdr-over9k/over9k-timeline/mods/over9k-prompts "$S"/herdr-over9k/over9k-usage/mods/over9k-usage "$M"/
-for m in nested-tabs tabs-bar better-files git-graph over9k-prompts over9k-usage; do herdr-app check "$M/$m"; done
+mkdir -p ~/.local/bin
+install -m 755 <this-skill-dir>/assets/herdr-app/herdr-mods-update.py ~/.local/bin/herdr-mods-update
+herdr-mods-update --install nested-tabs tabs-bar better-files better-icons git-graph over9k-prompts over9k-usage
 ```
 
-Expect six `check passed`. Before copying on a fresh machine, tell the user what the mods
+`herdr-mods-update` clones or pulls each source repo into `~/.local/src` (munza/herdr-mods,
+Nagell/herdr-git-graph, Nagell/herdr-nested-tabs, herunan/herdr-over9k) and copies each mod
+into `~/.config/herdr-app/mods`. Better Icons gives Better Files (and Better Changes) the
+Material colour icons; leave it out of the list if the user doesn't want them (about 6 MB).
+Expect `updated` for each mod and no `herdr-app check failed` line. Before copying on a fresh machine, tell the user what the mods
 run and read (Herdr's rule for mods other people made; each repo's `RECIPE.md` lists it
 under "Built from"): the sidebar runs `git`, `ps`, `lsof`, `hc` and `python3` scripts that
 read Claude Code's and Codex's session files; Better Files runs `git`; Git Graph runs `git`,
@@ -288,8 +280,13 @@ These edit Claude Code's settings, which you may not be allowed to do; then give
 the lines to run with `!`. After Claude Code's next reply, `~/.cache/over9k/usage/claude.json`
 holds the limits and the strip shows them.
 
-Herdr never updates copied mods. To update, run the four `git ... pull` lines and the
-`cp` lines again; the layout, keys and status line stay as they are, since the status line
+Herdr never updates copied mods. To update, run `herdr-mods-update` (`--dry-run` first to
+see what would change). It updates only mods that are installed, keeps each installed
+`mod.json` (the user's settings; only `version` and new keys come from the new one) and
+the files Herdr adds itself (`gpui-kit.d.ts`, `jsconfig.json`, `.cache*`), moves the old
+folder to `~/.cache/herdr-mods-backup/<name>-<version>-<time>` and runs `herdr-app check`.
+A mod edited in place, rather than in its repo, loses those edits to the update, though
+the backup keeps them. The layout, keys and status line stay as they are, since the status line
 calls Usage's `claude-statusline.sh` by its path. With the "Keep mine" wrapper, also run its
 `install -m 755` line, for a newer wrapper.
 
@@ -562,7 +559,8 @@ rm -rf ~/.local/share/herdr-app ~/.local/bin/herdr-app ~/.local/bin/hc ~/.local/
   ~/.config/herdr-app ~/.local/src/herdr-agent-resume ~/.cache/herdr-agent-resume.lock \
   ~/.local/src/herdr-nested-tabs ~/.local/src/herdr-mods ~/.local/src/herdr-over9k \
   ~/.local/src/herdr-walkthrough ~/.local/src/herdr-linear ~/.local/share/herdr-linear ~/.cache/over9k \
-  ~/.local/src/herdr-git-graph ~/.local/bin/agent-resume-fallback.py
+  ~/.local/src/herdr-git-graph ~/.local/bin/agent-resume-fallback.py ~/.local/bin/herdr-mods-update \
+  ~/.cache/herdr-mods-backup
 ```
 
 To remove only the sidebar layout and popups from sections 5 and 6, switch back to the
@@ -571,7 +569,7 @@ entries naming `nested-tabs.`, `tabs-bar.`, `over9k-switcher`, `walkthrough` or 
 
 ```bash
 herdr-app do layout.switch '{"name":"main"}'
-cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes \
+cd ~/.config/herdr-app/mods && rm -rf nested-tabs tabs-bar better-files better-changes better-icons \
   over9k-prompts over9k-usage over9k-switcher walkthrough linear git-graph
 rm -f ~/.config/herdr-app/layouts/my-nested-tabs.json ~/.config/herdr-app/layouts/.state/my-nested-tabs.json
 ```
