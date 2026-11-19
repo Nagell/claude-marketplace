@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.23.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.22.1...base-setup-v1.23.0) (2026-11-19)
+
+
+### Features
+
+* **setup-zsh:** update every Herdr app mod with herdr-mods-update ([b283242](https://github.com/Nagell/claude-marketplace/commit/b2832422b3ffa83b53721b96b6847e03efb136e4))
+
 ## [1.22.1](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.22.0...base-setup-v1.22.1) (2026-11-18)
 
 
