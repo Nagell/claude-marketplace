@@ -44,5 +44,5 @@ the OpenSpec changelog before anything else.
 | Revise the plan | `openspec-update-change` |
 | Build it | `openspec-apply-change` |
 | Check the code against the plan | `openspec-verify-change` |
-| Review the diff | `pr-review-toolkit:review-pr` |
+| Review the diff | `review-mr`, from this marketplace's `review` plugin |
 | Close it | `openspec-archive-change` |
