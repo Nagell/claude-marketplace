@@ -37,7 +37,8 @@ the OpenSpec changelog before anything else.
 
 | Step | Skill |
 | --- | --- |
-| Shape the idea | `openspec-grill` (or `openspec-explore` for looser thinking) |
+| Explore the idea | `openspec-explore` |
+| Stress-test the decisions | `openspec-grill` |
 | Write the change | `openspec-propose` |
 | Check the plan against the code | `openspec-plan-check` |
 | Revise the plan | `openspec-update-change` |
