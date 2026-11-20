@@ -1,10 +1,16 @@
 {
   "name": "openspec-extras",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Extra steps for the OpenSpec workflow: grill an idea against the project's specs before proposing it, and check a change's plan against the code before applying it. Needs the OpenSpec CLI 2.1 or newer and its skills.",
   "author": {
     "name": "Dawid Nitka",
     "email": "contact@dawidnitka.com"
   },
-  "keywords": ["openspec", "spec-driven", "planning", "grill", "review"]
+  "keywords": [
+    "openspec",
+    "spec-driven",
+    "planning",
+    "grill",
+    "review"
+  ]
 }
