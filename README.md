@@ -112,6 +112,7 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 | [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
 | [coding-tutor](plugins/coding-tutor/)             | Codebase-driven tutorials, spaced-repetition quizzes, plus a commit-time nudge     |
 | [dev-extras](plugins/dev-extras/)                 | Optional extras: skill-creator, Chrome remote debugging + chrome-devtools MCP      |
+| [openspec-extras](plugins/openspec-extras/)       | OpenSpec add-ons: grill an idea against the specs, check a plan against the code   |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
