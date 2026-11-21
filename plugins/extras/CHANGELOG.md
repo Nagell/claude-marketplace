@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.0.1](https://github.com/Nagell/claude-marketplace/compare/extras-v3.0.0...extras-v3.0.1) (2026-11-21)
+
+
+### Documentation
+
+* format plugin READMEs like the root README ([5d71ac1](https://github.com/Nagell/claude-marketplace/commit/5d71ac19160424d80be2977e5a8ccb76c516800f))
+* format plugin READMEs like the root README ([733529e](https://github.com/Nagell/claude-marketplace/commit/733529e6b6d7c38abaf3b3fbac4aaf67eef0ca6f))
+
 ## [3.0.0](https://github.com/Nagell/claude-marketplace/compare/extras-v2.0.0...extras-v3.0.0) (2026-11-21)
 
 
