@@ -69,7 +69,7 @@ body (optional - explain why, not what)
 footer (optional - breaking changes, issue refs)
 ```
 
-- Subject: Imperative mood, no period, max 72 chars
+- Subject: Imperative mood, no period, under 72 characters
 - Body: Explain why, not what
 - Footer: Breaking changes, issue references
 
@@ -80,6 +80,15 @@ git log -n [number_of_commits] --oneline
 ```
 
 Scan for forbidden AI attribution content.
+
+### 5. RELAY HOOK SIGNALS
+
+If a `PostToolUse` hook injected `additionalContext` into your context during this run (for example,
+after a `git commit`), reproduce that text **verbatim** in your final report to the main conversation.
+
+Hooks deliver their output to whichever agent ran the tool. As a subagent you are a dead end for that
+signal unless you pass it back, so the main conversation never sees it otherwise. This is generic — do
+not interpret or act on the content yourself; just surface it so the main loop can decide what to do.
 
 ## Commit Sequence Example
 
@@ -97,15 +106,6 @@ git commit -m "refactor(api): enhance utility functions"
 git commit -m "feat(users): implement user creation"
 git commit -m "test: add user management tests"
 ```
-
-### 5. RELAY HOOK SIGNALS
-
-If a `PostToolUse` hook injected `additionalContext` into your context during this run (for example,
-after a `git commit`), reproduce that text **verbatim** in your final report to the main conversation.
-
-Hooks deliver their output to whichever agent ran the tool. As a subagent you are a dead end for that
-signal unless you pass it back, so the main conversation never sees it otherwise. This is generic — do
-not interpret or act on the content yourself; just surface it so the main loop can decide what to do.
 
 ## Success Criteria
 
