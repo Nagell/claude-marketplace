@@ -1,61 +1,54 @@
-# dawidnitka-tools - Claude Guide
+# Global Instructions
 
-When reporting information, be concise: cut filler, hedging, and repetition — not clarity. Never drop the words that define a term or name a consequence just to save space. Concision means fewer words per point, not points I can't decode.
-Talk in english and produce all documentation in english
+- Be concise: cut filler, hedging and repetition, not clarity. Keep the words that define a term or name a consequence.
+- Talk and write all documentation in English.
 
 ## Language
 
-Technical vocabulary is fine — I'm an engineer; standard terms (hook, subagent, linter, idempotent) need no explaining. Avoid two things: **internal/tool words** that only mean something inside your workflow ("safe_auto", "persona", "P1") — say the plain equivalent; and **self-coined shorthand** ("load-bearing risk", "kata-style") reused as if we share its meaning — say the plain thing, or define it once at first use. Test: would an engineer who's never seen your tools understand every term?
+- Technical vocabulary is fine (hook, subagent, linter, idempotent); I'm an engineer.
+- No internal/tool words ("safe_auto", "P1") or self-coined shorthand ("load-bearing risk") used as shared vocabulary: say the plain thing, or define it once.
+- Test: would an engineer who's never seen your tools understand every term?
+- If I say more than once that I don't understand or I'm tired, switch to Simplified Technical English (ASD-STE100) for the session: ≤20-word sentences, one instruction each, active voice, simple tenses, one word per meaning.
 
 ## Writing in My Voice
 
-Any text that goes out in my name - Slack messages, emails, Notion pages, comments, PR/MR descriptions, docs - goes through the `writing-style-guide` skill (which runs `humanizer` first) before you send, post or save it. This covers one-liners and text sent straight from chat through a connector. No exceptions for "just a quick message".
+- Anything sent in my name (Slack, email, Notion, comments, PR/MR descriptions, docs), one-liners included, goes through the `writing-style-guide` skill before you send, post or save it.
 
 ## Presenting Choices & Findings
 
-When work produces decisions for me to make (options, review findings to triage, tradeoffs):
+- Every pick goes through `AskUserQuestion`: recommended option first, "(Recommended)", related decisions batched (≤4).
+- Before each: title + severity, **What's wrong** (observable consequence), **Proposed fix** (one), one-line **why**, short quotes.
+- ⭐ = independent sources agree (gloss on first use). Flag high- vs low-confidence claims.
+- Fix trivially-safe things (typos, count drift, stale refs) and obvious defaults silently, then say what you applied. Don't manufacture questions.
+- After I answer: confirm tersely (applied / skipped + reason / deferred), then proceed.
 
-- Route every pick through `AskUserQuestion`, not free-text. Recommended option first, labeled "(Recommended)". Batch related decisions (≤4) into one call.
-- Precede each decision with a scannable block: title + severity tag, **What's wrong** (observable consequence), **Proposed fix** (one recommendation, not a menu), one-line **why**. Keep quotes short.
-- Mark confidence: ⭐ when independent sources agree; flag high- vs low-confidence.
-- Fix trivially-safe things silently (typos, count drift, stale refs); only ask about substantive decisions, then state what you auto-applied.
-- After I answer, confirm tersely (applied / skipped + reason / deferred), then proceed.
-- Obvious default? Pick it, say so, move on — don't manufacture a question.
+## Formatting
 
-## Formatting Summaries & Lists
-
-Don't cram list items line-after-line with no breathing room. Two formats:
-
-- **Enumerating** what I did/found ("you did 1, 2, 3"): tight bullets under headers, no blank lines between them.
-- **Summaries / explanations**: short prose per header, not one sentence per line.
-
-Separate groups with headers (`###`+), not horizontal rules (they pile up and look noisy); at most one `---`. Blank line before each header; header sits directly above its paragraph (the gap below it is renderer margin, don't add your own).
+- Enumerating what was done/found: tight bullets, no blank lines between them.
+- Summaries/explanations: short prose per header, not one sentence per line.
+- Group with `###`+ headers, not horizontal rules (at most one `---`). Blank line before each header, none after it.
 
 ## Project Defaults
 
-- Default to pnpm if package manager unclear (no lock file)
-- Nuxt: browser required for frontend errors—ask user to open generated URL
+- pnpm when the package manager is unclear (no lock file).
+- Nuxt frontend errors need a browser: ask me to open the generated URL.
 
-## Commit Messages
+## Commits
 
-- NO Claude attribution
-- NO "Generated with" footers
-- Use conventional commits (feat:, fix:, etc.)
-- First line under 72 characters
+- Conventional commits (feat:, fix:, …), first line under 72 characters.
+- No Claude attribution or "Generated with" footers.
 
-## Git Push — ABSOLUTE RULE: NEVER push without explicit confirmation at that exact moment
+## Git Push
 
-NEVER push. Not when the user says "push and create MR". Not when they approved a push earlier. Not when it seems implied. ALWAYS stop before `git push`, state what you're about to do, and wait for the user to say yes. Every single push is a separate confirmation. No exceptions. No carry-over. Commit only, then ask.
+The base plugin's safety-guards hook enforces this, deliberately strictly.
+
+- Never push without my yes in that same turn. Commit, then ask.
+- One yes = one push. With the hook installed, create `.claude-push-token` yourself in its own Bash call, then push in a second call.
+- Each further push, and any force push, needs its own yes. A yes never loosens anything else.
+- Standing permission only if I say it outright ("for this session you have full push allowance"); never inferred. It ends with the session.
 
 ## Code Style
 
-- DO NOT over-engineer
-- DO NOT add features I didn't request
-- Keep solutions simple and direct
-- Prefer boring, readable code
-
-### TypeScript
-
-- Prefer interfaces over types for objects
-- Avoid `any`, use `unknown` for unknown types
-- Use `import type` for type-only imports (top-level, not inline)
+- Simple, direct, boring solutions; no over-engineering.
+- No features I didn't request.
+- TypeScript: interfaces over types for objects; `unknown`, not `any`; top-level `import type` for type-only imports.

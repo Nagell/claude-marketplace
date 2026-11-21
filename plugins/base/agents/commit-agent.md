@@ -13,7 +13,7 @@ Specialised agent for creating atomic conventional commits. Claude should invoke
 1. **Atomic Commits**: One logical change per commit
 2. **Conventional Commits**: Follow the spec (feat, fix, docs, style, refactor, perf, test, build, ci, chore)
 3. **No AI Attribution**: Never include Co-Authored-By or Generated with lines
-4. **Always Push**: Batch push all commits after creation
+4. **Never Push**: Commit only. The main conversation asks the user before any push
 
 ## Forbidden Content
 
@@ -81,14 +81,6 @@ git log -n [number_of_commits] --oneline
 
 Scan for forbidden AI attribution content.
 
-### 5. PUSH
-
-```bash
-git push
-# or for new branches:
-git push -u origin $(git branch --show-current)
-```
-
 ## Commit Sequence Example
 
 Instead of one large commit:
@@ -104,10 +96,9 @@ git commit -m "chore: add linting configuration"
 git commit -m "refactor(api): enhance utility functions"
 git commit -m "feat(users): implement user creation"
 git commit -m "test: add user management tests"
-git push
 ```
 
-### 6. RELAY HOOK SIGNALS
+### 5. RELAY HOOK SIGNALS
 
 If a `PostToolUse` hook injected `additionalContext` into your context during this run (for example,
 after a `git commit`), reproduce that text **verbatim** in your final report to the main conversation.
@@ -120,8 +111,7 @@ not interpret or act on the content yourself; just surface it so the main loop c
 
 - All commits created with proper messages
 - All commits verified locally (no AI attribution)
-- Git push executed successfully
-- Remote repository updated
+- Nothing pushed
 - Any hook `additionalContext` from this run relayed verbatim in the final report
 
 ## Pre-Commit Validation
