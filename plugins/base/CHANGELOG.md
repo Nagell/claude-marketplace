@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.2](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.1...base-v2.1.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **base:** catch every git push form at the push token gate ([c334402](https://github.com/Nagell/claude-marketplace/commit/c33440266a69cd96a3573cd914fbc55cf9c5e2c3))
+* **base:** catch every git push form at the push token gate ([5911c75](https://github.com/Nagell/claude-marketplace/commit/5911c752d16b3ffa578a3f41f4dba4d447f7eb63))
+
 ## [2.1.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.0...base-v2.1.1) (2026-11-21)
 
 
