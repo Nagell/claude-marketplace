@@ -50,7 +50,7 @@
       "name": "extras",
       "source": "./plugins/extras",
       "description": "Optional developer tooling split out of base: skill authoring with evals, PR/MR descriptions kept current by a push hook (GitHub and GitLab), and isolated Playwright-managed browser sessions per agent.",
-      "version": "3.0.1",
+      "version": "3.1.0",
       "keywords": [
         "skills",
         "skill-creator",
