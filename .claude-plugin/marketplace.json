@@ -13,7 +13,7 @@
     {
       "name": "base",
       "source": "./plugins/base",
-      "description": "Foundational Claude Code configuration providing safety guardrails, automatic code formatting, MCP server integrations, and opinionated development defaults, plus MR/PR review in an isolated worktree. The essential starting point for any Claude Code workflow.",
+      "description": "Foundational Claude Code configuration providing safety guardrails, automatic code formatting, MCP server integrations, and opinionated development defaults, plus MR/PR review in an isolated worktree and OpenSpec grill and plan-check steps. The essential starting point for any Claude Code workflow.",
       "version": "1.23.0",
       "keywords": [
         "setup",
@@ -26,7 +26,9 @@
         "foundation",
         "review",
         "merge-request",
-        "pull-request"
+        "pull-request",
+        "openspec",
+        "planning"
       ]
     },
     {

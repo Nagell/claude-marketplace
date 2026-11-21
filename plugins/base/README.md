@@ -47,6 +47,9 @@ On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybind
 | `writing-style-guide` | Dawid Nitka's personal writing style guide               |
 | `html-doc`            | Convert markdown into styled HTML reports or slide decks |
 | `humanizer`           | Strip AI-writing tells from prose (vendored upstream)    |
+| `openspec-grill`      | Grill an idea or a change against the project's specs, then hand it to propose or update ([OpenSpec steps](#openspec-steps)) |
+| `openspec-plan-check` | Check a change's plan against today's code before apply  |
+| `grilling`            | Vendored from [mattpocock/skills](https://github.com/mattpocock/skills) (MIT); `openspec-grill` runs it |
 
 ## Reviewing MRs and PRs
 
@@ -102,6 +105,41 @@ The platform is detected from the MR URL, or from the remote URL when you pass `
 ```bash
 cd plugins/base/skills/review-mr && python3 -m pytest tests
 ```
+
+## OpenSpec steps
+
+Two steps the [OpenSpec](https://github.com/Fission-AI/OpenSpec) workflow doesn't ship: a grilling session
+grounded in the project's specs before a change is proposed (`openspec-grill`), and a check of the plan
+against the code before it is applied (`openspec-plan-check`).
+
+### Requires OpenSpec
+
+These two skills build on OpenSpec and are useless without it. They need the `openspec` CLI **2.1 or
+newer** (written against 2.1.1) and OpenSpec's own skills, with `verify` added to the default profile:
+
+```bash
+npm install -g @fission-ai/openspec@latest   # or: curl -fsSL https://openspec.dev/cli/install.sh | sh
+openspec config profile                      # pick the core workflows plus verify
+openspec init --scope global --tools claude  # skills once, in ~/.agents/skills, for every project
+```
+
+Then `openspec init --scope global --tools claude` inside each project creates its `openspec/` folder.
+OpenSpec changes its skills between releases; when a skill here stops matching what OpenSpec does, check
+the OpenSpec changelog before anything else.
+
+### Where they fit
+
+| Step | Skill |
+| --- | --- |
+| Explore the idea | `openspec-explore` |
+| Stress-test the decisions | `openspec-grill` |
+| Write the change | `openspec-propose` |
+| Check the plan against the code | `openspec-plan-check` |
+| Revise the plan | `openspec-update-change` |
+| Build it | `openspec-apply-change` |
+| Check the code against the plan | `openspec-verify-change` |
+| Review the MR | `review-mr`, from this plugin, once the MR is open; it posts the review in your name |
+| Close it | `openspec-archive-change` |
 
 ## Safety Features
 
