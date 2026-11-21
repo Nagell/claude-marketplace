@@ -78,12 +78,14 @@ Every later call goes through `scripts/pw.sh`, which runs the one pinned `@playw
 
 ### Environment variables
 
-| Variable                | Default                       | Purpose                                         |
-| ----------------------- | ----------------------------- | ----------------------------------------------- |
-| `BROWSER_PROFILE_ROOT`  | `~/.cache/claude-browser`     | Session profiles and the install-consent marker |
-| `BROWSER_CREDENTIALS`   | `~/.claude/browser-users.env` | The logins file, read by preflight and the CLI  |
-| `BROWSER_SKIP_MCP`      | unset                         | `1` skips preflight's `claude mcp list` probe   |
-| `BROWSER_WINDOW_ORIGIN` | `80,60`                       | `x,y` screen position of the first window       |
+| Variable                | Default                       | Purpose                                                                       |
+| ----------------------- | ----------------------------- | ----------------------------------------------------------------------------- |
+| `BROWSER_PROFILE_ROOT`  | `~/.cache/claude-browser`     | Session profiles and the install-consent marker                               |
+| `BROWSER_CREDENTIALS`   | `~/.claude/browser-users.env` | The logins file, read by preflight and the CLI                                |
+| `BROWSER_SKIP_MCP`      | unset                         | `1` skips preflight's `claude mcp list` probe                                 |
+| `BROWSER_WINDOW_ORIGIN` | `80,60`                       | `x,y` screen position of the first window                                     |
+| `BROWSER_SCALE`         | unset                         | Window scale such as `1.5`, for a HiDPI screen WSLg shows at 100%             |
+| `BROWSER_NO_SANDBOX`    | unset                         | `1` starts the browser without the Chromium sandbox, where AppArmor blocks it |
 
 ### Credentials
 
@@ -96,13 +98,13 @@ The first time a session hits a login screen, Claude asks whether to store the l
 Stored logins go in `~/.claude/browser-users.env`, mode `600`, one key pair per login:
 
 ```bash
-BROWSER_ADMIN_EMAIL=admin@example.com
-BROWSER_ADMIN_PASSWORD=
+BROWSER_ADMIN_EMAIL='admin@example.com'
+BROWSER_ADMIN_PASSWORD='p#ss$word'
 ```
 
-`<NAME>` is uppercase letters and digits with no underscore, and is passed lowercased to `--login admin`. Preflight silently skips a name with an underscore.
+`<NAME>` is uppercase letters and digits with no underscore, and is passed lowercased to `--login admin`. Preflight silently skips a name with an underscore. Keep values in single quotes: unquoted, a `#` starts a comment and silently cuts the password short.
 
-The scripts hand the file to the Playwright CLI, so Claude fills a field by key name (`fill e3 BROWSER_ADMIN_PASSWORD`) and the CLI prints `<secret>…</secret>` where the value would be. The password never reaches the conversation. A session reads the file when it starts, so restart one that was launched before you filled the file in.
+The scripts hand the file to the Playwright CLI, so Claude fills a field by key name (`fill e3 BROWSER_ADMIN_PASSWORD`) and the CLI's output shows `process.env['BROWSER_ADMIN_PASSWORD']` where the value would be. The password never reaches the conversation. A session reads the file when it starts, so restart one that was launched before you filled the file in.
 
 `touch ~/.claude/browser-users.never-ask` stops Claude offering to store logins.
 
@@ -122,7 +124,8 @@ The scripts hand the file to the Playwright CLI, so Claude fills a field by key 
 | Platform           | Status                                               |
 | ------------------ | ---------------------------------------------------- |
 | macOS              | Tested                                               |
-| Linux, WSL         | Supported by the scripts, untested                   |
+| WSL                | Tested (sessions, parallel agents, logins)           |
+| Linux              | Supported by the scripts, untested                   |
 | Windows (Git Bash) | Supported by the scripts except `--chrome`, untested |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
