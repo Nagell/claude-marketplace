@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.1.0](https://github.com/Nagell/claude-marketplace/compare/extras-v3.0.1...extras-v3.1.0) (2026-11-21)
+
+
+### Features
+
+* **extras:** add BROWSER_SCALE for HiDPI screens under WSLg ([22812ff](https://github.com/Nagell/claude-marketplace/commit/22812fff55f208b0b1e31ad517fab4672213ced7))
+
+
+### Bug Fixes
+
+* **extras:** sandbox browser sessions and quote stored logins ([e1e50be](https://github.com/Nagell/claude-marketplace/commit/e1e50be77b53a3163654b7935d587e13d2714ae2))
+* **extras:** sandbox browser sessions and quote stored logins ([992289b](https://github.com/Nagell/claude-marketplace/commit/992289b81eae20a369f17c924c17efb264a9c9b8))
+
 ## [3.0.1](https://github.com/Nagell/claude-marketplace/compare/extras-v3.0.0...extras-v3.0.1) (2026-11-21)
 
 
