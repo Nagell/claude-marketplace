@@ -35,15 +35,18 @@ else
 #   BROWSER_ADMIN_EMAIL  ->  scripts/launch.sh --login admin
 #   An underscore inside the name hides the login from preflight.
 #
+# Keep every value inside its single quotes. Unquoted, a # starts a comment
+# and silently cuts the password short.
+#
 # Two logins look like:
-#   BROWSER_ADMIN_EMAIL=admin@example.com
-#   BROWSER_ADMIN_PASSWORD=
-#   BROWSER_EDITOR_EMAIL=editor@example.com
-#   BROWSER_EDITOR_PASSWORD=
+#   BROWSER_ADMIN_EMAIL='admin@example.com'
+#   BROWSER_ADMIN_PASSWORD='p#ss$word'
+#   BROWSER_EDITOR_EMAIL='editor@example.com'
+#   BROWSER_EDITOR_PASSWORD='...'
 ENV
     for n in $names; do
       upper=$(printf '%s' "$n" | tr '[:lower:]' '[:upper:]')
-      printf 'BROWSER_%s_EMAIL=\nBROWSER_%s_PASSWORD=\n' "$upper" "$upper"
+      printf "BROWSER_%s_EMAIL=''\nBROWSER_%s_PASSWORD=''\n" "$upper" "$upper"
     done
   } > ~/.claude/browser-users.env
 fi
@@ -148,10 +151,11 @@ claude mcp add -s user playwright \
 **The CLI fills by key name.** The scripts hand the CLI the same file
 (`PLAYWRIGHT_MCP_SECRETS_FILE`, set in `scripts/common.sh` whenever the file
 exists), so `fill` takes the key name, not the value. The CLI looks the value up
-itself and prints `<secret>BROWSER_ADMIN_PASSWORD</secret>` wherever the value
-would have appeared. The value stays out of the conversation and out of `ps`.
-The file is parsed as dotenv, not run as shell, so a `$` in a password stays a
-`$`.
+itself, and its output shows `process.env['BROWSER_ADMIN_PASSWORD']` where the
+value would have been. The value stays out of the conversation, out of the
+CLI's output files and out of `ps`. The file is parsed as dotenv, not run as
+shell: a `$` stays a `$`, but an unquoted `#` starts a comment and cuts the
+value short without an error, so every value goes in single quotes.
 
 ```bash
 S=admin-work                    # the session name you launched with
@@ -167,10 +171,11 @@ bash "${CLAUDE_SKILL_DIR}/scripts/pw.sh" -s="$S" fill e3 BROWSER_ADMIN_PASSWORD
 - Never pass the value itself (`"$BROWSER_ADMIN_PASSWORD"`): `fill` echoes
   literal text back as generated code, which puts the password in the
   transcript.
-- This behaviour is read from the CLI's source (0.1.23, Playwright 1.65) and has
-  not been run yet. The first time, check that the tool output shows `<secret>`
-  where the password would be. If it shows the value, stop, tell the user, and
-  drive the login through Playwright MCP with `--secrets` instead.
+- A login that fails although the key is right usually means an unquoted value
+  with a `#` in it. Ask the user to quote it; never read the file to check.
+- Verified on CLI 0.1.23 (WSL): neither value appeared in the tool output or
+  the files it writes. If a later CLI ever shows a value, stop, tell the user,
+  and drive the login through Playwright MCP with `--secrets` instead.
 
 **Saved session state** is the third option and a complement, not a store. It
 holds no password, but it is a live session token — anyone who can read the file

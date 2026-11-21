@@ -41,7 +41,9 @@ it is where the yellow bar comes from:
 
 It is cosmetic in the sense that the browser still works, and not cosmetic in
 the sense that a security boundary really is switched off. Register with
-`--sandbox`.
+`--sandbox`. `scripts/launch.sh` turns the sandbox on for its own sessions
+(`chromiumSandbox` in the session config); `BROWSER_NO_SANDBOX=1` turns it off
+where AppArmor blocks it, as on Ubuntu 24.04 and later.
 
 If preflight reports a registration without it, offer the fix:
 

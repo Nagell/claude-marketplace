@@ -11,6 +11,7 @@
 #   BROWSER_PROFILE_ROOT   where session profiles live
 #   BROWSER_WINDOW_ORIGIN  "x,y" of the first window, default "80,60"
 #   BROWSER_CREDENTIALS    the logins file, default ~/.claude/browser-users.env
+#   BROWSER_NO_SANDBOX     1 runs the browser without the Chromium sandbox
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=common.sh
@@ -38,7 +39,7 @@ die() {
 }
 
 usage() {
-  sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # Accepts both `--flag value` and `--flag=value`; the second form is what the
@@ -265,12 +266,21 @@ running_count() {
 # window never jumps. A null viewport lets the page follow the window instead
 # of being pinned inside it. Each slot cascades by 40px so several sessions
 # stay distinguishable.
+#
+# Playwright disables the Chromium sandbox unless told otherwise, which also
+# puts a --no-sandbox warning bar on every window; chromiumSandbox turns it
+# back on. The CLI writes snapshots and logs to ./.playwright-cli in whatever
+# directory it runs from, so outputDir keeps them in the profile instead of
+# the user's repo.
 write_config() {
-  local config=$1 slot=$2
+  local config=$1 slot=$2 profile=$3 sandbox=true
+  [ "${BROWSER_NO_SANDBOX:-}" = "1" ] && sandbox=false
   cat >"$config" <<JSON
 {
+  "outputDir": "$profile/output",
   "browser": {
     "launchOptions": {
+      "chromiumSandbox": $sandbox,
       "args": ["--window-size=1440,1000", "--window-position=$((origin_x + slot * 40)),$((origin_y + slot * 40))"]
     },
     "contextOptions": { "viewport": null }
@@ -296,13 +306,20 @@ start_one() {
   mkdir -p "$profile"
   chmod 700 "$profile"
 
-  write_config "$profile/cli.config.json" "$slot"
+  write_config "$profile/cli.config.json" "$slot" "$profile"
 
   local open_args=(open)
   [ -n "$url" ] && open_args+=("$url")
   open_args+=(--headed "--profile=$profile" "--config=$profile/cli.config.json")
 
-  pw -s="$name" "${open_args[@]}"
+  if ! pw -s="$name" "${open_args[@]}"; then
+    if [ "${BROWSER_NO_SANDBOX:-}" != "1" ]; then
+      die "The browser did not start. If the output above mentions the sandbox or
+namespaces (AppArmor on Ubuntu 24.04 and later blocks it), ask the user, then
+re-run with BROWSER_NO_SANDBOX=1 to start it without the Chromium sandbox."
+    fi
+    die "The browser did not start; see the output above."
+  fi
 
   cat >"$profile/session.json" <<JSON
 {
