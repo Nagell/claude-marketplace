@@ -14,10 +14,12 @@ Subcommands:
   added-lines  list line numbers that are ADDED in the new file (valid anchors)
   list         list existing non-system notes (optionally filtered by author)
   threads      dump discussions as JSON (ownership, resolved state, full bodies)
+  for-branch   list the MRs whose source branch is the given branch (no --iid)
   post         post a positioned discussion from a markdown file
   edit         replace an existing note's body, keeping its anchor
   reply        append a note to an existing discussion
-  resolve      mark a discussion resolved  (refuses threads we did not open)
+  resolve      mark a discussion resolved  (refuses threads we did not open,
+               unless --as-author on an MR we opened)
   unresolve    reopen a discussion         (refuses threads we did not open)
   note         post a general, non-resolvable MR note from a markdown file
   approve      approve the MR at an exact head sha
@@ -347,6 +349,8 @@ def cmd_threads(a) -> None:
         first = notes[0]
         if a.mine and first["author"]["username"] != me:
             continue
+        if a.unresolved and (not first.get("resolvable") or first.get("resolved")):
+            continue
         pos = first.get("position") or {}
         out.append({
             "discussion_id": d["id"],
@@ -390,8 +394,20 @@ def cmd_reply(a) -> None:
           f"({len(note['body'])} chars)")
 
 
+def _require_mr_author(a) -> None:
+    """Refuse unless we opened the MR: its author may close its review threads."""
+    author = glab(mr_base(a.project, a.iid), a.repo_dir)["author"]["username"]
+    me = current_user(a.repo_dir)
+    if author != me:
+        sys.exit(f"refusing --as-author: !{a.iid} was opened by {author}, not {me}.")
+
+
 def _set_resolved(a, want: bool) -> None:
-    _require_ours(a, a.discussion)
+    if want and getattr(a, "as_author", False):
+        _require_mr_author(a)
+        _discussion(a, a.discussion)
+    else:
+        _require_ours(a, a.discussion)
     d = glab(
         f"{mr_base(a.project, a.iid)}/discussions/{a.discussion}",
         a.repo_dir, "PUT", {"resolved": want},
@@ -736,6 +752,21 @@ def cmd_approve(a) -> None:
     print(f"  !{a.iid} approved by {me} at {a.sha[:12]}")
 
 
+def cmd_for_branch(a) -> None:
+    """The MRs whose source branch is --branch, open ones first."""
+    mrs = _paged(f"projects/{a.project}/merge_requests?state=all"
+                 f"&source_branch={quote(a.branch, safe='')}", a.repo_dir)
+    if not mrs:
+        print(f"none: no MR on {a.branch}")
+        return
+    mrs.sort(key=lambda m: (m["state"] != "opened", -m["iid"]))
+    for m in mrs:
+        print(f"!{m['iid']} {m['state']}{' draft' if m.get('draft') else ''} "
+              f"by {m['author']['username']}: {m.get('title') or ''}")
+        print(f"  url    {m['web_url']}")
+        print(f"  branch {m['source_branch']} -> {m['target_branch']}")
+
+
 def _linked_iids(description: str, sibling_path: str) -> list[str]:
     """MR iids in the sibling project that the description links or references."""
     path = re.escape(sibling_path)
@@ -777,7 +808,8 @@ def cmd_counterpart(a) -> None:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--project", required=True, help="numeric project id or URL-encoded path")
-    p.add_argument("--iid", required=True, help="MR iid (the !123 in the URL)")
+    p.add_argument("--iid", default=None,
+                   help="MR iid (the !123 in the URL); every subcommand but for-branch")
     p.add_argument("--repo-dir", default=None, help="cwd for glab (a checkout of the repo)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -819,6 +851,8 @@ def main() -> None:
     th = sub.add_parser("threads")
     th.add_argument("--out", default=None, help="write JSON here instead of stdout")
     th.add_argument("--mine", action="store_true", help="only threads we opened")
+    th.add_argument("--unresolved", action="store_true",
+                    help="only resolvable threads that are still open")
     th.set_defaults(func=cmd_threads)
 
     rp = sub.add_parser("reply")
@@ -828,6 +862,8 @@ def main() -> None:
 
     rs = sub.add_parser("resolve")
     rs.add_argument("--discussion", required=True)
+    rs.add_argument("--as-author", action="store_true",
+                    help="resolve a reviewer's thread on an MR we opened")
     rs.set_defaults(func=cmd_resolve)
 
     ur = sub.add_parser("unresolve")
@@ -872,7 +908,13 @@ def main() -> None:
     dd.add_argument("--ledger", required=True)
     dd.set_defaults(func=cmd_discard_drafts)
 
+    fb = sub.add_parser("for-branch")
+    fb.add_argument("--branch", required=True, help="source branch name")
+    fb.set_defaults(func=cmd_for_branch)
+
     a = p.parse_args()
+    if a.iid is None and a.cmd != "for-branch":
+        p.error(f"--iid is required for {a.cmd}")
     a.func(a)
 
 

@@ -143,3 +143,93 @@ def test_clamped_span_with_suggestion_is_refused(fake, tmp_path):
 def test_discard_fails_on_a_missing_ledger(fake, tmp_path):
     with pytest.raises(SystemExit, match="no ledger"):
         gl.cmd_discard_drafts(args(tmp_path, ledger=str(tmp_path / "typo.json")))
+
+
+# Author-side commands (resolve-review)
+
+
+class AuthorGitLab(FakeGitLab):
+    def __init__(self):
+        super().__init__()
+        self.mr_author = "me"
+        self.mrs: list[dict] = []
+        self.discussions: list[dict] = []
+
+    def glab(self, path, repo_dir=None, method="GET", body=None):
+        if path == MR and method == "GET":
+            self.calls.append((method, path, body))
+            return {"author": {"username": self.mr_author},
+                    "diff_refs": {"base_sha": "b", "start_sha": "s", "head_sha": "h"}}
+        if path.startswith(f"{MR}/discussions/") and method == "PUT":
+            self.calls.append((method, path, body))
+            return {"notes": [{"id": 1, "author": {"username": self.thread_owner},
+                               "resolved": body["resolved"]}]}
+        if path.startswith(f"{MR}/discussions?"):
+            self.calls.append((method, path, body))
+            return self.discussions
+        if path.startswith("projects/9/merge_requests?"):
+            self.calls.append((method, path, body))
+            return self.mrs
+        return super().glab(path, repo_dir, method, body)
+
+
+@pytest.fixture
+def author_fake(monkeypatch):
+    f = AuthorGitLab()
+    monkeypatch.setattr(gl, "glab", f.glab)
+    return f
+
+
+def test_resolve_as_author_closes_a_reviewers_thread_on_our_mr(author_fake, tmp_path):
+    author_fake.thread_owner = "reviewer"
+    gl.cmd_resolve(args(tmp_path, discussion="abc", as_author=True))
+    assert author_fake.sent("PUT", f"{MR}/discussions/abc") == [{"resolved": True}]
+
+
+def test_resolve_as_author_refused_on_someone_elses_mr(author_fake, tmp_path):
+    author_fake.thread_owner = author_fake.mr_author = "reviewer"
+    with pytest.raises(SystemExit, match="opened by reviewer"):
+        gl.cmd_resolve(args(tmp_path, discussion="abc", as_author=True))
+    assert not author_fake.sent("PUT", f"{MR}/discussions/abc")
+
+
+def test_resolve_without_as_author_still_refuses_a_reviewers_thread(author_fake, tmp_path):
+    author_fake.thread_owner = "reviewer"
+    with pytest.raises(SystemExit, match="opened by reviewer"):
+        gl.cmd_resolve(args(tmp_path, discussion="abc", as_author=False))
+    assert not author_fake.sent("PUT", f"{MR}/discussions/abc")
+
+
+def test_threads_unresolved_keeps_only_open_resolvable_threads(author_fake, tmp_path,
+                                                               capsys):
+    def disc(did, resolvable, resolved):
+        return {"id": did, "notes": [{"id": 1, "author": {"username": "reviewer"},
+                                      "resolvable": resolvable, "resolved": resolved,
+                                      "body": "x", "created_at": "t"}]}
+    author_fake.discussions = [disc("open", True, False), disc("done", True, True),
+                               disc("general", False, False)]
+    gl.cmd_threads(args(tmp_path, out=None, mine=False, unresolved=True))
+    got = json.loads(capsys.readouterr().out)["discussions"]
+    assert [t["discussion_id"] for t in got] == ["open"]
+
+
+def test_for_branch_lists_open_mrs_first(author_fake, tmp_path, capsys):
+    def mr(iid, state):
+        return {"iid": iid, "state": state, "author": {"username": "me"}, "title": "t",
+                "web_url": f"u{iid}", "source_branch": "feat/x", "target_branch": "main"}
+    author_fake.mrs = [mr(2, "merged"), mr(4, "opened")]
+    gl.cmd_for_branch(args(tmp_path, iid=None, branch="feat/x"))
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.startswith("!")]
+    assert lines == ["!4 opened by me: t", "!2 merged by me: t"]
+    assert "source_branch=feat%2Fx" in author_fake.calls[0][1]
+
+
+def test_for_branch_says_none(author_fake, tmp_path, capsys):
+    gl.cmd_for_branch(args(tmp_path, iid=None, branch="feat/x"))
+    assert capsys.readouterr().out.startswith("none: no MR on feat/x")
+
+
+def test_iid_is_required_except_for_for_branch(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["gitlab_comments.py", "--project", "9", "threads"])
+    with pytest.raises(SystemExit):
+        gl.main()

@@ -430,3 +430,73 @@ def test_discard_deletes_only_ours_and_the_review_we_created(fake, tmp_path):
 def test_discard_fails_on_a_missing_ledger(fake, tmp_path):
     with pytest.raises(SystemExit, match="no ledger"):
         g.cmd_discard_drafts(args(tmp_path, ledger=str(tmp_path / "typo.json")))
+
+
+# Author-side commands (resolve-review)
+
+
+def test_resolve_as_author_closes_a_reviewers_thread_on_our_pr(fake, tmp_path):
+    fake.thread_owner, fake.author = "reviewer", "me"
+    g.cmd_resolve(args(tmp_path, discussion="PRRT_1", as_author=True))
+    assert fake.mutations("resolveReviewThread") == [{"id": "PRRT_1"}]
+
+
+def test_resolve_as_author_refused_on_someone_elses_pr(fake, tmp_path):
+    fake.thread_owner = "reviewer"
+    with pytest.raises(SystemExit, match="opened by author"):
+        g.cmd_resolve(args(tmp_path, discussion="PRRT_1", as_author=True))
+    assert not fake.mutations("resolveReviewThread")
+
+
+def test_resolve_without_as_author_still_refuses_a_reviewers_thread(fake, tmp_path):
+    fake.thread_owner, fake.author = "reviewer", "me"
+    with pytest.raises(SystemExit, match="opened by reviewer"):
+        g.cmd_resolve(args(tmp_path, discussion="PRRT_1", as_author=False))
+    assert not fake.mutations("resolveReviewThread")
+
+
+def test_resolve_as_author_still_checks_the_thread_belongs_to_the_pr(fake, tmp_path):
+    fake.thread_owner, fake.author = "reviewer", "me"
+    fake.thread_pr = ("o/other", 3)
+    with pytest.raises(SystemExit, match="belongs to o/other#3"):
+        g.cmd_resolve(args(tmp_path, discussion="PRRT_1", as_author=True))
+
+
+def test_threads_unresolved_keeps_only_open_review_threads(monkeypatch, fake, tmp_path,
+                                                           capsys):
+    rows = [
+        {"discussion_id": "PRRT_open", "resolvable": True, "resolved": False, "ours": False},
+        {"discussion_id": "PRRT_done", "resolvable": True, "resolved": True, "ours": False},
+        {"discussion_id": "issuecomment-1", "resolvable": False, "resolved": False,
+         "ours": False},
+    ]
+    monkeypatch.setattr(g, "all_threads", lambda a, me: rows)
+    g.cmd_threads(args(tmp_path, out=None, mine=False, unresolved=True))
+    got = json.loads(capsys.readouterr().out)["discussions"]
+    assert [t["discussion_id"] for t in got] == ["PRRT_open"]
+
+
+def test_for_branch_lists_open_prs_first(monkeypatch, fake, tmp_path, capsys):
+    prs = [
+        {"number": 3, "state": "closed", "merged_at": "x", "user": {"login": "me"},
+         "title": "old", "html_url": "u3", "head": {"ref": "feat"}, "base": {"ref": "main"}},
+        {"number": 5, "state": "open", "user": {"login": "me"}, "draft": True,
+         "title": "new", "html_url": "u5", "head": {"ref": "feat"}, "base": {"ref": "main"}},
+    ]
+    monkeypatch.setattr(g, "_paged", lambda path, repo_dir: prs
+                        if path == "repos/o/r/pulls?state=all&head=o:feat" else [])
+    g.cmd_for_branch(args(tmp_path, iid=None, branch="feat"))
+    lines = [ln for ln in capsys.readouterr().out.splitlines() if ln.startswith("#")]
+    assert lines == ["#5 open draft by me: new", "#3 merged by me: old"]
+
+
+def test_for_branch_says_none(monkeypatch, fake, tmp_path, capsys):
+    monkeypatch.setattr(g, "_paged", lambda path, repo_dir: [])
+    g.cmd_for_branch(args(tmp_path, iid=None, branch="feat"))
+    assert capsys.readouterr().out.startswith("none: no PR on feat")
+
+
+def test_iid_is_required_except_for_for_branch(monkeypatch):
+    monkeypatch.setattr(sys, "argv", ["github_comments.py", "--project", "o/r", "threads"])
+    with pytest.raises(SystemExit):
+        g.main()

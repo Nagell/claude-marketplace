@@ -26,10 +26,12 @@ Subcommands:
   added-lines  list line numbers that are ADDED in the new file
   list         list existing comments (optionally filtered by author)
   threads      dump threads as JSON (ownership, resolved state, full bodies)
+  for-branch   list the PRs whose head is the given branch (no --iid)
   post         post one inline comment right away
   edit         replace an existing comment's body, keeping its anchor
   reply        append a comment to an existing thread right away
-  resolve      mark a thread resolved  (refuses threads we did not open)
+  resolve      mark a thread resolved  (refuses threads we did not open,
+               unless --as-author on a PR we opened)
   unresolve    reopen a thread         (refuses threads we did not open)
   note         post a general PR comment (never resolvable)
   approve      approve the PR, refused unless its head is still the given sha
@@ -397,6 +399,8 @@ def all_threads(a, me: str) -> list[dict]:
 def cmd_threads(a) -> None:
     me = current_user(a.repo_dir)
     out = [t for t in all_threads(a, me) if not a.mine or t["ours"]]
+    if a.unresolved:
+        out = [t for t in out if t["resolvable"] and not t["resolved"]]
     text = json.dumps({"me": me, "discussions": out}, indent=2)
     if not a.out:
         print(text)
@@ -471,8 +475,21 @@ RESOLVE_M = {
 }
 
 
-def set_resolved(a, tid: str, want: bool) -> None:
-    _require_ours(a, tid)
+def _require_pr_author(a) -> None:
+    """Refuse unless we opened the PR: its author may close its review threads."""
+    author = _login(_pr(a).get("user"))
+    me = current_user(a.repo_dir)
+    if author != me:
+        sys.exit(f"refusing --as-author: {a.project}#{a.iid} was opened by {author}, "
+                 f"not {me}.")
+
+
+def set_resolved(a, tid: str, want: bool, as_author: bool = False) -> None:
+    if want and as_author:
+        _require_pr_author(a)
+        _thread(a, tid)
+    else:
+        _require_ours(a, tid)
     d = graphql(RESOLVE_M[want], a.repo_dir, id=tid)
     key = "resolveReviewThread" if want else "unresolveReviewThread"
     got = d[key]["thread"]["isResolved"]
@@ -483,7 +500,7 @@ def set_resolved(a, tid: str, want: bool) -> None:
 
 
 def cmd_resolve(a) -> None:
-    set_resolved(a, a.discussion, True)
+    set_resolved(a, a.discussion, True, getattr(a, "as_author", False))
 
 
 def cmd_unresolve(a) -> None:
@@ -892,6 +909,23 @@ def cmd_discard_drafts(a) -> None:
     print(f"  deleted {gone} draft(s) of this run; none of ours left pending")
 
 
+def cmd_for_branch(a) -> None:
+    """The PRs whose head is --branch in --project, open ones first."""
+    owner, _ = _owner_name(a)
+    prs = _paged(f"repos/{a.project}/pulls?state=all&head={owner}:{a.branch}",
+                 a.repo_dir)
+    if not prs:
+        print(f"none: no PR on {a.branch}")
+        return
+    prs.sort(key=lambda p: (p["state"] != "open", -p["number"]))
+    for p in prs:
+        state = "merged" if p.get("merged_at") else p["state"]
+        print(f"#{p['number']} {state}{' draft' if p.get('draft') else ''} "
+              f"by {_login(p.get('user'))}: {p.get('title') or ''}")
+        print(f"  url    {p['html_url']}")
+        print(f"  branch {p['head']['ref']} -> {p['base']['ref']}")
+
+
 def linked_numbers(description: str, sibling: str) -> list[str]:
     """PR numbers in the sibling repo that the description links or references."""
     repo = re.escape(sibling)
@@ -931,7 +965,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--project", required=True, help="owner/repo")
-    p.add_argument("--iid", required=True, help="PR number")
+    p.add_argument("--iid", default=None,
+                   help="PR number; every subcommand but for-branch")
     p.add_argument("--repo-dir", default=None, help="cwd for gh")
     sub = p.add_subparsers(dest="cmd", required=True)
     rf = sub.add_parser("refs")
@@ -965,6 +1000,8 @@ def build_parser() -> argparse.ArgumentParser:
     th = sub.add_parser("threads")
     th.add_argument("--out", default=None)
     th.add_argument("--mine", action="store_true")
+    th.add_argument("--unresolved", action="store_true",
+                    help="only resolvable threads that are still open")
     th.set_defaults(func=cmd_threads)
     rp = sub.add_parser("reply")
     rp.add_argument("--file", required=True)
@@ -974,6 +1011,9 @@ def build_parser() -> argparse.ArgumentParser:
         s = sub.add_parser(name)
         s.add_argument("--discussion", required=True)
         s.set_defaults(func=func)
+    rs = sub.choices["resolve"]
+    rs.add_argument("--as-author", action="store_true",
+                    help="resolve a reviewer's thread on a PR we opened")
     nt = sub.add_parser("note")
     nt.add_argument("--file", required=True)
     nt.set_defaults(func=cmd_note)
@@ -1006,11 +1046,17 @@ def build_parser() -> argparse.ArgumentParser:
     dd = sub.add_parser("discard-drafts")
     dd.add_argument("--ledger", required=True)
     dd.set_defaults(func=cmd_discard_drafts)
+    fb = sub.add_parser("for-branch")
+    fb.add_argument("--branch", required=True, help="head branch name")
+    fb.set_defaults(func=cmd_for_branch)
     return p
 
 
 def main() -> None:
-    a = build_parser().parse_args()
+    p = build_parser()
+    a = p.parse_args()
+    if a.iid is None and a.cmd != "for-branch":
+        p.error(f"--iid is required for {a.cmd}")
     a.func(a)
 
 

@@ -50,6 +50,12 @@ non-system note was written by the user `glab` is logged in as (`me`).
 `severity` is parsed from the first line of that note, `head_sha` and
 `new_line` come from the note's position, which keeps the sha it was written
 against. General notes and review summaries appear as non-resolvable threads.
+`--unresolved` keeps only resolvable threads that are still open.
+
+For the author's side (the `resolve-review` skill): `for-branch --branch <name>`
+lists the MRs on a source branch and needs no `--iid`, and
+`resolve --as-author` resolves a reviewer's thread, refused unless `me` opened
+the MR.
 
 ## Anchors
 

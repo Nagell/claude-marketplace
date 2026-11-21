@@ -59,6 +59,12 @@ gh api "repos/<cp_owner>/<cp_repo>/contents/<path>?ref=<cp_head_sha>" \
   resolved, and a reply to one is a new general comment (`note`).
 - `head_sha` and `new_line` come from the first comment's original commit and
   original line, the point it was written against.
+- `--unresolved` keeps only review threads that are still open.
+
+For the author's side (the `resolve-review` skill): `for-branch --branch <name>`
+lists the PRs whose head is that branch in `--project` and needs no `--iid`,
+and `resolve --as-author` resolves a reviewer's thread, refused unless `me`
+opened the PR.
 
 ## Anchors
 
