@@ -82,7 +82,7 @@ The marketplace ships core plugin, `base`, which carries safety guardrails, auto
 
 - Claude Code
 - Git
-- Node.js (for npx-based MCP servers)
+- Node.js (for the auto-formatters and the browser skill)
 
 ### Installation
 
