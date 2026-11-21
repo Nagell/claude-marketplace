@@ -11,6 +11,14 @@
 # shellcheck disable=SC2034  # read by the scripts that source this file
 PW_CLI_PKG="@playwright/cli@0.1.23"
 
+# The CLI reads this dotenv file itself when a session starts, so a login is
+# filled by key name (`fill e3 BROWSER_ADMIN_PASSWORD`) and the values show up
+# as <secret>NAME</secret> in its output instead of in the conversation.
+BROWSER_CRED_FILE="${BROWSER_CREDENTIALS:-$HOME/.claude/browser-users.env}"
+if [ -f "$BROWSER_CRED_FILE" ]; then
+  export PLAYWRIGHT_MCP_SECRETS_FILE="$BROWSER_CRED_FILE"
+fi
+
 # Picks one build's directory out of `install-browser --dry-run` output on
 # stdin. The dry run lists every build the pinned version wants (chromium,
 # ffmpeg, the headless shell), so match on the build's own name - which also

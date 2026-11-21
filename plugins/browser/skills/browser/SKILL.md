@@ -202,7 +202,7 @@ agents want it.
 | You need | Use |
 | -------- | --- |
 | A browser, or several | `scripts/launch.sh` (Playwright CLI sessions) |
-| Accessibility-tree driving, form filling with stored secrets | `playwright` MCP |
+| Accessibility-tree driving | `playwright` MCP |
 | Performance traces, network and console inspection | `chrome-devtools` MCP |
 | That Chrome build specifically — its own debug profile, not their logins | `--chrome` |
 

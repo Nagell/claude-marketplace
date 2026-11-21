@@ -193,21 +193,40 @@ mcp_checked=false
 mcp_playwright=false
 mcp_playwright_sandbox=false
 mcp_chrome_devtools=false
+mcp_playwright_plugin=""
+mcp_playwright_plugin_sandbox=false
 if [ "${BROWSER_SKIP_MCP:-}" != "1" ] && command -v claude >/dev/null 2>&1; then
-  mcp_checked=true
-  mcp_raw=$(claude mcp list 2>/dev/null || true)
-  # Per entry, not across the whole listing: a --sandbox belonging to some other
-  # server used to be read as the Playwright one being correctly registered.
-  mcp_pw_line=$(printf '%s\n' "$mcp_raw" | grep -m1 -- playwright || true)
-  [ -n "$mcp_pw_line" ] && mcp_playwright=true
-  case "$mcp_pw_line" in *"--sandbox"*) mcp_playwright_sandbox=true ;; esac
-  case "$mcp_raw" in *chrome-devtools*) mcp_chrome_devtools=true ;; esac
+  if mcp_raw=$(claude mcp list 2>/dev/null); then
+    mcp_checked=true
+    # Per entry, not across the whole listing: a --sandbox belonging to some
+    # other server used to be read as the Playwright one being correctly
+    # registered. A plugin's server (`plugin:<name>:playwright:`) is reported
+    # apart from the user's own, because `claude mcp remove` cannot change it.
+    mcp_pw_line=$(printf '%s\n' "$mcp_raw" | grep -v '^plugin:' | grep -m1 -- playwright || true)
+    mcp_pw_plugin_line=$(printf '%s\n' "$mcp_raw" |
+      grep -m1 -E '^plugin:[^:]+:[^:]*playwright[^:]*:' || true)
+    if [ -n "$mcp_pw_line" ]; then
+      mcp_playwright=true
+      case "$mcp_pw_line" in *"--sandbox"*) mcp_playwright_sandbox=true ;; esac
+    fi
+    if [ -n "$mcp_pw_plugin_line" ]; then
+      mcp_playwright=true
+      mcp_playwright_plugin=$(printf '%s' "$mcp_pw_plugin_line" | cut -d: -f2)
+      case "$mcp_pw_plugin_line" in *"--sandbox"*) mcp_playwright_plugin_sandbox=true ;; esac
+    fi
+    case "$mcp_raw" in *chrome-devtools*) mcp_chrome_devtools=true ;; esac
 
-  if [ "$mcp_playwright" = true ] && [ "$mcp_playwright_sandbox" = false ]; then
-    advisories+=("playwright MCP is registered without --sandbox; it will show a security warning bar")
+    if [ -n "$mcp_pw_line" ] && [ "$mcp_playwright_sandbox" = false ]; then
+      advisories+=("playwright MCP is registered without --sandbox; it will show a security warning bar")
+    fi
+    if [ -n "$mcp_playwright_plugin" ] && [ "$mcp_playwright_plugin_sandbox" = false ]; then
+      advisories+=("playwright MCP from the $mcp_playwright_plugin plugin runs without --sandbox; claude mcp remove cannot change a plugin's server, the fix belongs in that plugin's .mcp.json")
+    fi
+    [ "$mcp_playwright" = true ] || advisories+=("playwright MCP is not registered")
+    [ "$mcp_chrome_devtools" = true ] || advisories+=("chrome-devtools MCP is not registered")
+  else
+    advisories+=("claude mcp list failed, so the MCP servers were not checked")
   fi
-  [ "$mcp_playwright" = true ] || advisories+=("playwright MCP is not registered")
-  [ "$mcp_chrome_devtools" = true ] || advisories+=("chrome-devtools MCP is not registered")
 fi
 
 # ------------------------------------------------------------------ output ---
@@ -243,6 +262,8 @@ cat <<JSON
     "checked": $mcp_checked,
     "playwright": $mcp_playwright,
     "playwright_sandbox": $mcp_playwright_sandbox,
+    "playwright_plugin": "$(esc "$mcp_playwright_plugin")",
+    "playwright_plugin_sandbox": $mcp_playwright_plugin_sandbox,
     "chrome_devtools": $mcp_chrome_devtools
   },
   "missing": $(arr ${missing+"${missing[@]}"}),

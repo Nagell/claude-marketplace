@@ -10,6 +10,13 @@
 # launch silently fails to bind the port and leaves a browser with no endpoint.
 set -euo pipefail
 
+case "${1:-}" in
+  -h | --help)
+    sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+    exit 0
+    ;;
+esac
+
 # Git Bash on Windows has no pgrep/pkill and Chrome lives elsewhere, so this
 # would fail halfway through. Say so up front instead.
 case "$(uname -s)" in
@@ -91,6 +98,28 @@ probe() {
 port_answers() { curl -s -o /dev/null --max-time 2 "$URL"; }
 report() { grep -o '"Browser": *"[^"]*"' "$VERSION_JSON" || echo "(no Browser field)"; }
 
+# The pid listening on the port, where the platform lets us see it.
+port_owner_pid() {
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnpH "sport = :$PORT" 2>/dev/null | grep -o 'pid=[0-9]*' | head -1 | cut -d= -f2
+  elif command -v lsof >/dev/null 2>&1; then
+    lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t 2>/dev/null | head -1
+  fi
+}
+
+# True when the browser answering on the port is the dedicated debug Chrome.
+# A debug Chrome merely running proves nothing: it may have failed to bind
+# while another browser holds the port.
+port_is_ours() {
+  local pid
+  pid=$(port_owner_pid || true)
+  if [ -n "$pid" ]; then
+    ps -o args= -p "$pid" 2>/dev/null | grep -Eq -- "user-data-dir=$PROFILE_RE"
+  else
+    pgrep -f -- "remote-debugging-port=$PORT .*user-data-dir=$PROFILE_RE" >/dev/null 2>&1
+  fi
+}
+
 # A single transient miss on a live endpoint would defeat the reuse check and
 # relaunch needlessly. An idle Chrome can take several seconds to answer its
 # first request, so the reuse check retries and allows a longer per-attempt
@@ -111,7 +140,7 @@ if probe_settled; then
   # /json/version does not say which profile answered. Exiting 0 here would let
   # the caller point an MCP server at a browser nobody identified, so a foreign
   # listener is a failure rather than a warning.
-  if ! pgrep -f -- "$PROFILE_RE" >/dev/null 2>&1; then
+  if ! port_is_ours; then
     echo "Port $PORT is held by something that is not $PROFILE." >&2
     echo "Driving it would mean driving an unidentified browser, so stopping." >&2
     echo "Free the port, or drop --chrome and use the default launcher." >&2

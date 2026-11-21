@@ -10,6 +10,7 @@
 # Env overrides:
 #   BROWSER_PROFILE_ROOT   where session profiles live
 #   BROWSER_WINDOW_ORIGIN  "x,y" of the first window, default "80,60"
+#   BROWSER_CREDENTIALS    the logins file, default ~/.claude/browser-users.env
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=common.sh
@@ -37,7 +38,7 @@ die() {
 }
 
 usage() {
-  sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # Accepts both `--flag value` and `--flag=value`; the second form is what the
@@ -175,12 +176,14 @@ case "$action" in
 
   stop)
     [ -n "$session" ] || die "--stop needs a session name."
-    session=$(sanitize "$session")
     # There is deliberately no stop-everything: another agent's browser is not
-    # this caller's to close.
+    # this caller's to close. Checked before sanitising, which turns "*" into
+    # an empty name - and an empty -s= is the CLI's default session.
     case "$session" in
       all | "*") die "Refusing to stop everything. Name one session." ;;
     esac
+    session=$(sanitize "$session")
+    [ -n "$session" ] || die "--stop needs a session name of letters, digits or dashes."
     pw_available || die "Playwright CLI is not installed yet, so nothing is running."
     pw -s="$session" close
     printf 'Stopped session: %s (any other session is untouched)\n' "$session"
@@ -282,6 +285,9 @@ start_one() {
 
   if session_running "$name"; then
     printf 'Reused session: %s (already running, profile %s)\n' "$name" "$profile"
+    if [ -n "$url" ]; then
+      pw -s="$name" goto "$url"
+    fi
     return 0
   fi
 

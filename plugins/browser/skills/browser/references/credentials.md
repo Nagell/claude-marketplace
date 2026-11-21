@@ -145,18 +145,32 @@ claude mcp add -s user playwright \
      --secrets="$HOME/.claude/browser-users.env"
 ```
 
-**The CLI has no equivalent, and its `fill` takes only literal text** — there is
-no secret-reference input. Whatever you pass lands in the process arguments,
-where any local user can read it out of `ps`, and sourcing the file executes it
-as shell. So when the password must stay unseen, drive the login through
-Playwright MCP with `--secrets`. If you use the CLI anyway, know the cost:
+**The CLI fills by key name.** The scripts hand the CLI the same file
+(`PLAYWRIGHT_MCP_SECRETS_FILE`, set in `scripts/common.sh` whenever the file
+exists), so `fill` takes the key name, not the value. The CLI looks the value up
+itself and prints `<secret>BROWSER_ADMIN_PASSWORD</secret>` wherever the value
+would have appeared. The value stays out of the conversation and out of `ps`.
+The file is parsed as dotenv, not run as shell, so a `$` in a password stays a
+`$`.
 
 ```bash
 S=admin-work                    # the session name you launched with
-set -a && . ~/.claude/browser-users.env && set +a
-bash "${CLAUDE_SKILL_DIR}/scripts/pw.sh" -s="$S" fill e2 "$BROWSER_ADMIN_EMAIL"
-bash "${CLAUDE_SKILL_DIR}/scripts/pw.sh" -s="$S" fill e3 "$BROWSER_ADMIN_PASSWORD"
+bash "${CLAUDE_SKILL_DIR}/scripts/pw.sh" -s="$S" fill e2 BROWSER_ADMIN_EMAIL
+bash "${CLAUDE_SKILL_DIR}/scripts/pw.sh" -s="$S" fill e3 BROWSER_ADMIN_PASSWORD
 ```
+
+- The session reads the file when it starts. A session launched before the file
+  existed or was filled in has to be stopped and launched again.
+- A key the file does not have is typed as literal text, which is the key
+  name. A login that fails right after a fill by name usually means a
+  misspelled key.
+- Never pass the value itself (`"$BROWSER_ADMIN_PASSWORD"`): `fill` echoes
+  literal text back as generated code, which puts the password in the
+  transcript.
+- This behaviour is read from the CLI's source (0.1.23, Playwright 1.65) and has
+  not been run yet. The first time, check that the tool output shows `<secret>`
+  where the password would be. If it shows the value, stop, tell the user, and
+  drive the login through Playwright MCP with `--secrets` instead.
 
 **Saved session state** is the third option and a complement, not a store. It
 holds no password, but it is a live session token — anyone who can read the file

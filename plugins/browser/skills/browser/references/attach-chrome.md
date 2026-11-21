@@ -41,6 +41,12 @@ someone starts Chrome on 9222. The default registration in
 [mcp-servers.md](mcp-servers.md) launches its own browser and needs none of it.
 The session must be restarted before the tools appear.
 
+Check `claude mcp list` first. A `chrome-devtools` server registered the default
+way, without `--browser-url`, drives a Chrome of its own, not the one this
+script starts. Its tools then work on the wrong browser. Register the attaching
+server under a second name (`chrome-devtools-attach`, say) instead of replacing
+the default one, and use that server's tools for this path.
+
 ## Reading the result
 
 On success the script prints the `Browser` value. Relay it.

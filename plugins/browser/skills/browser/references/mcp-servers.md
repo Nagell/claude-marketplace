@@ -54,6 +54,14 @@ This replaces the registration rather than amending it, so read the existing one
 first and carry its options across. One that had `--user-data-dir`,
 `--storage-state` or `--secrets` loses them here, and the loss is silent.
 
+That fix applies only to a server the user registered. A server a plugin brings
+along shows in `claude mcp list` as `plugin:<plugin>:playwright`, and preflight
+reports it as `mcp.playwright_plugin`. `claude mcp remove` cannot touch it, and
+adding a user-scope `playwright` next to it gives two Playwright servers. The
+fix belongs in that plugin's `.mcp.json`: add `--sandbox` to its `args`, in the
+plugin's source repo for a plugin the user maintains, or ask its maintainer.
+Until then, tell the user the warning bar comes from that plugin.
+
 To confirm what a running browser was actually launched with, open
 `chrome://version` in it and read the **Command Line** row. That is the only
 check that settles the question — the flag can come from the MCP registration,
