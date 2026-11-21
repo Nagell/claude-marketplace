@@ -1,6 +1,6 @@
 {
   "name": "browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Start and drive isolated Playwright-managed browser sessions for Claude: preflight, consent-gated install, parallel sessions per agent, stored logins, and opt-in attach to an installed Chrome.",
   "author": {
     "name": "Dawid Nitka",
