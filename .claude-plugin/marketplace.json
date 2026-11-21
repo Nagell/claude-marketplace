@@ -84,7 +84,7 @@
       "name": "review",
       "source": "./plugins/review",
       "description": "Review a GitLab merge request or GitHub pull request in an isolated worktree: two review waves with coverage ledgers, refutation before anything is drafted, and one review posted only after you accept the drafts. Per-repo rules live in ~/.claude/review-rules/.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "keywords": [
         "review",
         "code-review",
