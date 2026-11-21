@@ -237,7 +237,8 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 - `rm -rf` targeting home (`~`) or root (`/`) directories
 - Hardcoded secrets (API_KEY, TOKEN, PASSWORD patterns 16+ chars)
 - Modifications to `.env` files via shell
-- `git push --force` without `--force-with-lease`
+- Force pushes (`-f`, `--force`, `+refspec`) without `--force-with-lease`
+- Every `git push` without a push token: after you approve that push, Claude creates `<repo root>/.claude-push-token` and the hook consumes it on the push
 
 ### Warnings
 
@@ -284,7 +285,7 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 
 ## CLAUDE.md
 
-The included [CLAUDE.md](CLAUDE.md) sets opinionated defaults: plain language, how choices are presented, formatting, commits, per-push confirmation, code style and TypeScript conventions. The `plugin-setup` skill offers to install it as `~/.claude/CLAUDE.md`.
+The included [CLAUDE.md](CLAUDE.md) sets opinionated defaults: plain language (with a switch to Simplified Technical English, ASD-STE100), routing text sent in your name through the author's writing style guide, how choices are presented, formatting, project defaults (pnpm, Nuxt), commits, per-push confirmation, code style and TypeScript conventions. The `plugin-setup` skill offers to install it as `~/.claude/CLAUDE.md`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

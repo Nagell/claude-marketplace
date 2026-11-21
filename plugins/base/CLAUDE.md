@@ -12,6 +12,8 @@
 
 ## Writing in My Voice
 
+The author's personal rule; other users can drop this section.
+
 - Anything sent in my name (Slack, email, Notion, comments, PR/MR descriptions, docs), one-liners included, goes through the `writing-style-guide` skill before you send, post or save it.
 
 ## Presenting Choices & Findings
@@ -43,7 +45,7 @@
 The base plugin's safety-guards hook enforces this, deliberately strictly.
 
 - Never push without my yes in that same turn. Commit, then ask.
-- One yes = one push. With the hook installed, create `.claude-push-token` yourself in its own Bash call, then push in a second call.
+- One yes = one push. With the hook installed, create `.claude-push-token` in the repo root yourself, in its own Bash call, then push in a second call.
 - Each further push, and any force push, needs its own yes. A yes never loosens anything else.
 - Standing permission only if I say it outright ("for this session you have full push allowance"); never inferred. It ends with the session.
 

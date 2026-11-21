@@ -42,11 +42,12 @@ Install recommended Claude Code plugins and marketplaces with interactive select
 
 5. **Step 3 — Global CLAUDE.md instructions**: After installation, offer to save this plugin's `CLAUDE.md` as the user's global Claude instructions (`~/.claude/CLAUDE.md`).
    - Check if `~/.claude/CLAUDE.md` already exists.
+   - The template is this plugin's `CLAUDE.md`, at `../../CLAUDE.md` relative to this skill's base directory.
    - **If it does NOT exist**: Use `AskUserQuestion` to ask:
-     - "Yes, create it (Recommended)" — copy `plugins/base/CLAUDE.md` to `~/.claude/CLAUDE.md`
+     - "Yes, create it (Recommended)" — copy the template to `~/.claude/CLAUDE.md`
      - "No, skip" — do nothing
-   - **If it DOES exist**: Read both `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, show their contents to the user for comparison, then use `AskUserQuestion` to ask:
-     - "Append to existing (Recommended)" — append the proposed content at the end of the existing file
+   - **If it DOES exist**: Read both `~/.claude/CLAUDE.md` and the template, show their contents to the user for comparison, then use `AskUserQuestion` to ask:
+     - "Append to existing (Recommended)" — append only the template's `##` sections whose heading the existing file doesn't already have, without its `# Global Instructions` title
      - "Replace existing" — overwrite with the proposed content
      - "Skip" — do nothing
 

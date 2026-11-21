@@ -75,6 +75,39 @@ if echo "$COMMAND" | grep -qE '(echo|cat|printf|>>|>)\s+.*\.env'; then
 fi
 
 # ============================================
+# BLOCK: Unsafe git force push
+# Runs before the push token gate below, so a blocked force push keeps the token.
+# ============================================
+
+# Command text for this check: heredoc bodies dropped, quoted strings stripped,
+# one shell command per line. Each `git [opts] push` is checked argument by
+# argument: -f, --force[=...], short-flag clusters with f (-uf) and +refspecs
+# block; --force-with-lease and --force-if-includes pass.
+# Limitation: a quoted argument (`git push origin "+main"`) is not seen.
+FORCE_TEXT=$(printf '%s\n' "$COMMAND" | sed 's/\\n/\n/g' |
+  awk 'term != "" { l = $0; sub(/^\t+/, "", l); if (l == term) term = ""; next }
+    match($0, /(^|[^<])<<-?[ \t]*["'\'']?[A-Za-z0-9_]+/) {
+      term = substr($0, RSTART, RLENGTH); sub(/^[^<]*<<-?[ \t]*["'\'']?/, "", term)
+    }
+    { print }' |
+  tr '\n' '\036' | sed "s/\"[^\"]*\"//g; s/'[^']*'//g" | tr '\036' '\n' |
+  sed -E 's/(&&|\|\||[;|&])/\n/g')
+PUSH_RE='(^|[[:space:]/])git([[:space:]]+-{1,2}[^[:space:]]+([[:space:]]+[^[:space:]-][^[:space:]]*)?)*[[:space:]]+push([[:space:]]|$)'
+while IFS= read -r SEGMENT; do
+  [[ $SEGMENT =~ $PUSH_RE ]] || continue
+  read -ra PUSH_ARGS <<<"${SEGMENT#*"${BASH_REMATCH[0]}"}"
+  for ARG in "${PUSH_ARGS[@]}"; do
+    case $ARG in
+      --force-with-lease* | --force-if-includes) continue ;;
+    esac
+    if [[ $ARG == --force || $ARG == --force=* || $ARG == +* || $ARG =~ ^-[[:alpha:]]*f[[:alpha:]]*$ ]]; then
+      echo "BLOCKED: force push ($ARG) without --force-with-lease. Use --force-with-lease instead." >&2
+      exit 2
+    fi
+  done
+done <<<"$FORCE_TEXT"
+
+# ============================================
 # CONFIRM: git push requires user approval
 # Works in all permission modes including bypass
 # ============================================
@@ -103,26 +136,12 @@ if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+(proxy
     rm -f "$TOKEN_FILE"
     PUSH_NOTICE="Push token consumed; this hook auto-removed $TOKEN_FILE. Do not delete it yourself."
   else
-    # Agents may not create the token themselves (auto mode refuses it), so the user does.
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply. Do not create the token yourself: ask the user to run `! touch %s`, then rerun the original git push command."}}' "$TOKEN_FILE"
+    # After the user's explicit yes for this push, the agent creates the token in the
+    # repo root itself, in its own Bash call, then pushes in a second call. (The hook
+    # runs before the command, so `touch ... && git push` in one call is denied.)
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply. Only after their explicit yes for this push, create the token in the repo root in its own Bash call: `touch %s`, then rerun the original git push command in a second call."}}' "$TOKEN_FILE"
     exit 0
   fi
-fi
-
-# ============================================
-# BLOCK: Unsafe git force push
-# ============================================
-
-if echo "$COMMAND" | grep -qE 'git\s+push\s+.*--force[^-]'; then
-  if ! echo "$COMMAND" | grep -qE 'force-with-lease'; then
-    echo "BLOCKED: git push --force without --force-with-lease. Use --force-with-lease for safety." >&2
-    exit 2
-  fi
-fi
-
-if echo "$COMMAND" | grep -qE 'git\s+push\s+(-f|.*\s-f)(\s|$)'; then
-  echo "BLOCKED: git push -f detected. Use --force-with-lease instead." >&2
-  exit 2
 fi
 
 # ============================================

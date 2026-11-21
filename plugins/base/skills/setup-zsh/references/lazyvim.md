@@ -69,7 +69,7 @@ grep -q 'require("config.resume")' ~/.config/nvim/lua/config/autocmds.lua 2>/dev
 
 Leave `$TMP` for the OS to clean up.
 
-`resume.lua` keeps the record of the `setup-zsh resume` zsh block (Step 20) in step with the files open in nvim, so a herdr server restart or Herdr app reboot reopens them, the current one first. It only acts inside a herdr pane or Herdr app terminal, when the zsh wrapper started nvim or herdr started it straight as the terminal's program (an agent's `pane.split --argv '["nvim", ...]'`); elsewhere, and for an nvim that git opens as an editor, it does nothing. An existing LazyVim config can get it the same way: copy `resume.lua` and append the `require` line.
+`resume.lua` keeps the record of the `setup-zsh resume` zsh block (Step 20) in step with the files open in nvim, so a herdr server restart or Herdr app reboot reopens them, the current one first. It only acts inside a herdr pane or Herdr app terminal, when the zsh wrapper started nvim from the shell or herdr started it straight as the terminal's program (an agent's `pane.split --argv '["nvim", ...]'` in the Herdr app, or `exec nvim ...` in a herdr pane; the herdr TUI has no argv option); elsewhere, and for an nvim that git or lazygit opens as an editor, it does nothing. An existing LazyVim config can get it the same way: copy `resume.lua` and append the `require` line.
 
 `lazyvim.json` turns on the extras `lang.typescript`, `lang.vue`, `lang.python`, `linting.eslint`, `formatting.prettier`, `lang.json`, `lang.yaml` and `lang.markdown`; `lazy-lock.json` pins plugin commits known to work together.
 

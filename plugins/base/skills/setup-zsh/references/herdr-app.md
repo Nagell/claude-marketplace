@@ -457,8 +457,9 @@ mdv-restore plugin reads the same resume block's records, so it is shared betwee
 Read `~/.zshrc`. If it contains `_hc_resumable` or `mdv-resume`, it has an earlier version:
 see the end of this section instead. Unless it already contains `# >>> setup-zsh resume >>>`, read
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end. If
-the block is there but lacks `zselect`, it is an earlier version that loses its record on a
-macOS reboot: replace everything between the `setup-zsh resume` markers with the asset.
+the block is there but lacks `zselect` (an earlier version that loses its record on a macOS
+reboot) or lacks `if .[-1] == ""` (an earlier jq filter that records `mdv docs/x.md` as
+`["mdv"]` on jq 1.6), replace everything between the `setup-zsh resume` markers with the asset.
 If it contains `# >>> setup-zsh herdr-app >>>` without `agent-resume-fallback` or without
 `_hc_gone`, replace everything between the `setup-zsh herdr-app` markers with the asset
 (same `<WORK_DIR>`).
@@ -516,7 +517,7 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
   back. `some-command | mdv` is not recorded. To add another program, add its name to the
   `for _resume_cmd in ...` list in the resume block.
 - **Started straight by Herdr:** an agent's `herdr-app do pane.split --argv '["mdv", ...]'`
-  (or `hc run mdv ...`) makes mdv or nvim the terminal's own program, with no zsh to wrap it.
+  makes mdv or nvim the terminal's own program, with no zsh to wrap it.
   The mdv launcher and LazyVim's `resume.lua` then write the same `cmd-resume` label
   themselves when their parent process is `herdr-core` (`herdr` in the TUI). The terminal
   closes when the program quits, so the label needs no clearing. btop and lazygit started
@@ -529,8 +530,8 @@ An earlier version kept the wrapper inside the herdr-app block, and an even earl
 only reopened mdv from an `mdv-resume` label the mdv launcher wrote. If `~/.zshrc` contains
 `_hc_resumable` or `mdv-resume`, replace the whole block between the `setup-zsh herdr-app`
 markers with the current resume asset followed by the current herdr-app asset, and update
-`~/.local/bin/mdv` if Step 15 reported it as outdated: the launcher no longer records
-anything.
+`~/.local/bin/mdv` if Step 15 reported it as outdated: the current launcher records itself
+only when Herdr starts it directly, and leaves the rest to the resume block.
 
 ## 9. Verify
 
