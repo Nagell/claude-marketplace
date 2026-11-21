@@ -1,6 +1,6 @@
 {
     "name": "dev-extras",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "description": "Optional developer tooling split out of base-setup: skill authoring with evals, and PR/MR descriptions kept current by a push hook (GitHub and GitLab).",
     "author": {
         "name": "Dawid Nitka",
