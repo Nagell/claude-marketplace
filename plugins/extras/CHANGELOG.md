@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v1.1.0...dev-extras-v2.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **dev-extras:** start-chrome-debug and the bundled chrome-devtools MCP server are gone; the browser plugin replaces them.
+
+### Features
+
+* add browser and review plugins, retire start-chrome-debug ([95f197d](https://github.com/Nagell/claude-marketplace/commit/95f197dd0869fabb24046090f5940dfbd722d0d1))
+* **dev-extras:** remove start-chrome-debug and its chrome-devtools MCP ([21cf875](https://github.com/Nagell/claude-marketplace/commit/21cf87561f968c96157f643239e4d7b718231f7b))
+
 ## [1.1.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v1.0.0...dev-extras-v1.1.0) (2026-09-30)
 
 
