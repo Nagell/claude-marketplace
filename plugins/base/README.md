@@ -34,6 +34,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:setup-token-savings`       | Set up tools for CC to save tokens                                       |
 | `/base:setup-macos`               | macOS only: Finder defaults, screenshots to the clipboard, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts and Ctrl+click, fast key repeat, numbered workspaces per screen (FlashSpace on Caps Lock, SketchyBar top bar, Rectangle snapping with gaps), AltTab window switcher on Cmd+Tab |
 | `/base:setup-zsh`                 | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
+| `/base:review-mr`                 | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs)) |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
@@ -46,6 +47,61 @@ On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybind
 | `writing-style-guide` | Dawid Nitka's personal writing style guide               |
 | `html-doc`            | Convert markdown into styled HTML reports or slide decks |
 | `humanizer`           | Strip AI-writing tells from prose (vendored upstream)    |
+
+## Reviewing MRs and PRs
+
+`/base:review-mr` reviews someone else's GitLab merge request or GitHub pull request from an isolated worktree. You accept the drafts before anything is posted, and then they go out as one review with one verdict.
+
+Pass an MR or PR URL (or `!iid` inside the repo). Optional flags: `--both` or a second URL to review a paired change in full, `--finish` / `--no-finish` for finish mode.
+
+What a run does:
+
+- Asks which engine (Claude, Codex or both) and what effort to use, and whether to review a paired MR in full or only the boundary between the two.
+- Checks the MR out at its head in a `reviews` worktree, and diffs against the MR's own merge base rather than `main`.
+- Reads the existing threads first, so a re-review checks earlier findings instead of repeating them.
+- Reviews in two waves. Every agent writes a coverage ledger, and the second wave works the ground the first one left unexamined.
+- Sends a refutation agent to break each finding, with a browser if one is available, before anything is drafted.
+- Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
+
+### Project rules
+
+Anything specific to one repo or product lives outside the skill, in `~/.claude/review-rules/`:
+
+- `~/.claude/review-rules/<repo>.md` applies to the repo whose `origin` URL ends in `<repo>`. The name comes from the remote, so worktrees resolve the same as the main checkout.
+- If there is no file with that name, the first `*.md` whose frontmatter lists the repo under `applies-to:` is used:
+
+  ```yaml
+  ---
+  applies-to: [shop-api, shop-web]
+  ---
+  ```
+
+A rules file can name the checkout and project id, a paired repo and its pairing rule, size excludes, extra lenses with trigger paths, the checkout refuters read product rules from, the browser skill, the repo's own review material, examples of product consequences, and machine notes. `skills/review-mr/SKILL.md` (step 0a) documents the format with a full example.
+
+When no rules file matches, the review shows a framed notice with the exact path it looked for, then continues without rules.
+
+### Platforms
+
+| Platform | Client                       | CLI    | Notes                                                                                   |
+| -------- | ---------------------------- | ------ | --------------------------------------------------------------------------------------- |
+| GitLab   | `scripts/gitlab_comments.py` | `glab` | Draft notes, `bulk_publish` with a reviewer state, resolve on publish                   |
+| GitHub   | `scripts/github_comments.py` | `gh`   | Pending review plus a submit event; threads are resolved or reopened after publishing via GraphQL |
+
+The platform is detected from the MR URL, or from the remote URL when you pass `!iid`. Both clients have the same subcommands. `skills/review-mr/platforms/` describes where the two platforms differ.
+
+### Optional companions
+
+| Skill or plugin                    | Used for                                                                            |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `browser`                          | In-browser checks by the refuters; without one, refuters check code only and say so |
+| `writing-style-guide`, `humanizer` | Comment prose; both ship in this plugin                                             |
+| Codex plugin (`openai-codex`)      | The Codex engine                                                                    |
+
+### Tests
+
+```bash
+cd plugins/base/skills/review-mr && python3 -m pytest tests
+```
 
 ## Safety Features
 
@@ -91,6 +147,7 @@ The included [CLAUDE.md](CLAUDE.md) establishes opinionated defaults for package
 - Claude Code
 - Git
 - Node.js (for npx-based MCP servers and formatters)
+- Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr`
 
 ## Directory Structure
 
