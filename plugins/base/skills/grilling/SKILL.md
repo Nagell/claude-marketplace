@@ -4,14 +4,16 @@ version: abeeaf9
 description: Grill the user relentlessly about a plan, decision, or idea. Use when the user wants to stress-test their thinking, or uses any 'grill' trigger phrases.
 license: MIT
 upstream: https://github.com/mattpocock/skills/tree/main/skills/productivity/grilling
+user-invocable: false
 ---
 
 > **Vendored from the original.** Copied from [mattpocock/skills](https://github.com/mattpocock/skills)
 > (MIT) at commit `abeeaf9` (recorded in the `version` field above). Whenever this skill runs, check
 > whether `skills/productivity/grilling/SKILL.md` changed upstream and offer to refresh the vendored copy.
 >
-> **Local override - re-apply after any upstream update:** this blockquote and the `version`, `license`
-> and `upstream` fields. Everything below it is upstream, unchanged.
+> **Local override - re-apply after any upstream update:** this blockquote and the `version`, `license`,
+> `upstream` and `user-invocable: false` fields. `user-invocable: false` keeps the skill out of the `/`
+> menu while Claude and `openspec-grill` can still run it. Everything below it is upstream, unchanged.
 
 Interview the user relentlessly until you reach a shared understanding. Map this as a **design tree**: every decision branches into the decisions that hang off it.
 
