@@ -57,7 +57,7 @@
       "name": "openspec-extras",
       "source": "./plugins/openspec-extras",
       "description": "Extra steps for the OpenSpec workflow: grill an idea against the project's specs before proposing it, and check a change's plan against the code before applying it. Needs the OpenSpec CLI 2.1 or newer and its skills.",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "keywords": [
         "openspec",
         "spec-driven",
