@@ -46,6 +46,7 @@ Foundational Claude Code configuration with safety guardrails, auto-formatting a
       </ul>
     </li>
     <li><a href="#hooks">Hooks</a></li>
+    <li><a href="#agents">Agents</a></li>
     <li><a href="#mcp-servers">MCP Servers</a></li>
     <li><a href="#claudemd">CLAUDE.md</a></li>
     <li><a href="#requirements">Requirements</a></li>
@@ -258,14 +259,24 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+<!-- AGENTS -->
+
+## Agents
+
+| Agent          | Purpose                                                                     |
+| -------------- | --------------------------------------------------------------------------- |
+| `commit-agent` | Splits changes into atomic conventional commits. Commits only, never pushes |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 <!-- MCP SERVERS -->
 
 ## MCP Servers
 
-| Server      | Type  | Purpose                          |
-| ----------- | ----- | -------------------------------- |
-| context7    | HTTP  | Up-to-date library documentation |
-| nuxt-remote | HTTP  | Nuxt.js documentation            |
+| Server      | Type | Purpose                          |
+| ----------- | ---- | -------------------------------- |
+| context7    | HTTP | Up-to-date library documentation |
+| nuxt-remote | HTTP | Nuxt.js documentation            |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -273,7 +284,7 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 
 ## CLAUDE.md
 
-The included [CLAUDE.md](CLAUDE.md) establishes opinionated defaults for package managers, commit messages, code style and TypeScript conventions.
+The included [CLAUDE.md](CLAUDE.md) sets opinionated defaults: plain language, how choices are presented, formatting, commits, per-push confirmation, code style and TypeScript conventions. The `plugin-setup` skill offers to install it as `~/.claude/CLAUDE.md`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
