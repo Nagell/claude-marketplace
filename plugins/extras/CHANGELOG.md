@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.0.0](https://github.com/Nagell/claude-marketplace/compare/extras-v2.0.0...extras-v3.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* /base:setup-token-savings is now /extras:setup-token-savings.
+* the plugins install as base@dawidnitka and extras@dawidnitka; slash commands change from /base-setup: to /base:. Uninstall base-setup and dev-extras, then install the new names.
+
+### Features
+
+* move setup-token-savings into the extras plugin ([1930e69](https://github.com/Nagell/claude-marketplace/commit/1930e697644eeb5f68bc8b18408c20316bdc8862))
+* move the browser skill into the extras plugin ([aaa5b2c](https://github.com/Nagell/claude-marketplace/commit/aaa5b2c244badd4daf63ac55cf9bbbd1b5acef24))
+* rename base-setup to base and dev-extras to extras ([8ac9b24](https://github.com/Nagell/claude-marketplace/commit/8ac9b24ef7fe40b9d3265ac4a1d26c7c6b4c84c8))
+
 ## [2.0.0](https://github.com/Nagell/claude-marketplace/compare/dev-extras-v1.1.0...dev-extras-v2.0.0) (2026-11-21)
 
 
