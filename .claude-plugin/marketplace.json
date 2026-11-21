@@ -44,15 +44,11 @@
     {
       "name": "dev-extras",
       "source": "./plugins/dev-extras",
-      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, PR/MR descriptions kept current by a push hook (GitHub and GitLab), and Chrome remote debugging wired to the chrome-devtools MCP server.",
+      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, and PR/MR descriptions kept current by a push hook (GitHub and GitLab).",
       "version": "1.1.0",
       "keywords": [
         "skills",
         "skill-creator",
-        "chrome",
-        "devtools",
-        "mcp",
-        "debugging",
         "pull-request",
         "merge-request"
       ]
@@ -68,6 +64,34 @@
         "planning",
         "grill",
         "review"
+      ]
+    },
+    {
+      "name": "browser",
+      "source": "./plugins/browser",
+      "description": "Start and drive isolated Playwright-managed browser sessions for Claude: preflight, consent-gated install, parallel sessions per agent, stored logins, and opt-in attach to an installed Chrome.",
+      "version": "0.1.0",
+      "keywords": [
+        "browser",
+        "playwright",
+        "chrome",
+        "automation",
+        "parallel-agents",
+        "mcp"
+      ]
+    },
+    {
+      "name": "review",
+      "source": "./plugins/review",
+      "description": "Review a GitLab merge request or GitHub pull request in an isolated worktree: two review waves with coverage ledgers, refutation before anything is drafted, and one review posted only after you accept the drafts. Per-repo rules live in ~/.claude/review-rules/.",
+      "version": "0.1.0",
+      "keywords": [
+        "review",
+        "code-review",
+        "merge-request",
+        "pull-request",
+        "gitlab",
+        "github"
       ]
     }
   ]
