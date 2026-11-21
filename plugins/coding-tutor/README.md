@@ -1,12 +1,30 @@
+<a id="readme-top"></a>
+
 # coding-tutor
 
-Your personal AI tutor that creates tutorials tailored to you — using real code from your projects, building on what you already know, and tracking your progress over time. Plus a commit-triggered nudge that reminds Claude to offer a lesson when you ship something worth learning from.
+A personal tutor that builds tutorials and drills from real code in your projects, starts from what you already know and tracks your progress over time. A commit hook offers a drill or a lesson when you ship something worth learning from.
 
-## Vendored from upstream
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#installation">Installation</a></li>
+    <li><a href="#commands">Commands</a></li>
+    <li><a href="#commit-triggered-coaching">Commit-triggered coaching</a></li>
+    <li>
+      <a href="#tuning-the-tutor">Tuning the tutor</a>
+      <ul>
+        <li><a href="#how-often-it-offers">How often it offers</a></li>
+        <li><a href="#how-deep-it-goes">How deep it goes</a></li>
+      </ul>
+    </li>
+    <li><a href="#storage">Storage</a></li>
+    <li><a href="#vendored-from-upstream">Vendored from upstream</a></li>
+  </ol>
+</details>
 
-The teaching half of this plugin is vendored from [`coding-tutor`](https://github.com/EveryInc/compound-engineering-plugin) (MIT, © 2025 Every; original author Nityesh Agarwal) at version `1.3.0`. Upstream **removed the plugin** on 2026-06-12, so this is now a maintained fork rather than a tracked mirror — there is no newer upstream release to refresh from. The original MIT `LICENSE` is kept in this directory. The post-commit hook and calibration guidance below are local additions, not part of upstream.
+<!-- INSTALLATION -->
 
-## Install
+## Installation
 
 ```bash
 /plugin install coding-tutor@dawidnitka
@@ -14,54 +32,96 @@ The teaching half of this plugin is vendored from [`coding-tutor`](https://githu
 /teach-me <something you want to learn>
 ```
 
-The first `/teach-me` runs coding-tutor's onboarding: it asks 3 short questions and writes your learner profile to `~/coding-tutor-tutorials/learner_profile.md`.
+The first `/teach-me` runs the onboarding: three short questions, and the answers become your learner profile at `~/coding-tutor-tutorials/learner_profile.md`.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- COMMANDS -->
 
 ## Commands
 
-- `/teach-me` — learn something new, anchored in your actual codebase
-- `/quiz-me` — test retention with spaced repetition
-- `/sync-tutorials` — back your tutorials up to a private GitHub repo
+| Command           | What it does                                                                        |
+| ----------------- | ----------------------------------------------------------------------------------- |
+| `/teach-me`       | A tutorial anchored in your own codebase, ending with an optional drill             |
+| `/train-me`       | A hands-on drill: rewrite a blanked slice of real code, judged against what shipped |
+| `/quiz-me`        | A spaced-repetition quiz on what you learned before                                 |
+| `/sync-tutorials` | Back your tutorials up to a private GitHub repo                                     |
 
-## Commit-triggered coaching (the hook)
+Quizzes check what you can explain, drills check what you can write. Both use spaced repetition, and drills keep their own log in `training_log.md`.
 
-A `PostToolUse` hook fires after every real `git commit` — it skips `--dry-run`/`--amend`, returns in a few milliseconds on non-commits, and only nudges when `HEAD` actually moved (so failed or no-op commits don't report a previous commit's files). It reads `~/coding-tutor-tutorials/learner_profile.md`, passes Claude the commit's diffstat and any newly added import lines, and nudges Claude to offer `/teach-me`.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-The default bias is **offer**, not skip: a tutorial is proposed for most real changes — including small fixes that touch a composable/hook, an unfamiliar API/library, async, reactivity, regex, or type-level code. It skips only the genuinely trivial (formatting/lint-only, lockfile/dependency bumps, generated files, pure renames, reverts). Claude offers up to a few per session (default 3, overridable via the profile), avoids repeating already-tutored topics, and ends with a one-line audit trailer: `↳ tutorial: <topic> — offered | skipped(<reason>)`.
+<!-- COMMIT-TRIGGERED COACHING -->
 
-If the profile doesn't exist yet, the hook simply points you at `/teach-me` to create one.
+## Commit-triggered coaching
 
-## Optional calibration snippet
+A `PostToolUse` hook runs after every real `git commit` Claude makes. It returns in milliseconds on anything else, and skips `--dry-run`, `--amend`, commits in the tutorials repo itself and commits that did not move `HEAD`, so a failed commit never reports the previous one's files.
 
-Want explicit per-domain bars for how often the hook should prompt? Paste this anywhere into your `~/coding-tutor-tutorials/learner_profile.md` after it's created (coding-tutor reads the whole file). Optional — without it, Claude falls back to general judgement.
+On a real commit it passes Claude the subject, the diffstat and any newly added import lines. Claude then:
+
+1. **Skips the trivial** without a word: formatting or lint only, lockfile and dependency bumps, generated files, pure renames and reverts.
+2. **Asks right away** with a popup named after the topic: **Train** (write a slice yourself, the default), **Teach** (a tutorial on it) or **Skip**.
+3. **Runs what you picked.** Train may resurface an overdue past drill instead of a fresh one. Skip, or closing the popup, ends it for that commit.
+
+There is no per-session limit, but a concept already drilled or skipped in the session is not offered again. Without a learner profile, the hook only points you at `/teach-me`.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- TUNING THE TUTOR -->
+
+## Tuning the tutor
+
+Both snippets below are optional and go anywhere in `~/coding-tutor-tutorials/learner_profile.md` once it exists. The tutor reads the whole file.
+
+### How often it offers
+
+Per-domain bars for the commit hook. Without them, Claude falls back to general judgement.
 
 ```markdown
 ## Calibration rules
 
 - **Frontend (Vue / TS / Nuxt):** high bar. Offer only when the change
-  introduces a new pattern, library, or architectural idea. Skip routine
-  refactors, bugfixes, copy / locale tweaks, tests, dependency bumps.
+  introduces a new pattern, library or architectural idea. Skip routine
+  refactors, bugfixes, copy / locale tweaks, tests and dependency bumps.
   Target: ~1 offer per 10 FE commits.
 - **Backend (Python / Django / DRF):** low bar. Offer after most commits
-  that touch backend code. Stack is new; frequent exposure is the goal.
-  Target: ~1 offer per 2–3 BE commits.
-- **Mixed commits:** weight by lines changed; ties → backend rules.
-- **Config / CI / docs-only:** never offer.
+  that touch backend code. The stack is new, and frequent exposure is the goal.
+  Target: ~1 offer per 2-3 BE commits.
+- **Mixed commits:** weight by lines changed; ties go to the backend rules.
+- **Config / CI / docs only:** never offer.
 - **Max 1 offer per session**, regardless of commit count.
 ```
 
-## Tell it your level
+### How deep it goes
 
-The onboarding interview captures your background as free prose — there's no built-in per-language skill field. But the tutor reads the whole profile and calibrates teaching depth from it, so you can declare your proficiency explicitly. Paste a block like this anywhere in your `~/coding-tutor-tutorials/learner_profile.md`:
+The onboarding stores your background as free prose, with no per-language level field. Declare your levels yourself, and the tutor pitches each tutorial to match:
 
 ```markdown
 ## My proficiency
-- TypeScript / Vue / Nuxt: advanced — go deep, skip the basics
-- Python / Django: beginner — explain fundamentals, more scaffolding
-- Rust: none yet — start from zero
+
+- TypeScript / Vue / Nuxt: advanced - go deep, skip the basics
+- Python / Django: beginner - explain fundamentals, more scaffolding
+- Rust: none yet - start from zero
 ```
 
-This steers *how* a tutorial is pitched (depth, assumed knowledge), which is separate from the calibration rules above that steer *how often* the hook offers one.
+Calibration steers how often the hook offers something, and proficiency steers how a tutorial is pitched.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- STORAGE -->
 
 ## Storage
 
-Tutorials and your learner profile live at `~/coding-tutor-tutorials/`, auto-created on first use and shared across all your projects. The hook only **reads** that directory; it never writes to it. Uninstalling this plugin leaves `~/coding-tutor-tutorials/` untouched.
+Tutorials, the training log and your learner profile live in `~/coding-tutor-tutorials/`. The folder is created on first use and shared across all your projects. The hook only reads it, and uninstalling the plugin leaves it untouched.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- VENDORED FROM UPSTREAM -->
+
+## Vendored from upstream
+
+The teaching half is vendored from [`coding-tutor`](https://github.com/EveryInc/compound-engineering-plugin) (MIT, © 2025 Every; original author Nityesh Agarwal) at version `1.3.0`. Upstream removed the plugin on 2026-06-12, so this is now a maintained fork with no newer release to refresh from. The original MIT `LICENSE` stays in this directory.
+
+Local additions, not part of upstream: the commit hook, training mode (`/train-me` and the drill log) and the tuning guidance above.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
