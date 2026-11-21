@@ -109,12 +109,9 @@ The marketplace ships core plugin, `base`, which carries safety guardrails, auto
 
 | Plugin                                            | Description                                                                        |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [base](plugins/base/)                             | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
-| [browser](plugins/browser/)                       | Isolated Playwright sessions per agent, stored logins, opt-in Chrome attach        |
+| [base](plugins/base/)                             | Safety guardrails, auto-formatting, MCP servers, CLAUDE.md, MR/PR review, OpenSpec grill and plan check |
 | [coding-tutor](plugins/coding-tutor/)             | Codebase-driven tutorials, spaced-repetition quizzes, plus a commit-time nudge     |
-| [extras](plugins/extras/)                         | Optional extras: skill-creator, PR/MR descriptions kept current by a push hook     |
-| [openspec-extras](plugins/openspec-extras/)       | OpenSpec add-ons: grill an idea against the specs, check a plan against the code   |
-| [review](plugins/review/)                         | MR/PR review in an isolated worktree, posted as one review after you accept it     |
+| [extras](plugins/extras/)                         | Optional extras: skill-creator, PR/MR descriptions kept current by a push hook, isolated browser sessions |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
