@@ -1,0 +1,18 @@
+{
+    "name": "extras",
+    "version": "2.0.0",
+    "description": "Optional developer tooling split out of base: skill authoring with evals, PR/MR descriptions kept current by a push hook (GitHub and GitLab), and isolated Playwright-managed browser sessions per agent.",
+    "author": {
+        "name": "Dawid Nitka",
+        "email": "contact@dawidnitka.com"
+    },
+    "keywords": [
+        "skills",
+        "skill-creator",
+        "pull-request",
+        "merge-request",
+        "browser",
+        "playwright"
+    ],
+    "repository": "https://github.com/Nagell/claude-marketplace"
+}

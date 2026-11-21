@@ -31,8 +31,8 @@
     }
   ],
   "packages": {
-    "plugins/base-setup": {
-      "component": "base-setup",
+    "plugins/base": {
+      "component": "base",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
@@ -53,41 +53,8 @@
         }
       ]
     },
-    "plugins/dev-extras": {
-      "component": "dev-extras",
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        {
-          "type": "json",
-          "path": ".claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        }
-      ]
-    },
-    "plugins/openspec-extras": {
-      "component": "openspec-extras",
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        {
-          "type": "json",
-          "path": ".claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        }
-      ]
-    },
-    "plugins/browser": {
-      "component": "browser",
-      "changelog-path": "CHANGELOG.md",
-      "extra-files": [
-        {
-          "type": "json",
-          "path": ".claude-plugin/plugin.json",
-          "jsonpath": "$.version"
-        }
-      ]
-    },
-    "plugins/review": {
-      "component": "review",
+    "plugins/extras": {
+      "component": "extras",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
