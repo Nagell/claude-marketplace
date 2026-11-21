@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.0.1...base-v2.1.0) (2026-11-21)
+
+
+### Features
+
+* **base:** drop the bundled playwright MCP server ([7f01ceb](https://github.com/Nagell/claude-marketplace/commit/7f01cebf96e12c511e66edf969b510db422f6fb9))
+* **base:** drop the bundled playwright MCP server ([71db735](https://github.com/Nagell/claude-marketplace/commit/71db7356204b6416b0b1e54f93497ca206a6409c))
+
 ## [2.0.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.0.0...base-v2.0.1) (2026-11-21)
 
 
