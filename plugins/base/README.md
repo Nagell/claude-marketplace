@@ -1,4 +1,4 @@
-# base-setup
+# base
 
 Foundational Claude Code configuration with safety guardrails, auto-formatting, and pre-configured MCP servers.
 
@@ -9,7 +9,7 @@ Foundational Claude Code configuration with safety guardrails, auto-formatting, 
 /plugin marketplace add Nagell/claude-marketplace
 
 # Install plugin
-/plugin install base-setup@dawidnitka
+/plugin install base@dawidnitka
 ```
 
 ### Quick Setup (All Plugins)
@@ -17,7 +17,7 @@ Foundational Claude Code configuration with safety guardrails, auto-formatting, 
 After installing, run:
 
 ```bash
-/base-setup:plugin-setup
+/base:plugin-setup
 ```
 
 This installs all recommended official plugins in one command. Restart Claude Code after installation.
@@ -26,18 +26,18 @@ This installs all recommended official plugins in one command. Restart Claude Co
 
 Some skills you invoke by name; others Claude reaches for on its own.
 
-### You invoke these (`/base-setup:<name>`)
+### You invoke these (`/base:<name>`)
 
 | Skill                             | Description                                                              |
 | --------------------------------- | ------------------------------------------------------------------------ |
-| `/base-setup:plugin-setup`        | Install recommended plugins and marketplaces                             |
-| `/base-setup:setup-token-savings` | Set up tools for CC to save tokens                                       |
-| `/base-setup:setup-macos`         | macOS only: Finder defaults, screenshots to the clipboard, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts and Ctrl+click, fast key repeat, numbered workspaces per screen (FlashSpace on Caps Lock, SketchyBar top bar, Rectangle snapping with gaps), AltTab window switcher on Cmd+Tab |
-| `/base-setup:setup-zsh`           | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
+| `/base:plugin-setup`              | Install recommended plugins and marketplaces                             |
+| `/base:setup-token-savings`       | Set up tools for CC to save tokens                                       |
+| `/base:setup-macos`               | macOS only: Finder defaults, screenshots to the clipboard, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts and Ctrl+click, fast key repeat, numbered workspaces per screen (FlashSpace on Caps Lock, SketchyBar top bar, Rectangle snapping with gaps), AltTab window switcher on Cmd+Tab |
+| `/base:setup-zsh`                 | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
-On a Mac, run `/base-setup:setup-macos` first, then `/base-setup:setup-zsh`: the zsh keybindings need the Spaces hotkeys moved off Ctrl+arrows. On Linux and WSL, `setup-zsh` is all you need.
+On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybindings need the Spaces hotkeys moved off Ctrl+arrows. On Linux and WSL, `setup-zsh` is all you need.
 
 ### Claude uses these automatically
 
@@ -95,7 +95,7 @@ The included [CLAUDE.md](CLAUDE.md) establishes opinionated defaults for package
 ## Directory Structure
 
 ```
-base-setup/
+base/
 ├── .claude-plugin/
 │   └── plugin.json
 ├── .mcp.json

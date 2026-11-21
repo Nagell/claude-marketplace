@@ -15,7 +15,7 @@ dependencies:
 For reviewing someone else's merge request or pull request and leaving inline
 feedback on it. "MR" below means either. Use the user's writing-style skill for
 the comment prose when one is installed: **writing-style-guide** (which pulls
-in **humanizer**) ships in this marketplace's `base-setup` plugin. Both are
+in **humanizer**) ships in this marketplace's `base` plugin. Both are
 optional; without them, follow the comment rules in step 6 alone. They matter
 when present: the findings are only useful if a colleague can act on them, and
 unreadable walls of text get skipped.

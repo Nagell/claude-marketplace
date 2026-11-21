@@ -1,5 +1,5 @@
 {
-    "name": "base-setup",
+    "name": "base",
     "version": "1.23.0",
     "description": "Foundational Claude Code configuration providing safety guardrails, automatic code formatting, MCP server integrations, and opinionated development defaults. The essential starting point for any Claude Code workflow.",
     "author": {

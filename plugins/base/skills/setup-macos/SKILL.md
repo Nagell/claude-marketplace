@@ -7,7 +7,7 @@ disable-model-invocation: true
 # Setup macOS
 
 Operating-system settings for a Mac: Finder, screenshots, the Spaces hotkeys, Karabiner-Elements,
-key repeat, a workspace setup (FlashSpace, SketchyBar, Rectangle) and AltTab. Run this **before** `/base-setup:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
+key repeat, a workspace setup (FlashSpace, SketchyBar, Rectangle) and AltTab. Run this **before** `/base:setup-zsh` — the terminal, shell and editor setup (Ghostty, zsh
 keybindings, herdr, LazyVim) lives there and expects the Spaces hotkeys from Step 5 to be done.
 
 Every step is idempotent and can be re-run. Each one backs up the preferences or file it changes
@@ -610,7 +610,7 @@ Report what was applied and where the backups are (`$BK`, plus `karabiner.json.b
 the user:
 
 ```
-Next: run /base-setup:setup-zsh for the terminal (Ghostty), zsh keybindings, herdr and LazyVim.
+Next: run /base:setup-zsh for the terminal (Ghostty), zsh keybindings, herdr and LazyVim.
 ```
 
 ## Important Notes

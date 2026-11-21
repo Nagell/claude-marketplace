@@ -1,4 +1,4 @@
-"""Run: python3 -I -B -m unittest discover -s plugins/base-setup/skills/setup-zsh/tests"""
+"""Run: python3 -I -B -m unittest discover -s plugins/base/skills/setup-zsh/tests"""
 import contextlib
 import importlib.util
 import io

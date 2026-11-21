@@ -74,7 +74,7 @@ Don't bind `ctrl+v` in Ghostty: zsh (`_paste_from_clipboard`, Step 7) and nvim (
 }
 ```
 
-Claude Code reads the file at start, so restart it afterwards. A macOS screenshot only reaches the clipboard if screenshots are set to copy there (`/base-setup:setup-macos`) or taken with Cmd+Ctrl+Shift+4.
+Claude Code reads the file at start, so restart it afterwards. A macOS screenshot only reaches the clipboard if screenshots are set to copy there (`/base:setup-macos`) or taken with Cmd+Ctrl+Shift+4.
 
 ### Optional settings
 

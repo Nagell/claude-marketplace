@@ -17,7 +17,7 @@
   <p align="center">
     Personal Claude Code marketplace with safety guardrails, auto-formatting, and pre-configured development tools
     <br />
-    <a href="./plugins/base-setup/README.md"><strong>Explore the docs »</strong></a>
+    <a href="./plugins/base/README.md"><strong>Explore the docs »</strong></a>
     <br />
     <br />
     <a href="https://github.com/Nagell/claude-marketplace/issues/new?labels=bug">Report Bug</a>
@@ -66,7 +66,7 @@
 
 A personal Claude Code marketplace that bundles the tooling I want on every machine into a single `/plugin install`. No copy-pasting hooks between projects, no re-wiring MCP servers, no forgetting which CLAUDE.md is the good one.
 
-The marketplace ships core plugin, `base-setup`, which carries safety guardrails, auto-formatting, MCP servers, and shared CLAUDE.md conventions. Versioning and releases are fully automated from commit messages, so adding a plugin is the only manual step.
+The marketplace ships core plugin, `base`, which carries safety guardrails, auto-formatting, MCP servers, and shared CLAUDE.md conventions. Versioning and releases are fully automated from commit messages, so adding a plugin is the only manual step.
 
 ### Built With
 
@@ -90,13 +90,13 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 
    ```sh
    /plugin marketplace add Nagell/claude-marketplace
-   /plugin install base-setup@dawidnitka
+   /plugin install base@dawidnitka
    ```
 
 2. Install all recommended plugins in one command
 
    ```sh
-   /base-setup:plugin-setup
+   /base:plugin-setup
    ```
 
 3. Restart Claude Code after installation.
@@ -109,10 +109,10 @@ The marketplace ships core plugin, `base-setup`, which carries safety guardrails
 
 | Plugin                                            | Description                                                                        |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [base-setup](plugins/base-setup/)                 | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
+| [base](plugins/base/)                             | Safety guardrails, auto-formatting, MCP servers, and CLAUDE.md                     |
 | [browser](plugins/browser/)                       | Isolated Playwright sessions per agent, stored logins, opt-in Chrome attach        |
 | [coding-tutor](plugins/coding-tutor/)             | Codebase-driven tutorials, spaced-repetition quizzes, plus a commit-time nudge     |
-| [dev-extras](plugins/dev-extras/)                 | Optional extras: skill-creator, PR/MR descriptions kept current by a push hook     |
+| [extras](plugins/extras/)                         | Optional extras: skill-creator, PR/MR descriptions kept current by a push hook     |
 | [openspec-extras](plugins/openspec-extras/)       | OpenSpec add-ons: grill an idea against the specs, check a plan against the code   |
 | [review](plugins/review/)                         | MR/PR review in an isolated worktree, posted as one review after you accept it     |
 
@@ -173,7 +173,7 @@ claude-marketplace/
 ├── .claude-plugin/
 │   └── marketplace.json
 ├── plugins/
-│   ├── base-setup/
+│   ├── base/
 │   │   ├── .claude-plugin/
 │   │   │   └── plugin.json
 │   │   ├── hooks/
@@ -190,7 +190,7 @@ claude-marketplace/
 │   │   ├── hooks/
 │   │   ├── LICENSE
 │   │   └── README.md
-│   └── dev-extras/
+│   └── extras/
 │       ├── .claude-plugin/
 │       │   └── plugin.json
 │       ├── skills/

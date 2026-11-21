@@ -16,7 +16,7 @@ For the full style guide with examples, positive/negative samples, and revision 
 
 ## Dependency: humanizer
 
-Generic AI-tell removal (em-dashes, rule-of-three, "not X but Y", filler, hedging, sycophantic openers, inflated symbolism, vague attributions, staccato drama, "Here's the thing:" openers, etc.) is owned by the **`humanizer` skill**, vendored in this plugin at `base-setup:skills/humanizer/` (declared under `dependencies` in the frontmatter). Run humanizer **first** for that pass, then apply this guide to layer Dawid's voice on top.
+Generic AI-tell removal (em-dashes, rule-of-three, "not X but Y", filler, hedging, sycophantic openers, inflated symbolism, vague attributions, staccato drama, "Here's the thing:" openers, etc.) is owned by the **`humanizer` skill**, vendored in this plugin at `base:skills/humanizer/` (declared under `dependencies` in the frontmatter). Run humanizer **first** for that pass, then apply this guide to layer Dawid's voice on top.
 
 This guide carries only what humanizer does **not**: Dawid's voice, structure, non-native fixes, and a few deliberate overrides (Oxford comma, dash fallback) below.
 

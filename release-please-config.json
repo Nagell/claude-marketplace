@@ -31,8 +31,8 @@
     }
   ],
   "packages": {
-    "plugins/base-setup": {
-      "component": "base-setup",
+    "plugins/base": {
+      "component": "base",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {
@@ -53,8 +53,8 @@
         }
       ]
     },
-    "plugins/dev-extras": {
-      "component": "dev-extras",
+    "plugins/extras": {
+      "component": "extras",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
         {

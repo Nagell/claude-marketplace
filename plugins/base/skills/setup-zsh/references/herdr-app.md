@@ -301,7 +301,7 @@ already says `git-graph` without it needs only the `props`. Herdr reloads the la
 
 **Earlier version of this guide (herdr-reviewer).** If `~/.config/herdr-app/mods/reviewer`
 or `layouts/my-main.json` exists, offer to remove them once `my-nested-tabs` works
-(Git Graph replaces the reviewer's Changes panel). base-setup's safety hook blocks
+(Git Graph replaces the reviewer's Changes panel). The base plugin's safety hook blocks
 `rm -rf` under the home folder, so give the user the commands to run with `!`. The second
 line also takes the window state Herdr keeps for the layout and any `.bak` copies:
 
@@ -550,7 +550,7 @@ Defaults worth mentioning: Alt+Up / Alt+Down jump between agents (`agent.prev` /
 
 ## Uninstall
 
-base-setup's safety hook blocks `rm -rf` under the home folder: give the user the commands
+The base plugin's safety hook blocks `rm -rf` under the home folder: give the user the commands
 in this section to run with `!`.
 
 ```bash

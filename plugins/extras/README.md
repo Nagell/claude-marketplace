@@ -1,11 +1,11 @@
-# dev-extras
+# extras
 
-Optional developer tooling split out of `base-setup`, so work setups that already ship their own versions can skip it.
+Optional developer tooling split out of `base`, so work setups that already ship their own versions can skip it.
 
 ## Installation
 
 ```bash
-/plugin install dev-extras@dawidnitka
+/plugin install extras@dawidnitka
 ```
 
 ## Skills

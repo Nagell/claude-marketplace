@@ -37,7 +37,7 @@ Possible results:
 
 - **WSL** - Windows Subsystem for Linux. Zsh via apt, fonts to Windows host.
 - **LINUX** - Native Linux. Zsh via apt, fonts to `~/.local/share/fonts`.
-- **MACOS** - macOS. Zsh is pre-installed (default shell since Catalina). Fonts to `~/Library/Fonts`. Best run after `/base-setup:setup-macos` (Finder, Spaces hotkeys, Karabiner).
+- **MACOS** - macOS. Zsh is pre-installed (default shell since Catalina). Fonts to `~/Library/Fonts`. Best run after `/base:setup-macos` (Finder, Spaces hotkeys, Karabiner).
 
 ### 2. Check Prerequisites
 
@@ -191,7 +191,7 @@ print("hotkeys: OK" if not problems else "hotkeys: NOT SET (" + ", ".join(proble
 '
 ```
 
-If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ will switch Spaces instead of moving or selecting by word in the terminal until they run `/base-setup:setup-macos` (its Spaces hotkeys step moves them to Ctrl+Option+←/→). Continue with the rest of this step either way.
+If it prints `NOT SET`, tell the user that Ctrl+←/→ and Ctrl+Shift+←/→ will switch Spaces instead of moving or selecting by word in the terminal until they run `/base:setup-macos` (its Spaces hotkeys step moves them to Ctrl+Option+←/→). Continue with the rest of this step either way.
 
 Then read `~/.zshrc` using Read tool and check these:
 

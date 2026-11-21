@@ -11,8 +11,8 @@
   },
   "plugins": [
     {
-      "name": "base-setup",
-      "source": "./plugins/base-setup",
+      "name": "base",
+      "source": "./plugins/base",
       "description": "Foundational Claude Code configuration providing safety guardrails, automatic code formatting, MCP server integrations, and opinionated development defaults. The essential starting point for any Claude Code workflow.",
       "version": "1.23.0",
       "keywords": [
@@ -42,9 +42,9 @@
       ]
     },
     {
-      "name": "dev-extras",
-      "source": "./plugins/dev-extras",
-      "description": "Optional developer tooling split out of base-setup: skill authoring with evals, and PR/MR descriptions kept current by a push hook (GitHub and GitLab).",
+      "name": "extras",
+      "source": "./plugins/extras",
+      "description": "Optional developer tooling split out of base: skill authoring with evals, and PR/MR descriptions kept current by a push hook (GitHub and GitLab).",
       "version": "1.1.0",
       "keywords": [
         "skills",

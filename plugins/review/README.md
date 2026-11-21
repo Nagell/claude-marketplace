@@ -56,7 +56,7 @@ The platform is detected from the MR URL, or from the remote URL when you pass `
 | Skill                                | Required | Used for                                                                |
 | ------------------------------------ | -------- | ----------------------------------------------------------------------- |
 | `browser`                            | No       | In-browser checks by the refuters; without one, refuters check code only and say so |
-| `writing-style-guide`, `humanizer`   | No       | Comment prose, from `base-setup`                                        |
+| `writing-style-guide`, `humanizer`   | No       | Comment prose, from `base`                                        |
 | Codex plugin (`openai-codex`)        | No       | The Codex engine                                                        |
 
 ## Requirements
