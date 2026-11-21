@@ -34,6 +34,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:setup-macos`               | macOS only: Finder defaults, screenshots to the clipboard, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts and Ctrl+click, fast key repeat, numbered workspaces per screen (FlashSpace on Caps Lock, SketchyBar top bar, Rectangle snapping with gaps), AltTab window switcher on Cmd+Tab |
 | `/base:setup-zsh`                 | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
 | `/base:review-mr`                 | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs)) |
+| `/base:resolve-review`            | Answer the review on your own MR or PR: check each open thread against the current code, plan fixes and replies, post and resolve only what you approve ([details](#answering-a-review)) |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
@@ -104,6 +105,10 @@ The platform is detected from the MR URL, or from the remote URL when you pass `
 ```bash
 cd plugins/base/skills/review-mr && python3 -m pytest tests
 ```
+
+### Answering a review
+
+`/base:resolve-review` is the counterpart: run it on your own branch once reviewers have commented. It finds the MR or PR for the branch, checks every unresolved thread against the code at the branch head (already addressed, needs a fix, disagree, or a question to answer), and shows a plan with every draft reply in full. After you approve, it makes the fixes without committing, posts the replies in your voice, and resolves threads only if you choose to. It uses the same scripts and project rules as `review-mr`.
 
 ## OpenSpec steps
 
@@ -184,7 +189,7 @@ The included [CLAUDE.md](CLAUDE.md) establishes opinionated defaults for package
 - Claude Code
 - Git
 - Node.js (for npx-based MCP servers and formatters)
-- Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr`
+- Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr` and `/base:resolve-review`
 
 ## Directory Structure
 
