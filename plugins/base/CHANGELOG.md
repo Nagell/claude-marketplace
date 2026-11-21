@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.0.0](https://github.com/Nagell/claude-marketplace/compare/base-v1.23.0...base-v2.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* /base:setup-token-savings is now /extras:setup-token-savings.
+* the plugins install as base@dawidnitka and extras@dawidnitka; slash commands change from /base-setup: to /base:. Uninstall base-setup and dev-extras, then install the new names.
+
+### Features
+
+* **base:** add author-side commands to the review-mr scripts ([b13e580](https://github.com/Nagell/claude-marketplace/commit/b13e580a16126af7d7296b02dbb4fbdfb52e1015))
+* **base:** add resolve-review for answering review threads ([6270233](https://github.com/Nagell/claude-marketplace/commit/6270233651535309a27390aa1fcac26083980d2d))
+* **base:** hide grilling from the slash menu ([9eb937e](https://github.com/Nagell/claude-marketplace/commit/9eb937e7fe003ca31bace5fef12ce77ac17f5995))
+* move review-mr into the base plugin ([5521fff](https://github.com/Nagell/claude-marketplace/commit/5521fff01dd040c459ec3b23380c78d256aad315))
+* move setup-token-savings into the extras plugin ([1930e69](https://github.com/Nagell/claude-marketplace/commit/1930e697644eeb5f68bc8b18408c20316bdc8862))
+* move the browser skill into the extras plugin ([aaa5b2c](https://github.com/Nagell/claude-marketplace/commit/aaa5b2c244badd4daf63ac55cf9bbbd1b5acef24))
+* move the openspec skills into the base plugin ([7c9cd77](https://github.com/Nagell/claude-marketplace/commit/7c9cd774c9b7573f943cb407f87043341032c7bb))
+* rename base-setup to base and dev-extras to extras ([8ac9b24](https://github.com/Nagell/claude-marketplace/commit/8ac9b24ef7fe40b9d3265ac4a1d26c7c6b4c84c8))
+
+
+### Bug Fixes
+
+* **base:** resolve the push token from the pushed repo ([0933c9f](https://github.com/Nagell/claude-marketplace/commit/0933c9f6e40213bee73bb8ecaba4f076141c2cc5))
+
 ## [1.23.0](https://github.com/Nagell/claude-marketplace/compare/base-setup-v1.22.1...base-setup-v1.23.0) (2026-11-19)
 
 
