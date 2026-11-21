@@ -75,26 +75,58 @@ if echo "$COMMAND" | grep -qE '(echo|cat|printf|>>|>)\s+.*\.env'; then
 fi
 
 # ============================================
+# Command text for the force push check and the push token gate below
+# ============================================
+
+# Prints $COMMAND with line continuations joined and heredoc bodies dropped (text
+# in a heredoc is data, not a command). With `drop_heredocs keep`, bodies of
+# unquoted heredocs (<<EOF) are kept, because bash still runs $(...) and backticks
+# inside them; quoted ones (<<'EOF', the usual commit message form) are dropped.
+drop_heredocs() {
+  printf '%s\n' "$COMMAND" | sed 's/\\n/\n/g' |
+    awk -v keep="${1:-}" '
+      term != "" { l = $0; sub(/^\t+/, "", l); if (l == term) term = ""; else if (keep != "" && !quoted) print; next }
+      { while (/\\$/ && (getline nx) > 0) $0 = substr($0, 1, length($0) - 1) nx }
+      match($0, /(^|[^<])<<-?[ \t]*["'\'']?[A-Za-z0-9_]+/) {
+        term = substr($0, RSTART, RLENGTH); quoted = (term ~ /["'\'']/)
+        sub(/^[^<]*<<-?[ \t]*["'\'']?/, "", term)
+      }
+      { print }'
+}
+HEREDOC_FREE=$(drop_heredocs)
+
+# PUSH_TEXT holds one shell command per line, from two sources:
+# 1. The command itself with quoted strings stripped, so a commit message that
+#    mentions `git push` is not a push. Split on ; && || | & newlines and on
+#    ( ) ` so subshells and unquoted $(...) are seen.
+# 2. Code that runs even when it sits inside quotes: $(...), backticks and the
+#    string after sh -c, bash -lc, eval, --exec or -x. Here the quotes are kept
+#    as separators instead of stripped, so nothing inside them is hidden.
+# Matching is unanchored (`env X=1 git push`, `then git push`, `rtk git push`
+# all count). When unsure this errs towards a match: a false match costs one
+# token prompt, a missed one lets an unapproved push through.
+TOP_TEXT=$(printf '%s\n' "$HEREDOC_FREE" |
+  tr '\n' '\036' | sed "s/\"[^\"]*\"//g; s/'[^']*'//g" | tr '\036' '\n' |
+  sed -E 's/(&&|\|\||[;|&()`])/\n/g')
+NESTED_RE='\$\([^)]*|`[^`]*`|(^|[[:space:]])(-[[:alnum:]]*c|--exec|-x|eval)[[:space:]]+("[^"]*"|'\''[^'\'']*'\'')'
+NESTED_TEXT=$(drop_heredocs keep | tr '\n' '\036' | { grep -oE "$NESTED_RE" || true; } |
+  tr '\036"'\''`()' '\n' | sed -E 's/(&&|\|\||[;|&])/\n/g')
+PUSH_TEXT=$(printf '%s\n%s\n' "$TOP_TEXT" "$NESTED_TEXT")
+PUSH_RE='(^|[[:space:]/])git([[:space:]]+-{1,2}[^[:space:]]+([[:space:]]+[^[:space:]-][^[:space:]]*)?)*[[:space:]]+push([^[:alnum:]_-]|$)'
+
+# ============================================
 # BLOCK: Unsafe git force push
 # Runs before the push token gate below, so a blocked force push keeps the token.
 # ============================================
 
-# Command text for this check: heredoc bodies dropped, quoted strings stripped,
-# one shell command per line. Each `git [opts] push` is checked argument by
-# argument: -f, --force[=...], short-flag clusters with f (-uf) and +refspecs
-# block; --force-with-lease and --force-if-includes pass.
+# Each `git [opts] push` is checked argument by argument: -f, --force[=...],
+# short-flag clusters with f (-uf) and +refspecs block; --force-with-lease and
+# --force-if-includes pass.
 # Limitation: a quoted argument (`git push origin "+main"`) is not seen.
-FORCE_TEXT=$(printf '%s\n' "$COMMAND" | sed 's/\\n/\n/g' |
-  awk 'term != "" { l = $0; sub(/^\t+/, "", l); if (l == term) term = ""; next }
-    match($0, /(^|[^<])<<-?[ \t]*["'\'']?[A-Za-z0-9_]+/) {
-      term = substr($0, RSTART, RLENGTH); sub(/^[^<]*<<-?[ \t]*["'\'']?/, "", term)
-    }
-    { print }' |
-  tr '\n' '\036' | sed "s/\"[^\"]*\"//g; s/'[^']*'//g" | tr '\036' '\n' |
-  sed -E 's/(&&|\|\||[;|&])/\n/g')
-PUSH_RE='(^|[[:space:]/])git([[:space:]]+-{1,2}[^[:space:]]+([[:space:]]+[^[:space:]-][^[:space:]]*)?)*[[:space:]]+push([[:space:]]|$)'
+PUSH_FOUND=""
 while IFS= read -r SEGMENT; do
   [[ $SEGMENT =~ $PUSH_RE ]] || continue
+  PUSH_FOUND=1
   read -ra PUSH_ARGS <<<"${SEGMENT#*"${BASH_REMATCH[0]}"}"
   for ARG in "${PUSH_ARGS[@]}"; do
     case $ARG in
@@ -105,26 +137,22 @@ while IFS= read -r SEGMENT; do
       exit 2
     fi
   done
-done <<<"$FORCE_TEXT"
+done <<<"$PUSH_TEXT"
 
 # ============================================
 # CONFIRM: git push requires user approval
 # Works in all permission modes including bypass
 # ============================================
 
-# Truncate at first heredoc marker (<<) to avoid matching "git push" inside heredoc content,
-# then strip remaining quoted strings
-BEFORE_HEREDOC=$(echo "$COMMAND" | awk '{if(/<</) {sub(/<<.*/,""); print; exit} print}')
-CMD_STRIPPED=$(echo "$BEFORE_HEREDOC" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
-if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+(proxy\s+)?)?git(\s+-{1,2}[^[:space:]]+(\s+[^[:space:]-][^[:space:]]*)?)*\s+push([^[:alnum:]_-]|$)'; then
+if [ -n "$PUSH_FOUND" ]; then
   # The hook runs in the session's directory, which is often not the repo being pushed,
-  # so resolve the repo from the command: `git -C <dir>`, else a leading `cd <dir>`.
+  # so resolve the repo from the command: the `git -C <dir> ... push`, else a leading `cd <dir>`.
   PUSH_DIR=""
-  C_RE="git[[:space:]]+-C[[:space:]]+(\"[^\"]+\"|'[^']+'|[^[:space:];&|]+)"
+  C_RE="git[[:space:]]+-C[[:space:]]+(\"[^\"]+\"|'[^']+'|[^[:space:];&|]+)([[:space:]]+[^[:space:];&|]+)*[[:space:]]+push([[:space:];&|)]|$)"
   CD_RE="^[[:space:]]*cd[[:space:]]+(\"[^\"]+\"|'[^']+'|[^[:space:];&|]+)"
-  if [[ $BEFORE_HEREDOC =~ $C_RE ]]; then
+  if [[ $HEREDOC_FREE =~ $C_RE ]]; then
     PUSH_DIR=${BASH_REMATCH[1]}
-  elif [[ $BEFORE_HEREDOC =~ $CD_RE ]]; then
+  elif [[ $HEREDOC_FREE =~ $CD_RE ]]; then
     PUSH_DIR=${BASH_REMATCH[1]}
   fi
   PUSH_DIR=${PUSH_DIR#[\"\']}
