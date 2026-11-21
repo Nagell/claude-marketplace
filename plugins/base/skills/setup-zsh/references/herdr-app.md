@@ -515,6 +515,12 @@ In app terminals (`HC_TERMINAL_ID` set) they do this:
   first (its swap file offers any unsaved edits); splits and tabs inside nvim do not come
   back. `some-command | mdv` is not recorded. To add another program, add its name to the
   `for _resume_cmd in ...` list in the resume block.
+- **Started straight by Herdr:** an agent's `herdr-app do pane.split --argv '["mdv", ...]'`
+  (or `hc run mdv ...`) makes mdv or nvim the terminal's own program, with no zsh to wrap it.
+  The mdv launcher and LazyVim's `resume.lua` then write the same `cmd-resume` label
+  themselves when their parent process is `herdr-core` (`herdr` in the TUI). The terminal
+  closes when the program quits, so the label needs no clearing. btop and lazygit started
+  this way are not recorded.
 - **Start folder:** a new shell that starts in `~` moves to `~/<WORK_DIR>`.
 
 They need `jq` (Step 14).

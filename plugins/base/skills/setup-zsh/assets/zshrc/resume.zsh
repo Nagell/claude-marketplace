@@ -24,7 +24,7 @@ if [[ -o interactive && ( -n $HC_TERMINAL_ID || -n $HERDR_PANE_ID ) ]]; then
     # The arguments reach jq NUL-separated on stdin; on its command line jq would take
     # the program's own options (`nvim -c ...`) as its own.
     [[ -t 0 ]] && _resume_record "$(printf '%s\0' "$@" \
-      | jq -Rsc --arg cwd "$PWD" '{cwd: $cwd, argv: (split("\u0000") | .[:-1])}')"
+      | jq -Rsc --arg cwd "$PWD" '{cwd: $cwd, argv: (split("\u0000") | if .[-1] == "" then .[:-1] else . end)}')"
     # A macOS reboot sends SIGTERM to every process. The program quits on it, but an
     # interactive zsh ignores it and would go on to remove the record the restore needs.
     # The program can die before the shell's own SIGTERM arrives, so a failed exit (nvim
