@@ -18,6 +18,24 @@ if [[ $# -eq 0 ]]; then
   exec env NVIM_APPNAME=mdv "${NVIM}" -R -c 'setfiletype markdown' -
 fi
 
-# Reopening after a herdr restart or Herdr app reboot is not done here: the `setup-zsh resume`
-# block in ~/.zshrc runs mdv through a wrapper that records the folder and command.
+# Reopening after a herdr restart or Herdr app reboot: run from the shell, the `setup-zsh resume`
+# block in ~/.zshrc records the folder and command through its wrapper. Started straight by
+# herdr instead (an agent's `pane.split --argv '["mdv", ...]'`), mdv is the terminal's own
+# program and writes the same record itself. The terminal closes when mdv quits, so the record
+# never needs removing.
+if [[ -z ${SETUP_ZSH_RESUME:-} && -t 0 ]] && command -v jq >/dev/null; then
+  parent="$(ps -o comm= -p "$PPID" 2>/dev/null || true)"
+  parent="${parent##*/}"  # macOS prints the full path
+  if [[ $parent == herdr-core || $parent == herdr ]]; then
+    record="$(printf '%s\0' mdv "$@" | jq -Rsc --arg cwd "$PWD" '{cwd: $cwd, argv: (split("\u0000") | if .[-1] == "" then .[:-1] else . end)}')"
+    if [[ -n ${HC_TERMINAL_ID:-} ]]; then
+      hc label "$HC_TERMINAL_ID" "cmd-resume=$record" &>/dev/null || true
+    elif [[ -n ${HERDR_PANE_ID:-} ]]; then
+      socket="${HERDR_SOCKET_PATH:-}"
+      f="${XDG_STATE_HOME:-$HOME/.local/state}/mdv-restore/${socket//[^A-Za-z0-9._-]/_}/${HERDR_PANE_ID//\//_}"
+      mkdir -p "$(dirname "$f")" && printf '%s\n' "$record" >"$f"
+    fi
+  fi
+fi
+
 exec env NVIM_APPNAME=mdv "${NVIM}" -R "$@"

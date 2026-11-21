@@ -146,13 +146,14 @@ code page and turns `ż` into `┼╝`. Paste is a stub that returns the last co
 never pastes, and Windows Terminal does not answer OSC 52 reads, so the built-in paste
 would block for up to ten seconds.
 
-**Reopened after a restart.** Not the launcher's job: it only runs nvim. The
+**Reopened after a restart.** Run from the shell, the
 `setup-zsh resume` block in `~/.zshrc` wraps `mdv`, like nvim, btop and lazygit, in a zsh
 function that records the folder and command while it runs: a JSON file under
 `~/.local/state/mdv-restore/` per herdr pane, read by the mdv-restore plugin
 (`references/herdr-tui.md`), or a `cmd-resume` label per Herdr app terminal, read by the
-`setup-zsh herdr-app` block (`references/herdr-app.md`). `some-command | mdv` is not
-recorded. An earlier launcher reported mdv to herdr as an agent
+`setup-zsh herdr-app` block (`references/herdr-app.md`). Started straight by herdr instead
+(an agent's `pane.split --argv '["mdv", ...]'`), mdv is the terminal's own program and the
+launcher writes the same record itself. `some-command | mdv` is not recorded. An earlier launcher reported mdv to herdr as an agent
 (`herdr pane report-agent`), which listed every open mdv in the agent sidebar.
 
 ## Keys

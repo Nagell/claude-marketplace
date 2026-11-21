@@ -2,10 +2,30 @@
 -- this nvim, so a herdr server restart or Herdr app reboot reopens them, not just whatever
 -- was on the command line. The record is {cwd, argv}, argv = { "nvim", <current file>, <other
 -- files> }: a Herdr app terminal label (HC_TERMINAL_ID) or a herdr pane file (HERDR_PANE_ID).
--- Only when the zsh wrapper started this nvim (SETUP_ZSH_RESUME): an nvim that git or crontab
--- opens as an editor must not come back.
-if vim.env.SETUP_ZSH_RESUME ~= "1" or not (vim.env.HC_TERMINAL_ID or vim.env.HERDR_PANE_ID) then
+-- Only when the zsh wrapper started this nvim (SETUP_ZSH_RESUME) or herdr started it straight
+-- as a terminal's own program (an agent's `pane.split --argv '["nvim", ...]'`): an nvim that git
+-- or crontab opens as an editor must not come back.
+if not (vim.env.HC_TERMINAL_ID or vim.env.HERDR_PANE_ID) then
   return
+end
+if vim.env.SETUP_ZSH_RESUME ~= "1" then
+  -- The editor runs as `nvim --embed` under nvim's own UI process; herdr is that one's parent.
+  local function parent_of(pid)
+    local ps = vim.system({ "ps", "-o", "ppid=,comm=", "-p", tostring(pid) }):wait()
+    local ppid = (ps.stdout or ""):match("%d+")
+    if not ppid then
+      return nil, nil
+    end
+    local name = vim.system({ "ps", "-o", "comm=", "-p", ppid }):wait()
+    return tonumber(ppid), vim.trim(name.stdout or ""):match("[^/]+$") -- macOS prints the full path
+  end
+  local ppid, parent = parent_of(vim.uv.os_getpid())
+  if parent == "nvim" then
+    ppid, parent = parent_of(ppid)
+  end
+  if parent ~= "herdr-core" and parent ~= "herdr" then
+    return
+  end
 end
 
 local last
