@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.1.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.0...base-v2.1.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **base:** address review findings on [#237](https://github.com/Nagell/claude-marketplace/issues/237) and [#238](https://github.com/Nagell/claude-marketplace/issues/238) ([1ea99e7](https://github.com/Nagell/claude-marketplace/commit/1ea99e74488bc63fd5222e95ed52868774741e0e))
+* **base:** catch every force-push form before spending the token ([fd405f0](https://github.com/Nagell/claude-marketplace/commit/fd405f0d19df0d39f2aa3b3547f90c45fc16d62a))
+* **base:** document the push token and tidy setup docs ([8628347](https://github.com/Nagell/claude-marketplace/commit/8628347644edcb8779926863d28c8e79b12d0299))
+* **base:** harden setup-zsh resume recording and upgrade checks ([53380ea](https://github.com/Nagell/claude-marketplace/commit/53380ea565b4fac891329cd76f4004a7c45b5ca6))
+* **base:** restore mdv and nvim panes started directly by herdr ([8898a37](https://github.com/Nagell/claude-marketplace/commit/8898a372f08143588509b47dba9fa62215c6f0a7))
+* **base:** restore mdv and nvim panes started directly by herdr ([a588d34](https://github.com/Nagell/claude-marketplace/commit/a588d34bf19a500472dab779bdd2c3c9ef61ce70))
+* **base:** stop commit-agent from pushing ([ca79ad3](https://github.com/Nagell/claude-marketplace/commit/ca79ad301602b178f5ad00c3c95c9762269da03d))
+* **base:** sync CLAUDE.md template and stop commit-agent pushing ([b05cff3](https://github.com/Nagell/claude-marketplace/commit/b05cff39c3435da76da6604dd2932d5982d2797d))
+* **base:** sync CLAUDE.md template with the current global rules ([785826d](https://github.com/Nagell/claude-marketplace/commit/785826d1b478247b2200b6a9246cb6590c6f7861))
+* **base:** tighten CLAUDE.md template wording ([9af8fe9](https://github.com/Nagell/claude-marketplace/commit/9af8fe9606a1b6ebee2f50d810c0a2897ac71764))
+
 ## [2.1.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.0.1...base-v2.1.0) (2026-11-21)
 
 
