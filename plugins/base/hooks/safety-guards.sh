@@ -84,13 +84,27 @@ fi
 BEFORE_HEREDOC=$(echo "$COMMAND" | awk '{if(/<</) {sub(/<<.*/,""); print; exit} print}')
 CMD_STRIPPED=$(echo "$BEFORE_HEREDOC" | sed 's/"[^"]*"//g' | sed "s/'[^']*'//g")
 if echo "$CMD_STRIPPED" | grep -qE '(^|\s*;\s*|\s*&&\s*|\s*\|\|\s*)(rtk\s+(proxy\s+)?)?git(\s+-{1,2}[^[:space:]]+(\s+[^[:space:]-][^[:space:]]*)?)*\s+push([^[:alnum:]_-]|$)'; then
-  GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$HOME")
+  # The hook runs in the session's directory, which is often not the repo being pushed,
+  # so resolve the repo from the command: `git -C <dir>`, else a leading `cd <dir>`.
+  PUSH_DIR=""
+  C_RE="git[[:space:]]+-C[[:space:]]+(\"[^\"]+\"|'[^']+'|[^[:space:];&|]+)"
+  CD_RE="^[[:space:]]*cd[[:space:]]+(\"[^\"]+\"|'[^']+'|[^[:space:];&|]+)"
+  if [[ $BEFORE_HEREDOC =~ $C_RE ]]; then
+    PUSH_DIR=${BASH_REMATCH[1]}
+  elif [[ $BEFORE_HEREDOC =~ $CD_RE ]]; then
+    PUSH_DIR=${BASH_REMATCH[1]}
+  fi
+  PUSH_DIR=${PUSH_DIR#[\"\']}
+  PUSH_DIR=${PUSH_DIR%[\"\']}
+  PUSH_DIR=${PUSH_DIR/#\~/$HOME}
+  GIT_ROOT=$(git -C "${PUSH_DIR:-.}" rev-parse --show-toplevel 2>/dev/null || echo "$HOME")
   TOKEN_FILE="$GIT_ROOT/.claude-push-token"
   if [ -f "$TOKEN_FILE" ]; then
     rm -f "$TOKEN_FILE"
-    PUSH_NOTICE="Push token consumed; this hook auto-removed .claude-push-token. Do not delete it yourself."
+    PUSH_NOTICE="Push token consumed; this hook auto-removed $TOKEN_FILE. Do not delete it yourself."
   else
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply in this turn. DO NOT create the token or push autonomously. Only after the user explicitly confirms: (1) run `touch .claude-push-token` in the repo root as a separate Bash call, then (2) run the original git push command."}}'
+    # Agents may not create the token themselves (auto mode refuses it), so the user does.
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Git push requires explicit user confirmation. Ask the user NOW and wait for their reply. Do not create the token yourself: ask the user to run `! touch %s`, then rerun the original git push command."}}' "$TOKEN_FILE"
     exit 0
   fi
 fi
