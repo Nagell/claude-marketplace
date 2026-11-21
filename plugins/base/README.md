@@ -96,7 +96,7 @@ The platform is detected from the MR URL, or from the remote URL when you pass `
 
 | Skill or plugin                    | Used for                                                                            |
 | ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `browser`                          | In-browser checks by the refuters; without one, refuters check code only and say so |
+| `browser` or `<plugin>:browser`    | In-browser checks by the refuters (`extras` ships one); without one, refuters check code only and say so |
 | `writing-style-guide`, `humanizer` | Comment prose; both ship in this plugin                                             |
 | Codex plugin (`openai-codex`)      | The Codex engine                                                                    |
 

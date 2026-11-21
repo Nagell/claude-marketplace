@@ -45,8 +45,9 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
   the rules lookup.
 - **Project rules** - `~/.claude/review-rules/<repo>.md`: everything specific
   to one repo or product (step 0a).
-- **Browser** - the browser skill the rules name, or a known one, for the
-  refuters' in-browser checks. Optional (step 5).
+- **Browser** - the browser skill the rules name, or any installed skill
+  named `browser` or `<plugin>:browser`, for the refuters' in-browser checks.
+  Optional (step 5).
 
 `$SKILL_DIR` below is the directory this SKILL.md was loaded from,
 `$SCRIPT` is `$SKILL_DIR/scripts/gitlab_comments.py` or
@@ -592,18 +593,25 @@ For each claim it states what would have to be true for the claim to be wrong,
 then goes and checks that. A claim it cannot break comes back with the evidence
 that survived.
 
-**Choosing the browser skill.** Use the skill the rules name. Without one, use
-the `browser` skill when it is installed. The browser is optional:
-when none is available, show this notice, framed, and tell the refuter to work
-from code alone and to mark every claim only a browser could settle as derived.
+**Choosing the browser skill.** Use the skill the rules name. Without one,
+look in your list of available skills for one named `browser`, either bare or
+namespaced by the plugin that ships it as `<plugin>:browser`: this
+marketplace's `extras` plugin lists it as `extras:browser`, and other plugins
+ship their own, such as `global-resources:browser`. Compare only the part after
+the last colon, and compare it exactly: `chrome-browser` or `built-in-browser`
+is not a match. A name in the rules is matched the same way, so `browser` there
+also finds `extras:browser`. When several match, use the first one listed and
+name it in the refuter brief. The browser is optional: when none is available,
+show this notice, framed, and tell the refuter to work from code alone and to
+mark every claim only a browser could settle as derived.
 
 ```text
 ────────────────────────────────────────────────────────────────────
  In-browser checks are off for this review
  No browser skill found (looked for: <rules' skill or none>,
- browser).
- To enable them, install a browser skill (the `browser` plugin in
- this marketplace) or name one under "Browser skill:" in
+ browser, <plugin>:browser).
+ To enable them, install a browser skill (this marketplace's
+ `extras` plugin has one) or name one under "Browser skill:" in
  <rules path or expected rules path>. Refuters continue with
  code-only checks.
 ────────────────────────────────────────────────────────────────────
