@@ -15,7 +15,9 @@ Prints one JSON object:
    "matched_by": "name" | "applies-to" | null, "skipped": [...]}
 
 ``skipped`` lists files whose frontmatter could not be read, with the reason,
-so a typo in a rules file does not read like "no rules for this repo".
+so a typo in a rules file does not read like "no rules for this repo". A file
+with no frontmatter at all is a rules file found by its name only, so the
+``applies-to`` scan passes over it without reporting it.
 """
 
 from __future__ import annotations
@@ -62,12 +64,16 @@ class FrontmatterError(ValueError):
     pass
 
 
+class NoFrontmatter(FrontmatterError):
+    pass
+
+
 def read_frontmatter(path: Path) -> list[str]:
     """Lines between the opening and closing ``---``; the body is never read."""
     with path.open(encoding="utf-8") as fh:
         first = fh.readline()
         if first.strip() != "---":
-            raise FrontmatterError("no frontmatter (first line is not ---)")
+            raise NoFrontmatter("no frontmatter (first line is not ---)")
         lines = []
         for line in fh:
             if line.strip() == "---":
@@ -94,7 +100,7 @@ def applies_to(lines: list[str]) -> list[str]:
 def _block_list(lines: list[str]) -> list[str]:
     items = []
     for line in lines:
-        item = re.match(r"\s+-\s+(.+)$", line)
+        item = re.match(r"\s*-\s+(.+)$", line)
         if not item:
             break
         items.append(_scalar(item.group(1)))
@@ -119,6 +125,8 @@ def find(repo: str, folder: Path) -> dict:
     for f in sorted(folder.glob("*.md")):
         try:
             names = applies_to(read_frontmatter(f))
+        except NoFrontmatter:
+            continue
         except (FrontmatterError, UnicodeDecodeError) as e:
             result["skipped"].append({"path": str(f), "reason": str(e)})
             continue

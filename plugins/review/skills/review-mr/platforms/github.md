@@ -26,8 +26,10 @@ git -C <worktree> checkout --detach <head_sha>
 `origin`.
 
 `diff` and `added-lines` read `/pulls/<number>/files`, every page. A file whose
-patch GitHub withholds although lines changed makes the script stop and say so;
-binary files come through with an empty diff. GitHub lists at most 3000 files
+patch GitHub withholds although lines changed (too large) is flagged in `refs`
+and `diff` and on stderr; the rest of the PR stays reviewable, and only an
+inline anchor on that file is refused (use `--outside`). Binary files come
+through with an empty diff. GitHub lists at most 3000 files
 per PR.
 
 ## The counterpart
@@ -50,7 +52,8 @@ gh api "repos/<cp_owner>/<cp_repo>/contents/<path>?ref=<cp_head_sha>" \
 `threads` prints the same JSON shape as on GitLab. Differences:
 
 - A review thread's `discussion_id` is its GraphQL node id (`PRRT_...`). Take it
-  whole from `threads`; every thread-level subcommand needs it.
+  whole from `threads`; every thread-level subcommand needs it. The id is
+  global, so the script refuses one whose thread belongs to another PR.
 - General PR comments appear as `issuecomment-<id>` and submitted review
   summaries as `review-<id>`, both with `resolvable: false`. Neither can be
   resolved, and a reply to one is a new general comment (`note`).
@@ -62,7 +65,9 @@ gh api "repos/<cp_owner>/<cp_repo>/contents/<path>?ref=<cp_head_sha>" \
 A thread anchors with `line` (the end line) and `side: RIGHT`, plus
 `startLine`/`startSide` for a span. GitHub accepts any line inside a hunk on the
 new side, added or context, and rejects a line outside the hunks; the script
-clamps a span to the part inside and says so, the same as on GitLab.
+clamps a span to the part inside and says so, the same as on GitLab. It refuses
+a span that crosses from one hunk into the next, and a clamped span whose body
+holds a suggestion fence.
 
 `draft --outside path:40-47`:
 
@@ -87,8 +92,8 @@ pending review per user per PR and shows it only to its author.
 
 - `draft` creates the pending review on the first draft, at the PR head, and
   records it in the ledger. If the user already holds a pending review with
-  comments this run did not make, `draft` refuses: those would be published with
-  ours.
+  comments or a body this run did not write, `draft` refuses: those would be
+  published with ours.
 - **Replies and `--resolve`.** Publishing a reply never changes a thread's
   resolved state on GitHub, so nothing reopens by accident and `draft` does not
   refuse a reply on a resolved thread. `--resolve` is recorded in the ledger and
@@ -106,23 +111,30 @@ itself; only branch protection that requires approvals does. The script
 requires a review body (`--file`, plus any unanchored drafts) for
 `requested_changes`, which GitHub's API documents as required for that event,
 so pass one line on what blocks. GitHub refuses Request changes and Approve on the
-user's own PR.
+user's own PR, so `submit` refuses both there before publishing anything;
+submit as `reviewed` instead.
 
 `submit` reads back how many drafts left the pending state and the state of the
 submitted review.
 
 **Approval.** GitHub would record an approval against a stale sha, so
 `approve --sha <head_sha>` refuses when the PR head moved, then submits an
-Approve review at that sha. With drafts, `submit --state approved` publishes
-and approves in one review instead of two, and refuses when the pending review
-sits on an older head than the PR.
+Approve review at that sha. With drafts, `submit --state approved --sha
+<head_sha>` publishes and approves in one review instead of two, and refuses
+unless both the PR head and the pending review sit on that sha.
 
 **General note.** `note` posts a general PR comment. GitHub general comments
 are never resolvable, so it never blocks a merge.
 
 **Discarding.** `discard-drafts` deletes this run's comments from the pending
 review and, when this run created that review and it is now empty, the review
-itself.
+itself. It fails on a ledger path that does not exist rather than reading it as
+empty. It and a successful `submit` empty the ledger.
+
+**A lost submit answer.** When `submit` dies on a 5xx after GitHub published
+the review, the retry finds no pending review and stops, naming the threads the
+drafts asked to resolve or reopen. Check `threads`, apply those by hand with
+`resolve` / `unresolve`, then delete the ledger.
 
 **Errors.** GitHub answers 5xx and secondary rate limits under load. On any
 non-JSON response, run `drafts` or `threads` before retrying.

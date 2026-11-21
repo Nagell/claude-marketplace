@@ -273,8 +273,12 @@ of that repo, which sits on an unrelated branch.
 ## 2. Check out the MR at head, against its own base
 
 ```bash
-python3 $SCRIPT --project <id> --iid <iid> --repo-dir <repo> refs
+python3 $SCRIPT --project <id> --iid <iid> --repo-dir <repo> refs \
+  --description-out $SCRATCH/description.md
 ```
+
+`refs` also prints the MR title and writes its description to that file; both
+go into every agent's brief.
 
 Then in the reviews worktree: fetch the source branch (the platform file says
 how; a fork's branch needs its own ref) and check out the MR's `head_sha`.
@@ -589,8 +593,7 @@ then goes and checks that. A claim it cannot break comes back with the evidence
 that survived.
 
 **Choosing the browser skill.** Use the skill the rules name. Without one, use
-the first known browser skill that is installed: `browser`, then
-`start-chrome-debug` (with the chrome-devtools tools). The browser is optional:
+the `browser` skill when it is installed. The browser is optional:
 when none is available, show this notice, framed, and tell the refuter to work
 from code alone and to mark every claim only a browser could settle as derived.
 
@@ -598,7 +601,7 @@ from code alone and to mark every claim only a browser could settle as derived.
 ────────────────────────────────────────────────────────────────────
  In-browser checks are off for this review
  No browser skill found (looked for: <rules' skill or none>,
- browser, start-chrome-debug).
+ browser).
  To enable them, install a browser skill (the `browser` plugin in
  this marketplace) or name one under "Browser skill:" in
  <rules path or expected rules path>. Refuters continue with
@@ -681,7 +684,12 @@ apply button reads as settled.
 
 **Anchor the whole span.** A finding about lines 40-47 anchors on 40-47, so the
 thread highlights every line involved; the script clamps a span that runs past
-the diff and says so. **A finding on lines no hunk touched** - a caller the
+the diff and says so. It refuses a clamped span whose body holds a suggestion
+fence, since the fence was written for lines the anchor no longer covers:
+rewrite the fence for the clamped span, or drop it. It also refuses a span that
+crosses from one hunk into another; anchor on one hunk or split the finding. A
+file whose diff the platform withheld (too large) takes no inline anchor at
+all; findings on it go through `--outside`. **A finding on lines no hunk touched** - a caller the
 change breaks, a test that should have moved with it - still goes in the same
 review, through `draft --outside path:40-47`, which opens it with the location
 and turns any suggestion fence into a plain code sample (the platform file says
@@ -863,17 +871,25 @@ the question gets one more entry, last: **A** - approve after posting. Without
 it, a clean first review can only ever go out as a Comment, which leaves the
 author waiting on an approval nobody meant to withhold.
 
+Approve first, then post: `finish.md` says the MR is approved, so it goes out
+only once the approval has landed. A refused approval then stops the run with
+nothing posted.
+
 ```bash
-# with drafted replies: the review carries finish.md as its summary
-python3 $SCRIPT --project <id> --iid <iid> submit --ledger $SCRATCH/drafts.json \
-  --state reviewed --file $SCRATCH/finish.md
-# no drafts: a plain note
-python3 $SCRIPT --project <id> --iid <iid> note    --file $SCRATCH/finish.md
+L=$SCRATCH/drafts-<iid>.json
+# GitHub with drafted replies: one review that approves and carries finish.md
+python3 $SCRIPT --project <id> --iid <iid> submit --ledger $L \
+  --state approved --sha <head_sha> --file $SCRATCH/finish.md
+# otherwise: approve, then the review (with drafts) or a plain note (without)
 python3 $SCRIPT --project <id> --iid <iid> approve --sha <head_sha>
+python3 $SCRIPT --project <id> --iid <iid> submit --ledger $L \
+  --state reviewed --file $SCRATCH/finish.md
+python3 $SCRIPT --project <id> --iid <iid> note    --file $SCRATCH/finish.md
 ```
 
-`approve` sends the `head_sha` you reviewed, so the approval is refused if the
-author pushed since; re-check the new head before approving it.
+`approve` and `submit --state approved` send the `head_sha` you reviewed, so the
+approval is refused if the author pushed since; re-check the new head before
+approving it.
 
 **Re-run `refs` immediately before posting.** A review takes long enough that
 the author often pushes in the middle of it, and a rebase changes every sha on
@@ -897,11 +913,13 @@ differs.
    including ones they wrote by hand, so a non-empty list stops the run here: show it and let the
    user submit or discard them first. `submit` refuses too, as a backstop.
 2. **Draft each accepted entry.** Every draft is recorded in
-   `$SCRATCH/drafts.json`, the ledger that lets a failed run delete its own
-   drafts:
+   `$SCRATCH/drafts-<iid>.json`, the ledger that lets a failed run delete its
+   own drafts. One ledger per MR: a ledger shared between MRs would carry one
+   MR's entries into the other's submit. A successful `submit` or
+   `discard-drafts` empties it.
 
    ```bash
-   L=$SCRATCH/drafts.json
+   L=$SCRATCH/drafts-<iid>.json
    python3 $SCRIPT --project <id> --iid <iid> draft --label H1 --ledger $L \
      --file $SCRATCH/h1.md --path app/foo.ts --line 40 --end-line 47
    python3 $SCRIPT --project <id> --iid <iid> draft --label M2 --ledger $L \
@@ -915,15 +933,21 @@ differs.
    `--resolve` resolves the thread on submit and is refused on a thread we did
    not open. Where the platform will not take it on the draft, `draft` records
    it in the ledger instead and `submit` resolves the thread directly
-   afterwards. A reply that would reopen a resolved thread on submit is refused
-   unless `--reopen` says that is the point. A draft that
+   afterwards. `--reopen` on a reply reopens the thread when the review is
+   submitted, and is refused on a thread we did not open too. On GitLab a reply
+   that would reopen a resolved thread on submit is refused unless `--reopen`
+   says that is the point. A draft that
    fails to create stops the run before submitting: the verdict below was
    chosen with that finding in it.
 
 3. **Submit with the verdict.** Any critical, blocker or high in the review →
-   `requested_changes`, which holds the merge until we re-review, also when the
-   finding predates the MR; otherwise `reviewed` (the platform's **Comment**).
-   Only the user's explicit pick in step 7 overrides this. The summary note is
+   `requested_changes`, also when the finding predates the MR; otherwise
+   `reviewed` (the platform's **Comment**). On GitLab `requested_changes` holds
+   the merge until we re-review; on GitHub it does only where branch protection
+   requires approvals. On a GitHub PR the user opened themselves, GitHub refuses
+   `requested_changes` and `approved`, and `submit` refuses them before
+   publishing: submit as `reviewed` and keep the drafts. Only the user's
+   explicit pick in step 7 overrides this. The summary note is
    optional - one line on what blocks, or nothing (the platform file says when
    it is required):
 
@@ -939,11 +963,10 @@ differs.
    If the user picked **A**, approve once the submit has landed:
    `approve --sha <head_sha>` (the platform file may offer a one-call form).
 
-4. **Reopens go separately**, before the submit: drafts cannot unresolve.
-
-   ```bash
-   python3 $SCRIPT --project <id> --iid <iid> unresolve --discussion <id>
-   ```
+4. **Reopens ride on the reply.** A reopen always comes with a reply saying
+   why, so draft it as `--reply <discussion> --reopen`; the thread reopens
+   when the review is submitted. `unresolve` reopens a thread right away and is
+   only for a reopen with nothing to say, which this skill does not make.
 
 **When something fails**, the drafts are the part that outlives the run. A
 draft left pending is invisible to the author, but the user's next manual

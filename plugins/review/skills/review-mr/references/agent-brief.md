@@ -14,8 +14,8 @@ somewhere to go.
   primary checkout usually sits on an unrelated branch with uncommitted work.
 - The diff is saved at `<diff path>`. It is the MR against **its own target
   branch** `<target_branch>` (base `<base_sha>`), which is not always `main`.
-- MR title: `<title>`
-- MR description: `<description, or the path to it>`
+- MR title: `<title>` (the `title` line `refs` printed)
+- MR description: `<the file refs --description-out wrote>`
 - You are **read-only**. Do not edit, stage, commit or push anything. Do not
   post to GitLab or GitHub. Your output is a file.
 - `<Only when the rules name one:>` Product rules live in `<refuter checkout>`;
@@ -42,6 +42,11 @@ changed file has a verdict from you and every changed export has had one
 consumer traced. Those two things are checkable, which is why they are the
 bar rather than "look carefully".
 
+`<Wave 2 only:>` Your scope is `<the area or files this agent was sent to>`.
+"Every changed file" means every changed file in that scope; the first wave's
+ledger already covers the rest, so give the files outside it one
+`out of scope` row each rather than a verdict.
+
 Concretely, before you write your report:
 
 1. **Open each changed file whole at head.** The hunk is not the unit of a
@@ -60,7 +65,9 @@ Concretely, before you write your report:
    touched X reads as carelessness and costs the whole review its credit.
 5. **Measure anything you can measure.** A mechanism read off source, a spec or
    a package's CSS is a hypothesis. Rendering, sizes, stacking, focus and
-   overflow are settled by driving a browser; product rules are settled by
+   overflow are settled by driving a browser, which you do not have: mark such
+   a claim derived and name the browser check that would settle it, and the
+   refuter runs it. Product rules are settled by
    reading the code that owns them (`<refuter checkout>` when the rules name
    one), not by inferring them from the frontend. On a recent MR, three of the
    four strongest findings were reasoned out of source and spec, and all three

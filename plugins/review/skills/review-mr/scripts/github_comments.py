@@ -56,6 +56,7 @@ EVENTS = {
     "approved": "APPROVE",
 }
 SEVERITY = re.compile(r"\*\*(Critical|Blocker|High|Medium|Low)\b")
+SUGGESTION = re.compile(r"^\s*(`{3,}|~{3,})suggestion", re.M)
 
 
 def gh(path: str, repo_dir: str | None = None, method: str = "GET",
@@ -144,20 +145,36 @@ def _refs(a) -> dict:
 
 
 def normalise_file(f: dict) -> dict:
-    """One /files entry in the shape the GitLab script uses."""
+    """One /files entry in the shape the GitLab script uses.
+
+    A file whose patch GitHub withheld (too large) is flagged rather than
+    fatal: the rest of the PR stays reviewable, and only an anchor on that
+    file is refused.
+    """
     patch = f.get("patch")
-    if patch is None and (f.get("additions", 0) + f.get("deletions", 0)) > 0:
-        sys.exit(f"GitHub withheld the diff of {f['filename']} (too large); "
-                 "anchor on it by hand or not at all")
+    withheld = patch is None and (f.get("additions", 0) + f.get("deletions", 0)) > 0
     return {
         "new_path": f["filename"],
         "old_path": f.get("previous_filename") or f["filename"],
         "diff": patch or "",
+        "withheld": withheld,
     }
 
 
 def _changes(a) -> list[dict]:
-    return [normalise_file(f) for f in _paged(f"{pr_base(a)}/files", a.repo_dir)]
+    out = [normalise_file(f) for f in _paged(f"{pr_base(a)}/files", a.repo_dir)]
+    for c in out:
+        if c["withheld"]:
+            print(f"note: GitHub withheld the diff of {c['new_path']} (too large); "
+                  "it cannot take an inline anchor - review it at head and use "
+                  "--outside for findings on it", file=sys.stderr)
+    return out
+
+
+def _require_diff(change: dict) -> None:
+    if change.get("withheld"):
+        sys.exit(f"GitHub withheld the diff of {change['new_path']}, so it has no "
+                 "line to anchor on. Draft it with --outside instead.")
 
 
 def cmd_refs(a) -> None:
@@ -166,15 +183,21 @@ def cmd_refs(a) -> None:
     print(f"start_sha {r['start_sha']}")
     print(f"head_sha  {r['head_sha']}")
     print(f"branch    {r['pr']['head']['ref']} -> {r['pr']['base']['ref']}")
+    print(f"title     {r['pr'].get('title') or ''}")
+    if a.description_out:
+        with open(a.description_out, "w", encoding="utf-8") as fh:
+            fh.write(r["pr"].get("body") or "")
+        print(f"description -> {a.description_out}")
     print("changed:")
     for c in _changes(a):
-        print(f"  {c['new_path']}")
+        print(f"  {c['new_path']}" + ("  (diff withheld)" if c["withheld"] else ""))
 
 
 def cmd_diff(a) -> None:
     out = []
     for c in _changes(a):
-        out.append(f"##### FILE: {c['new_path']}")
+        out.append(f"##### FILE: {c['new_path']}"
+                   + ("  (diff withheld by GitHub)" if c["withheld"] else ""))
         out.append(c["diff"])
     text = "\n".join(out)
     with open(a.out, "w", encoding="utf-8") as fh:
@@ -193,7 +216,8 @@ def added_line_map(changes: list[dict]) -> dict[str, dict[int, str]]:
             if m:
                 n = int(m.group(1))
                 continue
-            if n is None or line.startswith("-"):
+            # "\ No newline at end of file" belongs to the line before it.
+            if n is None or line.startswith("-") or line.startswith("\\"):
                 continue
             if line.startswith("+"):
                 added[n] = line[1:]
@@ -234,12 +258,18 @@ def thread_input(change: dict, start: int, end: int) -> tuple[dict, str | None]:
     line outside the hunks, so a span that runs past them is cut to the part
     inside, the same as the GitLab script does.
     """
+    _require_diff(change)
     rows = diff_rows(change["diff"])
     covered = [n for n in range(start, end + 1) if n in rows]
     path = change["new_path"]
     if not covered:
         sys.exit(f"{path}:{start}-{end} is outside the diff. Draft it with "
                  "--outside as a file-level comment in the same review.")
+    gaps = [n for n in range(covered[0], covered[-1] + 1) if n not in rows]
+    if gaps:
+        sys.exit(f"{path}:{start}-{end} spans two hunks (lines {gaps[0]}-{gaps[-1]} "
+                 "are outside the diff), which GitHub rejects. Anchor on the part "
+                 "inside one hunk, or split the finding.")
     note = None
     if (covered[0], covered[-1]) != (start, end):
         note = (f"  clamped {path}:{start}-{end} to {covered[0]}-{covered[-1]}, "
@@ -395,6 +425,7 @@ query($id: ID!) {
   node(id: $id) {
     ... on PullRequestReviewThread {
       id isResolved
+      pullRequest { number repository { nameWithOwner } }
       comments(first: 1) { nodes { databaseId author { login } } }
     }
   }
@@ -402,12 +433,21 @@ query($id: ID!) {
 
 
 def _thread(a, tid: str) -> dict:
+    """The review thread, refused unless it belongs to --project/--iid.
+
+    Thread ids are global, so one taken from the counterpart's review or an
+    old ledger would otherwise act on a different PR.
+    """
     if not tid.startswith("PRRT_"):
         sys.exit(f"{tid} is not a review thread id. Take the whole PRRT_... id from "
                  "`threads`; general comments and review summaries have no thread.")
     node = graphql(THREAD_Q, a.repo_dir, id=tid).get("node")
     if not node or not node.get("comments", {}).get("nodes"):
         sys.exit(f"no review thread {tid} on {a.project}#{a.iid}")
+    pr = node.get("pullRequest") or {}
+    where = f"{(pr.get('repository') or {}).get('nameWithOwner')}#{pr.get('number')}"
+    if where.lower() != f"{a.project}#{a.iid}".lower():
+        sys.exit(f"refusing: thread {tid} belongs to {where}, not {a.project}#{a.iid}")
     return node
 
 
@@ -549,11 +589,14 @@ def _pending_comments(review: dict | None) -> list[dict]:
     return review["comments"]["nodes"] if review else []
 
 
-def _ledger(path: str) -> list[dict]:
+def _ledger(path: str, required: bool = False) -> list[dict]:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
+        if required:
+            sys.exit(f"no ledger at {path}. Check the path: a mistyped ledger would "
+                     "read as no drafts of ours and leave them pending.")
         return []
 
 
@@ -566,9 +609,18 @@ def ledger_comment_ids(ledger: list[dict]) -> set[int]:
     return {e["id"] for e in ledger if e.get("kind") == "comment"}
 
 
-def foreign_comments(review: dict | None, ledger: list[dict]) -> list[int]:
+def foreign_comments(review: dict | None, ledger: list[dict]) -> list[int | str]:
+    """Parts of the pending review this run did not write.
+
+    Our drafts never set the review body before submit, so any body there is
+    the user's own text.
+    """
     ours = ledger_comment_ids(ledger)
-    return [c["databaseId"] for c in _pending_comments(review) if c["databaseId"] not in ours]
+    out: list[int | str] = [c["databaseId"] for c in _pending_comments(review)
+                            if c["databaseId"] not in ours]
+    if review and (review.get("body") or "").strip():
+        out.append("review body")
+    return out
 
 
 def cmd_drafts(a) -> None:
@@ -614,7 +666,7 @@ def ensure_pending_review(a, ledger: list[dict]) -> str:
     foreign = foreign_comments(review, ledger)
     if foreign:
         sys.exit(f"refusing: you hold a pending review on {a.project}#{a.iid} with "
-                 f"{len(foreign)} comment(s) not from this run ({foreign}). Submit or "
+                 f"{len(foreign)} part(s) not from this run ({foreign}). Submit or "
                  "discard it first - GitHub allows one pending review per user.")
     if review:
         return review["id"]
@@ -623,13 +675,20 @@ def ensure_pending_review(a, ledger: list[dict]) -> str:
     created = r["addPullRequestReview"]["pullRequestReview"]
     ledger.append({"id": created["databaseId"], "node_id": created["id"],
                    "kind": "review", "label": "_review", "where": f"pending review at {head[:12]}"})
+    # Recorded before the first comment, so a draft that fails after this
+    # point still leaves `discard-drafts` able to delete the empty review.
+    _write_ledger(a.ledger, ledger)
     return created["id"]
 
 
-def _draft_reply(a, review_id: str, body: str) -> tuple[dict, str, dict]:
+def _reply_thread(a) -> dict:
+    """Validate a --reply draft before anything is created on GitHub."""
     if a.resolve and a.reopen:
         sys.exit("--resolve and --reopen contradict each other")
-    thread = _require_ours(a, a.reply) if (a.resolve or a.reopen) else _thread(a, a.reply)
+    return _require_ours(a, a.reply) if (a.resolve or a.reopen) else _thread(a, a.reply)
+
+
+def _draft_reply(a, review_id: str, thread: dict, body: str) -> tuple[dict, str, dict]:
     d = graphql(ADD_REPLY_M, a.repo_dir, input={
         "pullRequestReviewId": review_id, "pullRequestReviewThreadId": thread["id"],
         "body": body})
@@ -672,6 +731,10 @@ def _draft_location(a, body: str) -> tuple[dict | None, str, str]:
         end = a.end_line if a.end_line is not None else a.line
         start, end = min(a.line, end), max(a.line, end)
         inp, note = thread_input(changes[a.path], start, end)
+        if note and SUGGESTION.search(body):
+            sys.exit(note.strip() + ". The suggestion fence was written for the whole "
+                     "span and would replace the wrong lines: rewrite it for the "
+                     "clamped span, or drop the fence.")
         if note:
             print(note)
         return inp, f"{a.path}:{start}" + (f"-{end}" if end != start else ""), body
@@ -688,8 +751,9 @@ def cmd_draft(a) -> None:
     ledger = _ledger(a.ledger)
     entry: dict = {"label": a.label}
     if a.reply:
+        thread = _reply_thread(a)
         review_id = ensure_pending_review(a, ledger)
-        comment, kind, extra = _draft_reply(a, review_id, body)
+        comment, kind, extra = _draft_reply(a, review_id, thread, body)
         entry.update(extra)
     else:
         inp, kind, body = _draft_location(a, body)
@@ -733,12 +797,22 @@ def _check_submit(a, review: dict | None, ledger: list[dict], body: str) -> None
     if a.state == "requested_changes" and not body:
         sys.exit("GitHub needs a review body to request changes: pass --file with "
                  "one line on what blocks.")
+    if a.state == "reviewed":
+        return
+    pr = _pr(a)
+    me = current_user(a.repo_dir)
+    if _login(pr.get("user")) == me:
+        sys.exit(f"{a.project}#{a.iid} is your own PR, and GitHub refuses "
+                 f"{a.state} on it. Submit with --state reviewed instead.")
     if a.state == "approved":
-        head = _pr(a)["head"]["sha"]
-        at = (review or {}).get("commit", {}).get("oid") or head
-        if at != head:
-            sys.exit(f"the pending review sits on {at[:12]} but the head is {head[:12]}: "
-                     "the author pushed since - re-check before approving.")
+        head = pr["head"]["sha"]
+        if not a.sha:
+            sys.exit("--state approved needs --sha <head_sha you reviewed>")
+        at = ((review or {}).get("commit") or {}).get("oid") or head
+        for what, sha in (("the PR head", head), ("the pending review", at)):
+            if sha != a.sha:
+                sys.exit(f"{what} is {sha[:12]}, not the reviewed {a.sha[:12]}: the "
+                         "author pushed since - re-check before approving.")
 
 
 def _submit_without_drafts(a, body: str) -> dict:
@@ -760,8 +834,11 @@ def cmd_submit(a) -> None:
     ours = ledger_comment_ids(ledger)
     if review is None:
         if ours:
+            todo = [f"{k} {e[k]}" for e in ledger for k in ("resolve", "reopen") if e.get(k)]
             sys.exit("no pending review found, but the ledger holds drafted comments. "
-                     "Run `threads` - they may have published already.")
+                     "Run `threads` - they may have published already. If they did, "
+                     "apply what the drafts asked for by hand (resolve / unresolve "
+                     f"--discussion): {todo or 'nothing'}; then delete the ledger.")
         result = _submit_without_drafts(a, body)
     else:
         result = graphql(SUBMIT_M, a.repo_dir, id=review["id"], event=EVENTS[a.state],
@@ -775,6 +852,9 @@ def cmd_submit(a) -> None:
                  "anything else - some may have published anyway - then "
                  "`discard-drafts` the rest.")
     settle_thread_states(a, ledger)
+    # Emptied so a later run on the same ledger cannot republish these body
+    # entries or re-apply these resolves.
+    _write_ledger(a.ledger, [])
 
 
 def settle_thread_states(a, ledger: list[dict]) -> None:
@@ -791,7 +871,7 @@ def settle_thread_states(a, ledger: list[dict]) -> None:
 
 
 def cmd_discard_drafts(a) -> None:
-    ledger = _ledger(a.ledger)
+    ledger = _ledger(a.ledger, required=True)
     ours = ledger_comment_ids(ledger)
     _, review = pending_review(a)
     gone = 0
@@ -807,6 +887,8 @@ def cmd_discard_drafts(a) -> None:
     still = sorted(ours & {c["databaseId"] for c in _pending_comments(pending_review(a)[1])})
     if still:
         sys.exit(f"drafts {still} survived the delete")
+    # The body entries and resolves die with the drafts: a retry starts clean.
+    _write_ledger(a.ledger, [])
     print(f"  deleted {gone} draft(s) of this run; none of ours left pending")
 
 
@@ -852,7 +934,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--iid", required=True, help="PR number")
     p.add_argument("--repo-dir", default=None, help="cwd for gh")
     sub = p.add_subparsers(dest="cmd", required=True)
-    sub.add_parser("refs").set_defaults(func=cmd_refs)
+    rf = sub.add_parser("refs")
+    rf.add_argument("--description-out", default=None,
+                    help="write the PR description to this file")
+    rf.set_defaults(func=cmd_refs)
     cp = sub.add_parser("counterpart")
     cp.add_argument("--sibling", required=True, help="the other repo, owner/repo")
     cp.set_defaults(func=cmd_counterpart)
@@ -915,6 +1000,8 @@ def build_parser() -> argparse.ArgumentParser:
     sb.add_argument("--ledger", required=True)
     sb.add_argument("--state", required=True, choices=sorted(EVENTS))
     sb.add_argument("--file", default=None)
+    sb.add_argument("--sha", default=None,
+                    help="with --state approved: the head sha the review was done against")
     sb.set_defaults(func=cmd_submit)
     dd = sub.add_parser("discard-drafts")
     dd.add_argument("--ledger", required=True)

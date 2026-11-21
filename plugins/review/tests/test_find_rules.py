@@ -62,6 +62,17 @@ def test_applies_to_block_list(tmp_path):
     assert find_rules.find("backend", tmp_path)["path"] == str(f)
 
 
+def test_applies_to_block_list_at_column_zero(tmp_path):
+    f = write(tmp_path, "shared.md", "---\napplies-to:\n- backend\n- frontend\n---\n")
+    assert find_rules.find("frontend", tmp_path)["path"] == str(f)
+
+
+def test_name_only_rules_files_are_not_reported_as_skipped(tmp_path):
+    write(tmp_path, "frontend.md", "# Frontend rules\n")
+    r = find_rules.find("backend", tmp_path)
+    assert r["path"] is None and r["skipped"] == []
+
+
 def test_body_is_never_read(tmp_path):
     write(tmp_path, "shared.md", "---\ntitle: x\n---\napplies-to: [app]\n")
     r = find_rules.find("app", tmp_path)
@@ -82,7 +93,6 @@ def test_missing_rules_folder(tmp_path):
 
 
 @pytest.mark.parametrize("text,reason", [
-    ("applies-to: [app]\n", "no frontmatter"),
     ("---\napplies-to: [app]\n", "never closed"),
     ("---\napplies-to: [app\n---\n", "not closed with ]"),
     ("---\napplies-to:\n---\n", "is empty"),

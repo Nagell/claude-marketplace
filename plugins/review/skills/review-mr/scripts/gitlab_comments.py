@@ -84,9 +84,14 @@ def cmd_refs(a) -> None:
     print(f"start_sha {refs['start_sha']}")
     print(f"head_sha  {refs['head_sha']}")
     print(f"branch    {d['source_branch']} -> {d['target_branch']}")
+    print(f"title     {d.get('title') or ''}")
+    if a.description_out:
+        with open(a.description_out, "w", encoding="utf-8") as fh:
+            fh.write(d.get("description") or "")
+        print(f"description -> {a.description_out}")
     print("changed:")
     for c in _changes(a):
-        print(f"  {c['new_path']}")
+        print(f"  {c['new_path']}" + ("  (diff withheld)" if c["withheld"] else ""))
 
 
 def _refs(a) -> dict:
@@ -103,11 +108,17 @@ def _paged(path: str, repo_dir: str | None) -> list[dict]:
     sep = "&" if "?" in path else "?"
     out: list[dict] = []
     page = 1
+    last = None
     while True:
         batch = glab(f"{path}{sep}per_page={per_page}&page={page}", repo_dir)
+        # Some endpoints (draft_notes) ignore paging and answer every page with
+        # the full list; a repeated page means everything has been read.
+        if batch == last:
+            return out
         out += batch
         if len(batch) < per_page:
             return out
+        last = batch
         page += 1
 
 
@@ -115,20 +126,25 @@ def _changes(a) -> list[dict]:
     """Every file's diff, from /diffs.
 
     /changes collapses a large file's diff to an empty string, which reads
-    exactly like "nothing changed here" and silently drops its anchors.
+    exactly like "nothing changed here" and silently drops its anchors. A file
+    whose diff GitLab withheld is flagged rather than fatal: the rest of the MR
+    stays reviewable, and only an anchor on that file is refused.
     """
     out = _paged(f"{mr_base(a.project, a.iid)}/diffs", a.repo_dir)
     for c in out:
-        if c.get("too_large") or (c.get("collapsed") and not c["diff"]):
-            sys.exit(f"GitLab withheld the diff of {c['new_path']} (too large); "
-                     "anchor on it by hand or not at all")
+        c["withheld"] = bool(c.get("too_large") or (c.get("collapsed") and not c["diff"]))
+        if c["withheld"]:
+            print(f"note: GitLab withheld the diff of {c['new_path']} (too large); "
+                  "it cannot take an inline anchor - review it at head and use "
+                  "--outside for findings on it", file=sys.stderr)
     return out
 
 
 def cmd_diff(a) -> None:
     out = []
     for c in _changes(a):
-        out.append(f"##### FILE: {c['new_path']}")
+        out.append(f"##### FILE: {c['new_path']}"
+                   + ("  (diff withheld by GitLab)" if c["withheld"] else ""))
         out.append(c["diff"])
     text = "\n".join(out)
     with open(a.out, "w", encoding="utf-8") as fh:
@@ -155,7 +171,8 @@ def added_line_map(changes: list[dict]) -> dict[str, dict[int, str]]:
                 continue
             if n is None:
                 continue
-            if line.startswith("-"):
+            # "\ No newline at end of file" belongs to the line before it.
+            if line.startswith("-") or line.startswith("\\"):
                 continue
             if line.startswith("+"):
                 added[n] = line[1:]
@@ -242,7 +259,12 @@ def cmd_edit(a) -> None:
         f"{mr_base(a.project, a.iid)}/discussions/{a.discussion}/notes/{a.note}",
         a.repo_dir, "PUT", {"body": body},
     )
+    if "id" not in note:
+        sys.exit(f"note {a.note} not updated: {note.get('message', note)}")
     pos = note.get("position")
+    if note.get("type") != "DiffNote":
+        print(f"  note={note['id']} {len(note['body'])} chars (general note)")
+        return
     if not pos:
         sys.exit(f"note {a.note} lost its anchor after the edit")
     print(f"  note={note['id']} {len(note['body'])} chars, still anchored "
@@ -250,6 +272,7 @@ def cmd_edit(a) -> None:
 
 
 SEVERITY = re.compile(r"\*\*(Critical|Blocker|High|Medium|Low)\b")
+SUGGESTION = re.compile(r"^\s*(`{3,}|~{3,})suggestion", re.M)
 
 
 def severity(body: str) -> str | None:
@@ -452,11 +475,14 @@ def _endpoint(row: tuple[int, int, str | None], path: str) -> dict:
     }
 
 
-def build_position(a, start: int, end: int) -> dict:
+def build_position(a, start: int, end: int, body: str = "") -> dict:
     """Position for a thread spanning start..end, anchored on the end line."""
     change = next((c for c in _changes(a) if c["new_path"] == a.path), None)
     if change is None:
         sys.exit(f"{a.path} is not a changed file in !{a.iid}")
+    if change.get("withheld"):
+        sys.exit(f"GitLab withheld the diff of {a.path}, so it has no line to "
+                 "anchor on. Draft it with --outside instead.")
     rows = diff_rows(change["diff"])
     covered = [n for n in range(start, end + 1) if n in rows]
     if not covered:
@@ -464,9 +490,19 @@ def build_position(a, start: int, end: int) -> dict:
             f"{a.path}:{start}-{end} is outside the diff. Draft it with "
             "--outside as a general note in the same review."
         )
+    gaps = [n for n in range(covered[0], covered[-1] + 1) if n not in rows]
+    if gaps:
+        sys.exit(f"{a.path}:{start}-{end} spans two hunks (lines {gaps[0]}-{gaps[-1]} "
+                 "are outside the diff). Anchor on the part inside one hunk, or "
+                 "split the finding.")
     if (covered[0], covered[-1]) != (start, end):
-        print(f"  clamped {a.path}:{start}-{end} to {covered[0]}-{covered[-1]}, "
-              "the rest is outside the diff")
+        note = (f"clamped {a.path}:{start}-{end} to {covered[0]}-{covered[-1]}, "
+                "the rest is outside the diff")
+        if SUGGESTION.search(body):
+            sys.exit(f"{note}. The suggestion fence was written for the whole span "
+                     "and its offsets would replace the wrong lines: rewrite it for "
+                     "the clamped span, or drop the fence.")
+        print(f"  {note}")
     start, end = covered[0], covered[-1]
     refs = _refs(a)
     old, new, kind = rows[end]
@@ -506,12 +542,20 @@ def _drafts(a) -> list[dict]:
     return _paged(f"{mr_base(a.project, a.iid)}/draft_notes", a.repo_dir)
 
 
-def _ledger(path: str) -> list[dict]:
+def _ledger(path: str, required: bool = False) -> list[dict]:
     try:
         with open(path, encoding="utf-8") as fh:
             return json.load(fh)
     except FileNotFoundError:
+        if required:
+            sys.exit(f"no ledger at {path}. Check the path: a mistyped ledger would "
+                     "read as no drafts of ours and leave them pending.")
         return []
+
+
+def _write_ledger(path: str, ledger: list[dict]) -> None:
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(ledger, fh, indent=2)
 
 
 def cmd_drafts(a) -> None:
@@ -539,7 +583,8 @@ def cmd_draft(a) -> None:
     if a.reply:
         if a.resolve and a.reopen:
             sys.exit("--resolve and --reopen contradict each other")
-        thread = _require_ours(a, a.reply) if a.resolve else _discussion(a, a.reply)
+        thread = (_require_ours(a, a.reply) if (a.resolve or a.reopen)
+                  else _discussion(a, a.reply))
         first = _first_human_note(thread) or {}
         # Publishing a draft reply without resolve_discussion unresolves the
         # thread (DraftNotes::PublishService#set_discussion_resolve_status).
@@ -561,7 +606,7 @@ def cmd_draft(a) -> None:
         start = a.line
         end = a.end_line if a.end_line is not None else a.line
         start, end = min(start, end), max(start, end)
-        payload["position"] = build_position(a, start, end)
+        payload["position"] = build_position(a, start, end, body)
         kind = f"{a.path}:{start}" + (f"-{end}" if end != start else "")
     d = glab(f"{mr_base(a.project, a.iid)}/draft_notes", a.repo_dir, "POST", payload)
     if "id" not in d and payload.get("resolve_discussion"):
@@ -583,8 +628,7 @@ def cmd_draft(a) -> None:
         entry["resolve"] = a.reply
         entry["resolve_after_submit"] = resolve_after_submit
     ledger.append(entry)
-    with open(a.ledger, "w", encoding="utf-8") as fh:
-        json.dump(ledger, fh, indent=2)
+    _write_ledger(a.ledger, ledger)
     print(f"  draft={d['id']} {a.label} {kind} ({len(payload['note'])} chars)")
 
 
@@ -605,13 +649,18 @@ def cmd_submit(a) -> None:
             "the user has to submit or discard them first."
         )
     payload = {"reviewer_state": a.state}
+    summary = None
     if a.file:
-        payload["note"] = open(a.file, encoding="utf-8").read()
+        summary = open(a.file, encoding="utf-8").read()
+        payload["note"] = summary
     answer = glab(f"{mr_base(a.project, a.iid)}/draft_notes/bulk_publish",
                   a.repo_dir, "POST", payload)
-    if answer:
-        print(f"  bulk_publish answered: {answer}")
     left = [d["id"] for d in _drafts(a) if d["id"] in ledger_ids]
+    if answer:
+        # Success is a 204 with no body; anything else is GitLab's error.
+        sys.exit(f"bulk_publish answered: {answer}. {len(left)} of "
+                 f"{len(ledger_ids)} drafts still pending: {left}. Run `threads` "
+                 "before anything else, then `discard-drafts` what is left.")
     me = current_user(a.repo_dir)
     reviewers = glab(f"{mr_base(a.project, a.iid)}/reviewers", a.repo_dir)
     state = next((r.get("state") for r in reviewers
@@ -624,7 +673,19 @@ def cmd_submit(a) -> None:
             "anything else - some may have published anyway - then "
             "`discard-drafts` the rest."
         )
+    if summary and not _summary_posted(a, summary, me):
+        print("  the summary note does not show on the MR - check it by hand "
+              "before posting it again")
     _settle_resolves(a)
+    # Emptied so a later run on the same ledger cannot re-apply these resolves.
+    _write_ledger(a.ledger, [])
+
+
+def _summary_posted(a, summary: str, me: str) -> bool:
+    notes = glab(f"{mr_base(a.project, a.iid)}/notes?sort=desc&order_by=created_at"
+                 "&per_page=20", a.repo_dir)
+    return any(n.get("author", {}).get("username") == me
+               and (n.get("body") or "").strip() == summary.strip() for n in notes)
 
 
 def _settle_resolves(a) -> None:
@@ -646,7 +707,7 @@ def _settle_resolves(a) -> None:
 
 
 def cmd_discard_drafts(a) -> None:
-    ours = {e["id"] for e in _ledger(a.ledger)}
+    ours = {e["id"] for e in _ledger(a.ledger, required=True)}
     gone = 0
     for d in _drafts(a):
         if d["id"] in ours:
@@ -656,6 +717,7 @@ def cmd_discard_drafts(a) -> None:
     still = sorted(ours & {d["id"] for d in _drafts(a)})
     if still:
         sys.exit(f"drafts {still} survived the delete")
+    _write_ledger(a.ledger, [])
     print(f"  deleted {gone} draft(s) of this run; none of ours left pending")
 
 
@@ -719,7 +781,10 @@ def main() -> None:
     p.add_argument("--repo-dir", default=None, help="cwd for glab (a checkout of the repo)")
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("refs").set_defaults(func=cmd_refs)
+    rf = sub.add_parser("refs")
+    rf.add_argument("--description-out", default=None,
+                    help="write the MR description to this file")
+    rf.set_defaults(func=cmd_refs)
 
     cp = sub.add_parser("counterpart")
     cp.add_argument("--sibling", required=True, help="the other repo's project id")
@@ -793,7 +858,8 @@ def main() -> None:
     dr.add_argument("--resolve", action="store_true",
                     help="with --reply: resolve the thread on submit (ours only)")
     dr.add_argument("--reopen", action="store_true",
-                    help="with --reply on a resolved thread: let the publish reopen it")
+                    help="with --reply on a resolved thread: let the publish reopen it "
+                         "(ours only)")
     dr.set_defaults(func=cmd_draft)
 
     sb = sub.add_parser("submit")

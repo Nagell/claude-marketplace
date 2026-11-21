@@ -26,8 +26,9 @@ head in instead.
 
 `diff` and `added-lines` read `/merge_requests/<iid>/diffs`, every page of it.
 `/changes` collapses a large file's diff to an empty string, which reads exactly
-like "nothing changed here"; a diff GitLab withholds as too large makes the
-script stop and say so, and that file is anchored by hand or not at all.
+like "nothing changed here". A diff GitLab withholds as too large is flagged in
+`refs` and `diff` and on stderr; the rest of the MR stays reviewable, and only
+an inline anchor on that file is refused (use `--outside`).
 
 ## The counterpart
 
@@ -62,7 +63,9 @@ that the anchor came back populated.
   as well. The script works this out from the diff.
 - A span goes out as a `line_range` with both endpoints and anchors on its end
   line. A span that runs past the diff is clamped to the part inside and the
-  script says so.
+  script says so. It refuses a clamped span whose body holds a suggestion fence
+  (the offsets count from the new end line and would hit lines above the
+  span), and a span that crosses from one hunk into the next.
 - `draft --outside path:40-47` drafts a general note in the same review, opened
   with `**Outside the diff - `path:40-47`**`, and turns a suggestion fence into a
   plain code sample.
@@ -89,14 +92,16 @@ at once, including any they wrote by hand.
   without, records the resolve in the ledger, and `submit` resolves the thread
   directly afterwards.
 - A draft GitLab returns without its anchor is deleted and reported.
-- Drafts cannot unresolve, so a reopen is a separate `unresolve` call before the
-  submit.
+- A reopen is a draft reply with `--reopen`: publishing it reopens the thread.
+  Like `--resolve`, it is refused on a thread we did not open.
 
 **Verdict.** `--state requested_changes` holds the merge until we re-review;
 `--state reviewed` is GitLab's **Comment**. The summary note (`--file`) is
 optional. `bulk_publish` answers 204 even when the state change did not stick,
-so `submit` reads back how many drafts published and the reviewer state from
-`/reviewers`.
+so `submit` reads back how many drafts published, the reviewer state from
+`/reviewers` and whether the summary note shows on the MR. Any other answer
+from `bulk_publish` is an error, and `submit` stops on it. A successful `submit`
+empties the ledger, and so does `discard-drafts`.
 
 **Approval.** `approve --sha <head_sha>` sends the reviewed sha, and GitLab
 refuses the approval when the author pushed since. It is a separate call after

@@ -25,6 +25,9 @@ PATCH = "@@ -10,3 +10,5 @@ def f():\n ctx10\n+add11\n+add12\n ctx13\n-old\n+add1
 class FakeGitHub:
     def __init__(self, me="me", pending=None, thread_owner="me", thread_resolved=False):
         self.me = me
+        self.author = "author"
+        self.thread_pr = ("o/r", 7)
+        self.files = [{"filename": "src/a.py", "patch": PATCH, "additions": 4, "deletions": 1}]
         self.pending = pending
         self.thread_owner = thread_owner
         self.thread_resolved = thread_resolved
@@ -36,10 +39,10 @@ class FakeGitHub:
         if path == "user":
             return {"login": self.me}
         if path.startswith("repos/o/r/pulls/7/files"):
-            return [{"filename": "src/a.py", "patch": PATCH, "additions": 4, "deletions": 1}]
+            return self.files
         if path == "repos/o/r/pulls/7" and method == "GET":
             return {"head": {"sha": HEAD, "ref": "feat"}, "base": {"sha": BASE, "ref": "main"},
-                    "node_id": "PR_1", "body": ""}
+                    "node_id": "PR_1", "body": "", "user": {"login": self.author}}
         if path == "repos/o/r/pulls/7/reviews" and method == "POST":
             return {"id": 99, "state": body["event"].replace("APPROVE", "APPROVED")
                     .replace("COMMENT", "COMMENTED"), "user": {"login": self.me}}
@@ -85,7 +88,10 @@ class FakeGitHub:
                                                                 "databaseId": 602}}}
 
     def op_node(self, v):
+        repo, number = self.thread_pr
         return {"node": {"id": v["id"], "isResolved": self.thread_resolved,
+                         "pullRequest": {"number": number,
+                                         "repository": {"nameWithOwner": repo}},
                          "comments": {"nodes": [{"databaseId": 1,
                                                  "author": {"login": self.thread_owner}}]}}}
 
@@ -150,9 +156,22 @@ def test_normalise_file_rename_and_binary():
     assert binary["diff"] == ""
 
 
-def test_normalise_file_withheld_diff_fails_loudly():
-    with pytest.raises(SystemExit, match="withheld"):
-        g.normalise_file({"filename": "big.json", "additions": 9000, "deletions": 0})
+def test_normalise_file_withheld_diff_is_flagged_not_fatal():
+    f = g.normalise_file({"filename": "big.json", "additions": 9000, "deletions": 0})
+    assert f["withheld"] is True and f["diff"] == ""
+    with pytest.raises(SystemExit, match="--outside"):
+        g.thread_input(f, 1, 1)
+
+
+def test_withheld_file_does_not_block_the_rest(fake, tmp_path):
+    fake.files.append({"filename": "pnpm-lock.yaml", "additions": 9000, "deletions": 0})
+    g.cmd_draft(args(tmp_path, path="src/a.py", line=11))
+    assert len(fake.mutations("addPullRequestReviewThread")) == 1
+
+
+def test_added_line_map_skips_no_newline_marker():
+    patch = "@@ -1,2 +1,3 @@\n a\n-b\n\\ No newline at end of file\n+b\n+c\n"
+    assert g.added_line_map([{"new_path": "x", "diff": patch}]) == {"x": {2: "b", 3: "c"}}
 
 
 def test_diff_rows_skip_removed_lines():
@@ -170,6 +189,19 @@ def test_thread_input_range_and_clamp():
     assert inp == {"path": "src/a.py", "line": 12, "side": "RIGHT", "subjectType": "LINE",
                    "startLine": 10, "startSide": "RIGHT"}
     assert "clamped src/a.py:8-12 to 10-12" in note
+
+
+def test_thread_input_across_two_hunks_is_refused():
+    two = PATCH + "@@ -30,2 +32,3 @@\n ctx32\n+add33\n ctx34\n"
+    with pytest.raises(SystemExit, match="spans two hunks"):
+        g.thread_input({"new_path": "src/a.py", "diff": two}, 12, 33)
+
+
+def test_clamped_span_with_suggestion_is_refused(fake, tmp_path):
+    text = "🟡 **Medium** - x\n\n```suggestion\na\nb\nc\nd\ne\n```\n"
+    with pytest.raises(SystemExit, match="suggestion fence"):
+        g.cmd_draft(args(tmp_path, path="src/a.py", line=8, end_line=12, text=text))
+    assert not fake.mutations("addPullRequestReviewThread")
 
 
 def test_thread_input_outside_the_diff_exits():
@@ -260,6 +292,21 @@ def test_draft_resolve_refused_on_someone_elses_thread(fake, tmp_path):
     with pytest.raises(SystemExit, match="opened by colleague"):
         g.cmd_draft(args(tmp_path, reply="PRRT_x", resolve=True))
     assert not fake.mutations("addPullRequestReviewThreadReply")
+    assert not fake.mutations("addPullRequestReview")
+
+
+def test_thread_from_another_pr_is_refused(fake, tmp_path):
+    fake.thread_pr = ("o/fe", 12)
+    with pytest.raises(SystemExit, match="belongs to o/fe#12"):
+        g.cmd_resolve(args(tmp_path, discussion="PRRT_x"))
+    assert not fake.mutations("resolveReviewThread")
+
+
+def test_draft_refuses_a_pending_review_holding_only_a_body(fake, tmp_path):
+    fake.pending = {"id": "PRR_user", "databaseId": 1, "body": "my summary",
+                    "commit": {"oid": HEAD}, "comments": {"nodes": []}}
+    with pytest.raises(SystemExit, match="review body"):
+        g.cmd_draft(args(tmp_path, path="src/a.py", line=11))
 
 
 def test_draft_reply_with_resolve_is_recorded_for_submit(fake, tmp_path):
@@ -305,6 +352,7 @@ def test_submit_maps_state_and_settles_resolves(fake, tmp_path):
     assert sub["body"].startswith("Blocks on H1.\n\n---\n\n**Outside the diff")
     assert len(fake.mutations("resolveReviewThread")) == 1
     assert fake.thread_resolved is True
+    assert ledger(tmp_path) == []
 
 
 def test_submit_refuses_foreign_drafts(fake, tmp_path):
@@ -325,8 +373,29 @@ def test_submit_request_changes_needs_a_body(fake, tmp_path):
 def test_submit_approved_refused_when_head_moved(fake, tmp_path):
     g.cmd_draft(args(tmp_path, path="src/a.py", line=11))
     fake.pending["commit"]["oid"] = "0" * 40
+    a = submit_args(tmp_path, "approved")
+    a.sha = HEAD
     with pytest.raises(SystemExit, match="pushed since"):
-        g.cmd_submit(submit_args(tmp_path, "approved"))
+        g.cmd_submit(a)
+
+
+def test_submit_approved_checks_the_reviewed_sha_without_drafts(fake, tmp_path):
+    a = submit_args(tmp_path, "approved")
+    a.sha = "0" * 40
+    with pytest.raises(SystemExit, match="pushed since"):
+        g.cmd_submit(a)
+    a.sha = None
+    with pytest.raises(SystemExit, match="needs --sha"):
+        g.cmd_submit(a)
+    assert not [c for c in fake.rest if c[0] == "POST"]
+
+
+def test_submit_on_own_pr_refuses_a_verdict(fake, tmp_path):
+    fake.author = "me"
+    g.cmd_draft(args(tmp_path, path="src/a.py", line=11))
+    with pytest.raises(SystemExit, match="own PR"):
+        g.cmd_submit(submit_args(tmp_path, "requested_changes", "Blocks."))
+    assert not fake.mutations("submitPullRequestReview")
 
 
 def test_submit_with_only_body_drafts_creates_a_review(fake, tmp_path):
@@ -355,3 +424,9 @@ def test_discard_deletes_only_ours_and_the_review_we_created(fake, tmp_path):
     assert [v["id"] for v in fake.mutations("deletePullRequestReviewComment")] == ["C_1"]
     assert [v["id"] for v in fake.mutations("deletePullRequestReview")] == ["PRR_new"]
     assert fake.pending is None
+    assert ledger(tmp_path) == []
+
+
+def test_discard_fails_on_a_missing_ledger(fake, tmp_path):
+    with pytest.raises(SystemExit, match="no ledger"):
+        g.cmd_discard_drafts(args(tmp_path, ledger=str(tmp_path / "typo.json")))
