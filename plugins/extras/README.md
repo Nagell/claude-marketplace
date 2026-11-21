@@ -16,6 +16,7 @@ Optional developer tooling split out of `base`, so work setups that already ship
 | `pr-descriptions` | Write PR/MR descriptions in a consistent house style        |
 | `open-pr`         | Open a PR/MR with a description the push hook keeps current |
 | `browser`         | Start and drive isolated, Playwright-managed browser sessions ([details](#browser)) |
+| `/extras:setup-token-savings` | Set up tools for Claude Code to save tokens (run it yourself) |
 
 Call any of them by name, or let Claude reach for them when the task fits.
 

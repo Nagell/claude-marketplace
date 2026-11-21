@@ -31,7 +31,6 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | Skill                             | Description                                                              |
 | --------------------------------- | ------------------------------------------------------------------------ |
 | `/base:plugin-setup`              | Install recommended plugins and marketplaces                             |
-| `/base:setup-token-savings`       | Set up tools for CC to save tokens                                       |
 | `/base:setup-macos`               | macOS only: Finder defaults, screenshots to the clipboard, Spaces hotkeys off Ctrl+arrows, Karabiner-Elements Windows-style shortcuts and Ctrl+click, fast key repeat, numbered workspaces per screen (FlashSpace on Caps Lock, SketchyBar top bar, Rectangle snapping with gaps), AltTab window switcher on Cmd+Tab |
 | `/base:setup-zsh`                 | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor |
 | `/base:review-mr`                 | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs)) |
