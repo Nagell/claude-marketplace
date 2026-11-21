@@ -12,6 +12,7 @@
 #   BROWSER_WINDOW_ORIGIN  "x,y" of the first window, default "80,60"
 #   BROWSER_CREDENTIALS    the logins file, default ~/.claude/browser-users.env
 #   BROWSER_NO_SANDBOX     1 runs the browser without the Chromium sandbox
+#   BROWSER_SCALE          window scale such as 1.5, for a HiDPI screen WSLg shows at 100%
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR source=common.sh
@@ -39,7 +40,7 @@ die() {
 }
 
 usage() {
-  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # Accepts both `--flag value` and `--flag=value`; the second form is what the
@@ -204,6 +205,9 @@ esac
 origin_x=${BASH_REMATCH[1]}
 origin_y=${BASH_REMATCH[2]}
 
+[ -z "${BROWSER_SCALE:-}" ] || [[ "$BROWSER_SCALE" =~ ^[0-9]+(\.[0-9]+)?$ ]] ||
+  die "BROWSER_SCALE must be a number such as 1.5, got: $BROWSER_SCALE"
+
 if [ "$count" -gt "$MANY" ] && [ "$yes_many" = false ]; then
   die "$count browsers is a lot - each is a real browser, roughly 400 MB of RAM
 apiece. Confirm with the user, then re-run with --yes-many."
@@ -272,16 +276,21 @@ running_count() {
 # back on. The CLI writes snapshots and logs to ./.playwright-cli in whatever
 # directory it runs from, so outputDir keeps them in the profile instead of
 # the user's repo.
+#
+# WSLg ignores a fractional Windows display scale such as 150%, so on a 4K
+# screen the window comes out tiny. BROWSER_SCALE scales the browser itself,
+# which keeps text sharp; screenshots stay in CSS pixels either way.
 write_config() {
-  local config=$1 slot=$2 profile=$3 sandbox=true
+  local config=$1 slot=$2 profile=$3 sandbox=true scale_arg=""
   [ "${BROWSER_NO_SANDBOX:-}" = "1" ] && sandbox=false
+  [ -n "${BROWSER_SCALE:-}" ] && scale_arg="\"--force-device-scale-factor=$BROWSER_SCALE\", "
   cat >"$config" <<JSON
 {
   "outputDir": "$profile/output",
   "browser": {
     "launchOptions": {
       "chromiumSandbox": $sandbox,
-      "args": ["--window-size=1440,1000", "--window-position=$((origin_x + slot * 40)),$((origin_y + slot * 40))"]
+      "args": [${scale_arg}"--window-size=1440,1000", "--window-position=$((origin_x + slot * 40)),$((origin_y + slot * 40))"]
     },
     "contextOptions": { "viewport": null }
   }

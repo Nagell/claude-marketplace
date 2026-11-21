@@ -84,6 +84,7 @@ Every later call goes through `scripts/pw.sh`, which runs the one pinned `@playw
 | `BROWSER_CREDENTIALS`   | `~/.claude/browser-users.env` | The logins file, read by preflight and the CLI                                |
 | `BROWSER_SKIP_MCP`      | unset                         | `1` skips preflight's `claude mcp list` probe                                 |
 | `BROWSER_WINDOW_ORIGIN` | `80,60`                       | `x,y` screen position of the first window                                     |
+| `BROWSER_SCALE`         | unset                         | Window scale such as `1.5`, for a HiDPI screen WSLg shows at 100%             |
 | `BROWSER_NO_SANDBOX`    | unset                         | `1` starts the browser without the Chromium sandbox, where AppArmor blocks it |
 
 ### Credentials
