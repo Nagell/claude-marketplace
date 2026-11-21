@@ -513,6 +513,15 @@ If Step 2 reported `nvim config: EXISTS`, do not overwrite it. Report that `~/.c
 
 An existing config that is LazyVim (has `~/.config/nvim/lazyvim.json`) can still pick up language support it lacks. Compare its `extras` with `assets/lazyvim/lazyvim.json`. If any are missing (for example `lang.vue` or `lang.python`), use AskUserQuestion to offer adding them. On yes, insert the missing entries into the user's `extras` list with the Edit tool, then run only the two headless passes under **Install plugins, language servers and parsers** in `references/lazyvim.md`. Use `Lazy! install` instead of `Lazy! restore` there, so the user's own pinned plugin versions stay as they are.
 
+An existing config with this skill's `resume.lua` needs its updates too, since skipping the step never delivers them:
+
+```bash
+A=<this-skill-dir>/assets/lazyvim
+[ -f ~/.config/nvim/lua/config/resume.lua ] && { cmp -s "$A/lua/config/resume.lua" ~/.config/nvim/lua/config/resume.lua || echo "OUTDATED: resume.lua"; grep -q 'require("config.resume")' ~/.config/nvim/lua/config/autocmds.lua 2>/dev/null || echo "MISSING: require line"; }
+```
+
+If anything prints, use AskUserQuestion: "Update `resume.lua` to this skill's version? Local changes to it are overwritten" with options "Yes, update (Recommended)" and "Skip". On yes, copy `$A/lua/config/resume.lua` to `~/.config/nvim/lua/config/` and, if the require line was missing, append it to `autocmds.lua` as in the **Install** section of `references/lazyvim.md`.
+
 Otherwise (fresh install, or replacing a moved-aside config) follow the **Install** section of `references/lazyvim.md`: Neovim 0.11+ (LazyVim needs newer than mdv's 0.10), the tools it expects (with a sudo hand-off on Linux/WSL without brew), the starter plus this skill's `assets/lazyvim/` files, the global markdownlint rules (ask before replacing an existing `~/.markdownlint-cli2.yaml`), the headless plugin/LSP/parser install, the verify checks, and the key summary to tell the user.
 
 ### 17. Set up Python: uv, a current Python and IPython (optional)

@@ -223,9 +223,10 @@ old name and paths from when it only reopened mdv.
 
 Read `~/.zshrc`. Unless it already contains `# >>> setup-zsh resume >>>`, read
 `<this-skill-dir>/assets/zshrc/resume.zsh` and use the Edit tool to append it at the end of
-`~/.zshrc`. If the block is there but lacks `zselect`, it is an earlier version that loses
-its record on a macOS reboot: replace everything between the `setup-zsh resume` markers with
-the asset. Then check the syntax:
+`~/.zshrc`. If the block is there but lacks `zselect` (an earlier version that loses its
+record on a macOS reboot) or lacks `if .[-1] == ""` (an earlier jq filter that records
+`mdv docs/x.md` as `["mdv"]` on jq 1.6), replace everything between the `setup-zsh resume`
+markers with the asset. Then check the syntax:
 
 ```bash
 zsh -n ~/.zshrc && echo "syntax ok"
@@ -233,8 +234,9 @@ zsh -n ~/.zshrc && echo "syntax ok"
 
 It needs `jq` (Step 14). If Step 15 reported `~/.local/bin/mdv` as outdated and the update
 was skipped, install the launcher now: older launchers write their own records in a
-NUL-separated format the plugin no longer reads, while the current one leaves recording to
-the zsh block:
+NUL-separated format the plugin no longer reads, while the current one writes the plugin's
+format itself when herdr starts it directly (`exec mdv ...` in a pane) and otherwise leaves
+recording to the zsh block:
 
 ```bash
 install -m 755 <this-skill-dir>/assets/mdv/mdv ~/.local/bin/mdv

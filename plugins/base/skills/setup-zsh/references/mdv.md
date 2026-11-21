@@ -112,8 +112,8 @@ Copies travel as OSC 52 through the terminal, so they reach the Windows clipboar
 | `~/.local/share/mdv/lazy/`                  | `Lazy! restore`                 | lazy.nvim, render-markdown.nvim, catppuccin, tokyonight, rose-pine       |
 | `~/.local/opt/nvim-*/`, `~/.local/bin/nvim` | Neovim release tarball          | Neovim itself, only when the step had to install one                     |
 | `~/.config/herdr-mdv-restore/`              | `assets/mdv-restore/`           | herdr plugin that reopens nvim, btop, lazygit and mdv after a restart (Step 20, optional) |
-| `~/.local/state/mdv-restore/`               | written by the resume zsh block and nvim | Command and folder per herdr pane, read by the plugin           |
-| `cmd-resume` label on an app terminal       | written by the resume zsh block and nvim | Command and folder per Herdr app terminal, for reopening after a reboot |
+| `~/.local/state/mdv-restore/`               | written by the resume zsh block, nvim and the mdv launcher (when herdr starts it directly) | Command and folder per herdr pane, read by the plugin           |
+| `cmd-resume` label on an app terminal       | written by the resume zsh block, nvim and the mdv launcher (when Herdr starts it directly) | Command and folder per Herdr app terminal, for reopening after a reboot |
 
 `assets/mdv/` is the source of truth. A change made on a machine's `~/.config/mdv` goes
 back into the assets, and the lock file travels with it.
@@ -152,7 +152,8 @@ function that records the folder and command while it runs: a JSON file under
 `~/.local/state/mdv-restore/` per herdr pane, read by the mdv-restore plugin
 (`references/herdr-tui.md`), or a `cmd-resume` label per Herdr app terminal, read by the
 `setup-zsh herdr-app` block (`references/herdr-app.md`). Started straight by herdr instead
-(an agent's `pane.split --argv '["mdv", ...]'`), mdv is the terminal's own program and the
+(an agent's `pane.split --argv '["mdv", ...]'` in the Herdr app; the herdr TUI has no argv
+option, so there only `exec mdv ...` in a pane does this), mdv is the terminal's own program and the
 launcher writes the same record itself. `some-command | mdv` is not recorded. An earlier launcher reported mdv to herdr as an agent
 (`herdr pane report-agent`), which listed every open mdv in the agent sidebar.
 
