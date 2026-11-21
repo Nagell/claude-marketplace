@@ -266,7 +266,6 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 | ----------- | ----- | -------------------------------- |
 | context7    | HTTP  | Up-to-date library documentation |
 | nuxt-remote | HTTP  | Nuxt.js documentation            |
-| playwright  | stdio | Browser automation and testing   |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -284,7 +283,7 @@ The included [CLAUDE.md](CLAUDE.md) establishes opinionated defaults for package
 
 - Claude Code
 - Git
-- Node.js (for npx-based MCP servers and formatters)
+- Node.js (for the npx-run formatters)
 - Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr` and `/base:resolve-review`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
