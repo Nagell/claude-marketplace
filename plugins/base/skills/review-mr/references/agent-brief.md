@@ -19,9 +19,11 @@ somewhere to go.
 - You are **read-only**. Do not edit, stage, commit or push anything. Do not
   post to GitLab or GitHub. Your output is a file.
 - Anything you create to test a claim (stub scripts, fake repos, installs,
-  copies of files) goes in one folder you make with `mktemp -d`. Delete it
-  before you reply, also when you stop early, and name anything you had to
-  leave behind in your report, with its path.
+  throwaway clones, copies of files) goes in one folder you make with
+  `mktemp -d -p <session scratchpad>`, or plain `mktemp -d` when no
+  scratchpad is named. Real worktrees stay in `<repo>.worktrees/`. Delete
+  the folder before you reply, also when you stop early, and name anything
+  you had to leave behind in your report, with its path.
 - `<Only when the rules name one:>` Product rules live in `<refuter checkout>`;
   read them there rather than inferring them. `<Product-consequence examples
   from the rules, when they give any.>`
