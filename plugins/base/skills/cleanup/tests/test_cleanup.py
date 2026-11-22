@@ -237,7 +237,19 @@ class MergeDetection(Base):
         _, _, data = self.scan(platform="github")
         item = self.items(data, "b")["feat/re"]
         self.assertEqual(item["cls"], "risky")
-        self.assertIn("1 more commits", item["why"])
+        self.assertIn("1 more commits: more", item["why"])
+
+    def test_reused_branch_names_commit_subjects_capped(self):
+        tip = self.branch("feat/many")
+        self.merge_on_origin("feat/many", "squash")
+        git(self.repo, "checkout", "-q", "feat/many")
+        for n in range(7):
+            self.commit(self.repo, f"extra-{n}")
+        git(self.repo, "checkout", "-q", "main")
+        self.stub_gh([{"number": 4, "headRefName": "feat/many", "headRefOid": tip}])
+        _, _, data = self.scan(platform="github")
+        why = self.items(data, "b")["feat/many"]["why"]
+        self.assertIn("7 more commits: extra-6, extra-5, extra-4, extra-3, extra-2 and 2 more", why)
 
 
 class Branches(Base):
@@ -325,7 +337,9 @@ class Worktrees(Base):
         self.commit(wt, "after")
         self.stub_gh([{"number": 3, "headRefName": "feat/re", "headRefOid": tip}])
         _, _, data = self.scan(platform="github")
-        self.assertEqual(self.items(data, "w")[wt]["cls"], "risky")
+        item = self.items(data, "w")[wt]
+        self.assertEqual(item["cls"], "risky")
+        self.assertIn("1 more commits: after", item["why"])
 
     def test_locked_worktree_is_kept(self):
         wt = self.merged_worktree()
@@ -587,9 +601,14 @@ class OwnLeftovers(Base):
             self.assertFalse(c.mktemp_shaped(name), name)
 
     def test_scratch_root_follows_own(self):
+        root = f"/tmp/claude-{os.getuid()}"
+        pad = os.path.join(root, "-p", sid("own"), "scratchpad")  # not created: only the path is read
+        self.assertEqual(c.default_scratch_root(pad), root)
+
+    def test_scratch_root_outside_tmp_claude_is_ignored(self):
         pad = os.path.join(self.scratch, "-p", "sid", "scratchpad")
         os.makedirs(pad)
-        self.assertEqual(c.default_scratch_root(pad), os.path.realpath(self.scratch))
+        self.assertEqual(c.default_scratch_root(pad), f"/tmp/claude-{os.getuid()}")
 
 
 # ---------------------------------------------------------------- 4. output, removal and log
@@ -620,6 +639,30 @@ class Output(Base):
             self.assertEqual(len(json.load(f)["items"]), 45)
         self.assertLessEqual(len(lines), c.TABLE_CAP + 10)
 
+    def test_log_remote_cli(self):
+        tip = self.branch("fix/b")
+        self.merge_on_origin("fix/b")
+        self.assertEqual(self.run_cli("scan").returncode, 0)
+        p = self.run_cli("log-remote", "--ids", "r1")
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertEqual(p.stdout.splitlines()[-1], f"  git -C {self.repo} push origin --delete fix/b")
+        with open(os.path.join(self.state, "claude-cleanup", "cleanup.log")) as f:
+            entry = json.loads(f.readline())
+        self.assertEqual((entry["target"], entry["tip"]), ("fix/b", tip))
+        self.assertIn("fix/b", git(self.origin, "branch"))
+
+    def test_cap_keeps_oldest_across_groups(self):
+        self.branch("feat/new")
+        self.merge_on_origin("feat/new")
+        project = c.encode(self.repo)
+        for n in range(40):
+            self.session(project, f"s-{n:02d}", files=["scratchpad/f.txt"], days=10 + n)
+        _, lines, data = self.scan()
+        self.assertEqual(len([line for line in lines if re.match(r"^  [a-z]\d+ ", line)]), c.TABLE_CAP)
+        self.assertNotIn("feat/new", "\n".join(lines[:-1]))  # the youngest items (b1, r1) are cut
+        self.assertIn("2 more items not shown", lines[-1])
+        self.assertIn("feat/new", self.items(data, "b"))
+
     def test_scan_deletes_nothing(self):
         self.branch("feat/a")
         self.merge_on_origin("feat/a")
@@ -649,7 +692,7 @@ class Removal(Base):
         path = self.session(c.encode(self.repo), "s-x")
         self.session(c.encode(self.repo), "s-y")
         _, _, data = self.scan()
-        lines = c.remove(self.ctx(fetch=False), data, [i["id"] for i in data["items"]], [], apply=False)
+        lines = c.remove(self.ctx(fetch=False), data, [i["id"] for i in data["items"] if i["kind"] != "r"], [], apply=False)
         self.assertEqual([line for line in lines if " s1" in line], ["Would remove s1: 2 of 2 empty session folders"])
         self.assertTrue(os.path.isdir(wt) and os.path.isdir(path))
         self.assertIn("feat/a", git(self.repo, "branch"))
@@ -666,12 +709,64 @@ class Removal(Base):
 
     def test_refused_worktree_remove_is_reported(self):
         wt = self.merged_worktree()
+        _, _, data = self.scan()
+        real = c.git
+
+        def refuse(repo, *args):
+            if args[:2] == ("worktree", "remove"):
+                return subprocess.CompletedProcess(args, 128, "", "fatal: refused for the test")
+            return real(repo, *args)
+
+        with mock.patch.object(c, "git", side_effect=refuse):
+            lines = c.remove(self.ctx(fetch=False), data, self.ids(data, "w"), [], apply=True)
+        self.assertTrue(os.path.isdir(wt))
+        self.assertTrue(any("git refused: fatal: refused for the test" in line for line in lines))
+        self.assertEqual(self.read_log()[0]["result"], "skipped")
+
+    def worktree_remove_calls(self, spy):
+        return [call.args[0] for call in spy.call_args_list if call.args[0][3:5] == ["worktree", "remove"]]
+
+    def test_safe_worktree_is_never_forced(self):
+        wt = self.merged_worktree()
+        _, _, data = self.scan()
+        with mock.patch.object(c.subprocess, "run", wraps=c.subprocess.run) as spy:
+            c.remove(self.ctx(fetch=False), data, self.ids(data, "w"), [], apply=True)
+        self.assertFalse(os.path.exists(wt))
+        calls = self.worktree_remove_calls(spy)
+        self.assertEqual(len(calls), 1)
+        self.assertNotIn("--force", calls[0])
+
+    def test_dirty_worktree_without_own_yes_is_kept(self):
+        wt = self.merged_worktree()
         write(os.path.join(wt, "dirty.txt"), "x")
         _, _, data = self.scan()
+        lines = c.remove(self.ctx(fetch=False), data, self.ids(data, "w"), [], apply=True)
+        self.assertTrue(os.path.isfile(os.path.join(wt, "dirty.txt")))
+        self.assertTrue(any("needs its own yes" in line for line in lines))
+
+    def test_dirty_worktree_with_own_yes_is_forced(self):
+        wt = self.merged_worktree()
+        write(os.path.join(wt, "dirty.txt"), "x")
+        write(os.path.join(wt, "init.txt"), "changed")
+        _, _, data = self.scan()
+        item = self.items(data, "w")[wt]
+        self.assertIn("2 changed or untracked files: init.txt, dirty.txt", item["why"])
+        with mock.patch.object(c.subprocess, "run", wraps=c.subprocess.run) as spy:
+            lines = c.remove(self.ctx(fetch=False), data, [], [item["id"]], apply=True)
+        self.assertFalse(os.path.exists(wt))
+        self.assertIn("--force", self.worktree_remove_calls(spy)[0])
+        self.assertNotIn("feat/wt", git(self.repo, "branch"))
+        self.assertTrue(any("forced" in line for line in lines))
+        self.assertEqual(self.read_log()[0]["detail"], "forced, changed files deleted")
+
+    def test_approved_dirty_worktree_that_changed_again_is_kept(self):
+        wt = self.merged_worktree()
+        write(os.path.join(wt, "dirty.txt"), "x")
+        _, _, data = self.scan()
+        write(os.path.join(wt, "later.txt"), "x")
         lines = c.remove(self.ctx(fetch=False), data, [], self.ids(data, "w"), apply=True)
-        self.assertTrue(os.path.isdir(wt))
-        self.assertTrue(any("git refused" in line for line in lines))
-        self.assertEqual(self.read_log()[0]["result"], "skipped")
+        self.assertTrue(os.path.isfile(os.path.join(wt, "later.txt")))
+        self.assertTrue(any("changed since the scan" in line for line in lines))
 
     def test_worktree_then_branch(self):
         wt = self.merged_worktree()
@@ -763,20 +858,43 @@ class NeverPushes(Base):
         self.assertNotRegex(src, r"""["']push["']""")
         self.assertNotIn("gh api", src)
 
-    def test_remote_items_only_print_the_push_command(self):
+    def test_log_remote_logs_tips_and_only_prints_the_push(self):
         name = "release-please--branches--main--components--base"
-        self.branch(name)
-        self.branch("fix/b")
+        tips = {name: self.branch(name), "fix/b": self.branch("fix/b")}
         for n in (name, "fix/b"):
             self.merge_on_origin(n)
         _, _, data = self.scan()
         with mock.patch.object(c.subprocess, "run", wraps=c.subprocess.run) as spy:
-            lines = c.remove(self.ctx(fetch=False), data, self.ids(data), [], apply=True)
-        self.assertIn(f"git -C {self.repo} push origin --delete", "\n".join(lines))
+            lines = c.log_remote(self.ctx(fetch=False), data, self.ids(data))
+        self.assertIn(f"git -C {self.repo} push origin --delete", lines[-1])
+        self.assertIn(name, lines[-1])
         self.assertFalse([call for call in spy.call_args_list if "push" in call.args[0]])
         remote = git(self.origin, "branch")
         self.assertIn("fix/b", remote)
         self.assertIn(name, remote)
+        with open(os.path.join(self.state, "cleanup.log")) as f:
+            log = [json.loads(line) for line in f]
+        self.assertEqual({(e["target"], e["tip"], e["result"]) for e in log},
+                         {(n, t, "push-approved") for n, t in tips.items()})
+
+    def test_log_remote_skips_a_branch_that_moved(self):
+        self.branch("fix/b")
+        self.merge_on_origin("fix/b")
+        _, _, data = self.scan()
+        git(self.repo, "checkout", "-q", "fix/b")
+        self.commit(self.repo, "later")
+        git(self.repo, "push", "-q", "origin", "fix/b")
+        git(self.repo, "checkout", "-q", "main")
+        lines = c.log_remote(self.ctx(fetch=False), data, self.ids(data))
+        self.assertEqual(lines[-1], "No remote branches to delete.")
+        self.assertTrue(any("moved on origin" in line for line in lines))
+
+    def test_remove_refuses_remote_ids(self):
+        self.branch("fix/b")
+        self.merge_on_origin("fix/b")
+        _, _, data = self.scan()
+        with self.assertRaises(c.Error):
+            c.remove(self.ctx(fetch=False), data, self.ids(data), [], apply=True)
 
     def ids(self, data):
         return [i["id"] for i in data["items"] if i["kind"] == "r"]

@@ -6,6 +6,7 @@ folders and Claude scratch folders of sessions that are no longer running.
 
   scan    lists candidates, writes last-scan.json and deletes nothing.
   remove  removes approved ids from the last scan. Dry run unless --apply.
+  log-remote  logs approved remote branches with their tips and prints the push.
 
 The script never pushes. For remote branches it prints the push command, so
 the push goes through the safety-guards hook like any other push.
@@ -82,11 +83,14 @@ def default_state_dir():
 
 def default_scratch_root(own=None):
     """The scratch root, from the scratchpad path when given (<root>/<project>/<session>/scratchpad)."""
+    fallback = f"/tmp/claude-{os.getuid()}"
     if own:
         parts = os.path.realpath(own).split(os.sep)
         if len(parts) >= 4 and parts[-3].startswith("-"):
-            return os.sep.join(parts[:-3])
-    return f"/tmp/claude-{os.getuid()}"
+            root = os.sep.join(parts[:-3])
+            if inside(root, fallback):  # a wrong --own must not move the deletion boundary
+                return root
+    return fallback
 
 
 def human(size):
@@ -315,8 +319,8 @@ def merge_status(ctx, branch, tip):
         return "merged", f"PR #{same} merged at the same tip"
     for number, head in prs:
         if head and is_ancestor(ctx.primary, head, tip):
-            n = git(ctx.primary, "rev-list", "--count", tip, f"^{head}", f"^{ctx.base}").stdout.strip()
-            return "reused", f"PR #{number} merged, then {n} more commits"
+            subjects = git(ctx.primary, "log", "--format=%s", tip, f"^{head}", f"^{ctx.base}").stdout.splitlines()
+            return "reused", f"PR #{number} merged, then {len(subjects)} more commits: {capped(subjects)}"
     p = git(ctx.primary, "cherry", ctx.base, tip)
     lines = p.stdout.split()
     if p.returncode == 0 and lines and "+" not in lines[::2]:
@@ -447,8 +451,6 @@ def classify_worktree(ctx, wt):
     else:
         return None
     risks = []
-    if state == "reused":
-        risks.append("branch has commits after the merged PR")
     st = git(path, "status", "--porcelain", "--untracked-files=all")
     dirty = [line[3:] for line in st.stdout.splitlines()] if st.returncode == 0 else ["(git status failed)"]
     if dirty:
@@ -459,8 +461,8 @@ def classify_worktree(ctx, wt):
     primary_branch = next((w["branch"] for w in list_worktrees(ctx.primary)[:1]), None)
     delete_branch = branch if branch and not is_protected(ctx, branch) and branch != primary_branch else None
     return {"kind": "w", "target": path, "path": path, "dangling": False, "branch": delete_branch,
-            "tip": head, "why": "; ".join([why] + risks), "cls": "risky" if risks else "safe",
-            "dirty": len(dirty)}
+            "tip": head, "why": "; ".join([why] + risks),
+            "cls": "risky" if risks or state == "reused" else "safe", "dirty": len(dirty)}
 
 
 def worktree_items(ctx, worktrees):
@@ -518,6 +520,7 @@ def orphan_items(ctx, worktrees):
             continue
         if orphan_state(ctx, folder) == "orphan":
             items.append({"kind": "o", "target": folder, "path": folder, "cls": "risky",
+                          "age_days": round((ctx.now - os.lstat(folder).st_mtime) / 86400, 1),
                           "why": "git no longer knows this worktree, changes cannot be checked"})
         else:
             ctx.unknown.append(folder)
@@ -627,7 +630,7 @@ def session_state(ctx, path):
 
 
 def session_items(ctx, scope_paths):
-    empty, risky = [], []
+    empty, risky, oldest = [], [], 0.0
     for proj in project_folders(ctx, scope_paths):
         try:
             names = sorted(os.listdir(proj))
@@ -640,17 +643,17 @@ def session_items(ctx, scope_paths):
             state, info = session_state(ctx, path)
             if state == "empty":
                 empty.append(path)
+                oldest = max(oldest, info["age_days"])
             elif state == "files":
                 label = f"{os.path.basename(proj)[-32:]}/{name[:8]}"
                 risky.append({"kind": "s", "target": path, "path": path, "cls": "risky", "label": label,
                               "age_days": info["age_days"], "size": info["size"],
                               "why": f"{info['age_days']:.0f} days, {human(info['size'])}, "
                                      f"{info['files']} files: {capped(info['newest'], 3)}"})
-    risky.sort(key=lambda i: (-i["age_days"], -i["size"]))
     items = []
     if empty:
         items.append({"kind": "s", "target": f"{len(empty)} empty session folders", "paths": empty,
-                      "cls": "safe", "group": True,
+                      "cls": "safe", "group": True, "age_days": oldest,
                       "why": f"not running, older than {ctx.days} days, no files except started"})
     return items + risky
 
@@ -665,9 +668,10 @@ def own_items(ctx):
             continue
         if inside(ctx.cwd, path):
             continue
-        _, files = inspect_folder(path)
+        newest, files = inspect_folder(path)
         size = sum(f[1] for f in files)
         items.append({"kind": "m", "target": name, "path": path, "cls": "safe", "size": size,
+                      "age_days": round((ctx.now - newest) / 86400, 1),
                       "why": f"{len(files)} files, {human(size)}"})
     return items
 
@@ -685,6 +689,12 @@ def collect(ctx):
     items += orphan_items(ctx, worktrees)
     scope = [ctx.primary] + [os.path.realpath(w["path"]) for w in worktrees[1:] if os.path.isdir(w["path"])]
     items += session_items(ctx, scope)
+    for item in items:
+        if "age_days" not in item:
+            item["age_days"] = commit_age(ctx, item.get("tip"))
+    # Oldest and largest first within each group; the empty session group stays first in its group.
+    order = [k for k, _ in GROUPS]
+    items.sort(key=lambda i: (order.index(i["kind"]), not i.get("group"), -i["age_days"], -i.get("size", 0)))
     counters = {}
     for item in items:
         counters[item["kind"]] = counters.get(item["kind"], 0) + 1
@@ -692,20 +702,29 @@ def collect(ctx):
     return items
 
 
+def commit_age(ctx, tip):
+    p = git(ctx.primary, "log", "-1", "--format=%ct", tip) if tip else None
+    try:
+        return round((ctx.now - int(p.stdout.strip())) / 86400, 1)
+    except (AttributeError, ValueError):
+        return 0.0
+
+
 def render(ctx, items, scan_file):
     if not items:
         extra = [n for n in ctx.notes if n.startswith(SKIP_SQUASH)]
         return ["Nothing to clean." + (f" Note: {extra[0]}." if extra else "")]
     lines = [f"Cleanup candidates in {ctx.primary} (merged means in {ctx.base or 'n/a'})"]
+    # Over the cap, the oldest and largest items fill the table, still shown in their groups.
+    ranked = sorted(items, key=lambda i: (-i["age_days"], -i.get("size", 0)))
+    keep = {i["id"] for i in ranked[:TABLE_CAP]}
     shown = 0
     for kind, title in GROUPS:
-        group = [i for i in items if i["kind"] == kind]
-        if not group or shown >= TABLE_CAP:
+        group = [i for i in items if i["kind"] == kind and i["id"] in keep]
+        if not group:
             continue
         lines.append(f"{title}:")
         for item in group:
-            if shown >= TABLE_CAP:
-                break
             label = item.get("label") or display_target(ctx, item)
             lines.append(f"  {item['id']:<4} {item['cls']:<5}  {label}  ({item['why']})")
             shown += 1
@@ -801,6 +820,8 @@ def verify(ctx, item, allowed):
             return "changed since the scan"
         if fresh["cls"] == "risky" and not allowed:
             return f"changed since the scan: {fresh['why']}"
+        if allowed and fresh["why"] != item["why"]:
+            return f"changed since the scan: {fresh['why']}"  # the yes covered the old list only
         return None
     if kind == "o":
         if not is_orphan_location(ctx, item["path"]) or orphan_state(ctx, item["path"]) != "orphan":
@@ -844,17 +865,11 @@ def remove(ctx, data, ids, risky_ids, apply):
             log(ctx, {"id": item["id"], "kind": item["kind"], "target": target, "result": result,
                       "detail": detail, **extra})
 
-    remote = [i for i in items if i["kind"] == "r"]
+    remote = [i["id"] for i in items if i["kind"] == "r"]
     if remote:
-        names = " ".join(i["branch"] for i in remote)
-        lines.append("The script never pushes. Remote branches are deleted with one push:")
-        lines.append(f"  git -C {ctx.primary} push origin --delete {names}")
-        if apply:
-            for i in remote:
-                log(ctx, {"id": i["id"], "kind": "r", "target": i["branch"], "result": "push-command-printed",
-                          "tip": i["tip"]})
+        raise Error(f"remote ids go to log-remote, not remove: {', '.join(remote)}")
 
-    for item in (i for i in items if i["kind"] != "r"):
+    for item in items:
         allowed = item["id"] in risky_ids
         if item.get("group"):
             before = counts["removed"]
@@ -915,11 +930,13 @@ def remove_worktree(ctx, item, allowed, apply, done):
             if p.returncode != 0:
                 return done(item, path, "failed", first_line(p.stderr))
         return done(item, path, "removed", "pruned the git record")
+    # Force only a risky worktree the user approved on its own; verify() checked its list is unchanged.
+    force = ["--force"] if allowed and item["cls"] == "risky" else []
     if apply:
-        p = git(ctx.primary, "worktree", "remove", path)
+        p = git(ctx.primary, "worktree", "remove", *force, path)
         if p.returncode != 0:
             return done(item, path, "skipped", f"git refused: {first_line(p.stderr)}", **tip_of(item))
-    done(item, path, "removed", **tip_of(item))
+    done(item, path, "removed", "forced, changed files deleted" if force else "", **tip_of(item))
     name = item.get("branch")
     if not name:
         return
@@ -928,6 +945,37 @@ def remove_worktree(ctx, item, allowed, apply, done):
         if reason:
             return done(item, f"branch {name}", "skipped", reason, tip=item["tip"])
     remove_branch(ctx, item, name, item["tip"], apply, done)
+
+
+def log_remote(ctx, data, ids):
+    """Log approved remote branches with their tips and print the one push that deletes them."""
+    by_id = {i["id"]: i for i in data["items"]}
+    wrong = [i for i in ids if i not in by_id or by_id[i]["kind"] != "r"]
+    if wrong:
+        raise Error(f"not remote ids of the last scan: {', '.join(wrong)} (run scan again)")
+    lines, names = [], []
+    for i in (by_id[x] for x in dict.fromkeys(ids)):
+        name, tip = i["branch"], i["tip"]
+        p = git(ctx.primary, "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{name}")
+        if p.returncode != 0 or p.stdout.strip() != tip:
+            reason = "gone or moved on origin since the scan"
+        elif is_protected(ctx, name) or merge_status(ctx, name, tip)[0] != "merged":
+            reason = "no longer counts as merged"
+        else:
+            reason = None
+        if reason:
+            log(ctx, {"id": i["id"], "kind": "r", "target": name, "result": "skipped", "detail": reason, "tip": tip})
+            lines.append(f"Skipped {i['id']} {name}: {reason}")
+            continue
+        log(ctx, {"id": i["id"], "kind": "r", "target": name, "result": "push-approved", "tip": tip,
+                  "detail": f"restore with: git push origin {tip}:refs/heads/{name}"})
+        names.append(name)
+    if names:
+        lines.append(f"Logged {len(names)} remote branches with their tips. The script never pushes. Run:")
+        lines.append(f"  git -C {ctx.primary} push origin --delete {' '.join(names)}")
+    else:
+        lines.append("No remote branches to delete.")
+    return lines
 
 
 # ---------------------------------------------------------------- CLI
@@ -950,6 +998,10 @@ def main(argv=None):
     p_rm.add_argument("--ids", default="", help="comma-separated ids from the scan, e.g. b1,w2,s1")
     p_rm.add_argument("--allow-risky", default="", help="comma-separated risky ids the user approved one by one")
     p_rm.add_argument("--apply", action="store_true", help="really delete")
+
+    p_lr = sub.add_parser("log-remote", parents=[common],
+                          help="log approved remote branches and print the push that deletes them")
+    p_lr.add_argument("--ids", required=True, help="comma-separated r ids the user approved, e.g. r1,r2")
     args = parser.parse_args(argv)
 
     try:
@@ -971,7 +1023,10 @@ def main(argv=None):
                 raise Error(f"the last scan was for {data['primary']}, not {ctx.primary}")
             ctx.protected_paths.add(data["current"])
             split = lambda s: [x.strip() for x in s.split(",") if x.strip()]  # noqa: E731
-            lines = remove(ctx, data, split(args.ids), split(args.allow_risky), args.apply)
+            if args.command == "log-remote":
+                lines = log_remote(ctx, data, split(args.ids))
+            else:
+                lines = remove(ctx, data, split(args.ids), split(args.allow_risky), args.apply)
     except Error as e:
         print(f"cleanup: {e}", file=sys.stderr)
         return 2
