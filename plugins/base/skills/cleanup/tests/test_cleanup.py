@@ -14,6 +14,7 @@ import sys
 import tempfile
 import time
 import unittest
+import uuid
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -65,6 +66,11 @@ def age(path, days):
         for name in dirnames + filenames:
             os.utime(os.path.join(dirpath, name), (t, t), follow_symlinks=False)
     os.utime(path, (t, t))
+
+
+def sid(name):
+    """A session id (UUID) derived from a readable test name."""
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, name))
 
 
 def dead_pid():
@@ -165,8 +171,8 @@ class Base(unittest.TestCase):
         git(self.repo, *args)
         return path
 
-    def session(self, project, sid, files=(), days=10):
-        path = os.path.join(self.scratch, project, sid)
+    def session(self, project, name, files=(), days=10):
+        path = os.path.join(self.scratch, project, sid(name))
         os.makedirs(os.path.join(path, "scratchpad"))
         write(os.path.join(path, "started"))
         for rel in files:
@@ -442,7 +448,7 @@ class ScratchFolders(Base):
 
     def test_empty_folders_are_one_safe_group(self):
         self.session(self.project, "s-a")
-        a = os.path.join(self.scratch, self.project, "s-b")
+        a = os.path.join(self.scratch, self.project, sid("s-b"))
         os.makedirs(os.path.join(a, "tasks", "deep"))
         write(os.path.join(a, "started"))
         age(a, 10)
@@ -460,11 +466,18 @@ class ScratchFolders(Base):
         self.assertIn("tasks/out.output", item["why"])
 
     def test_zero_byte_file_is_risky(self):
-        path = os.path.join(self.scratch, self.project, "s-z")
+        path = os.path.join(self.scratch, self.project, sid("s-z"))
         write(os.path.join(path, "scratchpad", "empty.txt"))
         age(path, 10)
         _, _, data = self.scan()
         self.assertEqual(self.items(data, "s")[path]["cls"], "risky")
+
+    def test_folder_not_named_by_session_id_is_ignored(self):
+        path = os.path.join(self.scratch, self.project, "tasks")
+        os.makedirs(path)
+        age(path, 30)
+        _, _, data = self.scan()
+        self.assertEqual(data["items"], [])
 
     def test_recent_file_is_not_listed(self):
         path = self.session(self.project, "s-r")
@@ -474,7 +487,7 @@ class ScratchFolders(Base):
 
     def test_running_session_is_not_listed(self):
         self.session(self.project, "s-live")
-        write(os.path.join(self.sessions, "1.json"), json.dumps({"pid": os.getpid(), "sessionId": "s-live"}))
+        write(os.path.join(self.sessions, "1.json"), json.dumps({"pid": os.getpid(), "sessionId": sid("s-live")}))
         _, _, data = self.scan()
         self.assertEqual(self.items(data, "s"), {})
 
@@ -601,7 +614,7 @@ class Output(Base):
         _, lines, data = self.scan()
         rows = [line for line in lines if re.match(r"^  s\d+ ", line)]
         self.assertEqual(len(rows), c.TABLE_CAP)
-        self.assertIn("s-44", rows[0])  # oldest first
+        self.assertIn(sid("s-44")[:8], rows[0])  # oldest first
         self.assertIn("5 more items not shown", lines[-1])
         with open(os.path.join(self.state, "last-scan.json")) as f:
             self.assertEqual(len(json.load(f)["items"]), 45)
@@ -634,8 +647,10 @@ class Removal(Base):
         self.merge_on_origin("feat/a")
         wt = self.merged_worktree()
         path = self.session(c.encode(self.repo), "s-x")
+        self.session(c.encode(self.repo), "s-y")
         _, _, data = self.scan()
         lines = c.remove(self.ctx(fetch=False), data, [i["id"] for i in data["items"]], [], apply=False)
+        self.assertEqual([line for line in lines if " s1" in line], ["Would remove s1: 2 of 2 empty session folders"])
         self.assertTrue(os.path.isdir(wt) and os.path.isdir(path))
         self.assertIn("feat/a", git(self.repo, "branch"))
         self.assertIn("Nothing was deleted", lines[-1])
@@ -722,7 +737,7 @@ class Removal(Base):
     def test_session_that_started_again_is_skipped(self):
         path = self.session(c.encode(self.repo), "s-back")
         _, _, data = self.scan()
-        write(os.path.join(self.sessions, "1.json"), json.dumps({"pid": os.getpid(), "sessionId": "s-back"}))
+        write(os.path.join(self.sessions, "1.json"), json.dumps({"pid": os.getpid(), "sessionId": sid("s-back")}))
         c.remove(self.ctx(fetch=False), data, ["s1"], [], apply=True)
         self.assertTrue(os.path.isdir(path))
 

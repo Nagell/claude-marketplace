@@ -40,6 +40,7 @@ GROUPS = [
     ("s", "Session scratch folders"),
 ]
 SKIP_SQUASH = "squash merge check skipped: needs gh or glab"
+SESSION_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 MKTEMP_RE = re.compile(r"^tmp\.[A-Za-z0-9]{6,}$")
 SUFFIX_RE = re.compile(r"[.-]([A-Za-z0-9]{6,})$")
 
@@ -606,7 +607,7 @@ def check_session_path(ctx, path):
     if not real.startswith(root + os.sep):
         return f"resolves outside the scratch root {root}"
     parts = os.path.relpath(real, root).split(os.sep)
-    if len(parts) != 2 or not parts[0].startswith("-"):
+    if len(parts) != 2 or not parts[0].startswith("-") or not SESSION_RE.match(parts[1]):
         return "is not a <project>/<session> folder"
     return None
 
@@ -634,8 +635,8 @@ def session_items(ctx, scope_paths):
             continue
         for name in names:
             path = os.path.join(proj, name)
-            if os.path.islink(path) or not os.path.isdir(path):
-                continue
+            if not SESSION_RE.match(name) or os.path.islink(path) or not os.path.isdir(path):
+                continue  # session folders are named by the session id, a UUID
             state, info = session_state(ctx, path)
             if state == "empty":
                 empty.append(path)
@@ -837,7 +838,8 @@ def remove(ctx, data, ids, risky_ids, apply):
     def done(item, target, result, detail="", **extra):
         counts[result] += 1
         word = {"removed": verb, "skipped": "Skipped", "failed": "Failed"}[result]
-        lines.append(f"{word} {item['id']} {target}" + (f": {detail}" if detail else ""))
+        if not (item.get("group") and result == "removed"):  # a group prints one summary line
+            lines.append(f"{word} {item['id']} {target}" + (f": {detail}" if detail else ""))
         if apply:
             log(ctx, {"id": item["id"], "kind": item["kind"], "target": target, "result": result,
                       "detail": detail, **extra})
@@ -855,13 +857,15 @@ def remove(ctx, data, ids, risky_ids, apply):
     for item in (i for i in items if i["kind"] != "r"):
         allowed = item["id"] in risky_ids
         if item.get("group"):
+            before = counts["removed"]
             for path in item["paths"]:
-                sub = dict(item, path=path, group=False)
-                reason = verify(ctx, sub, allowed)
+                reason = verify(ctx, dict(item, path=path, group=False), allowed)
                 if reason:
                     done(item, path, "skipped", reason)
                     continue
                 remove_path(item, path, apply, done)
+            lines.append(f"{verb} {item['id']}: {counts['removed'] - before} of {len(item['paths'])} "
+                         "empty session folders")
             continue
         reason = verify(ctx, item, allowed)
         if reason:
@@ -873,7 +877,8 @@ def remove(ctx, data, ids, risky_ids, apply):
             remove_worktree(ctx, item, allowed, apply, done)
         else:
             remove_path(item, item["path"], apply, done)
-    lines.append(f"{'Done' if apply else 'Dry run'}: {counts['removed']} removed, {counts['skipped']} skipped, "
+    lines.append(f"{'Done' if apply else 'Dry run'}: {counts['removed']} {'removed' if apply else 'to remove'}, "
+                 f"{counts['skipped']} skipped, "
                  f"{counts['failed']} failed." + (f" Log: {os.path.join(ctx.state_dir, 'cleanup.log')}"
                                                    if apply else " Nothing was deleted. Add --apply to delete."))
     return lines
