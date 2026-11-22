@@ -29,4 +29,4 @@ None.
 - New `plugins/base/skills/usage/` (SKILL.md, `scripts/`, seed `prices.json`, `tests/`). `plugins/base/README.md` gains a section, a skill table row and the Python 3 requirement; the root `README.md` base row names it. `add-cleanup` edits the same lines. Release: `feat(base)`, minor bump.
 - Runtime: python3 3.9 or newer, stdlib only. Linux, macOS and WSL. Reads `~/.claude/projects/` and `~/.claude/settings.json`. Writes only `~/.claude/settings.json`, and only after the user agrees. Reports are printed, never written into a repo.
 - `improve-review-mr`: `run_cost.py` calls the scanner's `summarize_agent`, and `review-mr` declares `dependencies: [usage]`.
-- `add-usage-collection` is deleted. `add-model-guidance` still points at it and needs its own rewrite as `add-usage-models-mode`.
+- `add-usage-collection` is deleted. `add-usage-models-mode` builds the `models` mode on this change and replaces `add-model-guidance`.

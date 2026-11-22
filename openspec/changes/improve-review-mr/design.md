@@ -33,7 +33,7 @@ Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-f
 **Non-Goals:**
 
 - No change to posting: drafts, one review, verdict rules, finish mode, thread validation and platform files stay as they are.
-- No new model-selection logic beyond one default and one flag. Choosing models per task type is `add-model-guidance`.
+- No new model-selection logic beyond one default and one flag. Choosing models per task type is the `usage` skill's models mode (`add-usage-models-mode`).
 - No Codex-specific tuning. The Codex engine keeps its current behaviour.
 - No new per-repo configuration file. Repo conventions are read from files the repo already has.
 
@@ -49,7 +49,7 @@ Engine question: **kept, not replaced, and its default stays `Claude (Recommende
 
 Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.md`) and have no lens tasks.
 
-Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through `add-model-guidance`); Haiku for refuters (refutation errors are the expensive kind).
+Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through the models mode, `add-usage-models-mode`); Haiku for refuters (refutation errors are the expensive kind).
 
 ### 2. `--fast`
 
@@ -189,7 +189,7 @@ Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every s
 ## Risks / Trade-offs
 
 - One run per arm: the 13-of-14 result may be partly luck. The rerun repeats the Haiku arm twice and adds a `--fast` arm; the claim in the specs is the process, not a recall number.
-- Haiku's lower recall on subtle logic is unmeasured: the hooks and browser case is shell and config heavy, which suits the "does NOT set" lens. A frontend or business-logic MR may need Opus. The `--fast` flag is not the answer to that; `add-model-guidance` is.
+- Haiku's lower recall on subtle logic is unmeasured: the hooks and browser case is shell and config heavy, which suits the "does NOT set" lens. A frontend or business-logic MR may need Opus. The `--fast` flag is not the answer to that; the models mode (`add-usage-models-mode`) is.
 - Option A puts more agents on a small MR than one owner would need: bounded by one slice per contract; `--max-parallel` limits how many run at once, not how many exist. Option B risks long contexts that pay the 5x tier.
 - Seams between slices have no owner now that the cross-file agent is dropped; the benchmark rerun checks whether anything is lost.
 - Deterministic checks can be slow or need installed dependencies; time limits and "not run" results keep that from blocking a review. Checks run repo-defined commands, which execute the MR's own code (a test, a lint plugin). The commands come from base manifests, run in the review worktree and never with fix flags, but the code under test is the author's. `--no-checks` skips the step for an author the reviewer does not trust (added flag; see Open questions).
