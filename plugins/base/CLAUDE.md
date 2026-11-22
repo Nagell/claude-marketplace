@@ -49,6 +49,13 @@ The base plugin's safety-guards hook enforces this, deliberately strictly.
 - Each further push, and any force push, needs its own yes. A yes never loosens anything else.
 - Standing permission only if I say it outright ("for this session you have full push allowance"); never inferred. It ends with the session.
 
+## Planning (OpenSpec)
+
+- Plan: `openspec-explore` → `base:openspec-grill` → `openspec-propose` → `base:openspec-plan-check`.
+- Build: `openspec-apply-change` → `openspec-verify-change` → open the PR → `base:review-mr` → `base:resolve-review` (author side, on the review threads).
+- Close: `openspec-sync-specs` when specs must land before archiving, then `openspec-archive-change` after merge.
+- Revise a plan with `openspec-update-change` (not by hand), then run the plan check again. Don't skip the grill or the plan check.
+
 ## Scratch Work & Cleanup
 
 - Experiments, test files, stubs and installs go in one folder you create with `mktemp -d`; delete it before you finish, also when you stop early.
