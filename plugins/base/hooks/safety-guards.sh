@@ -36,25 +36,6 @@ add_warning() {
 }
 
 # ============================================
-# BLOCK: Destructive filesystem operations
-# ============================================
-
-# Block rm -rf targeting home or root directories
-if echo "$COMMAND" | grep -qE 'rm\s+(-[a-zA-Z]*r[a-zA-Z]*f|.*-rf)\s'; then
-  # Check for dangerous paths: ~, $HOME, /Users/username, /home/username, /
-  if echo "$COMMAND" | grep -qE '(~[/\s]|\$HOME|/Users/[^/\s]+[/\s]|/home/[^/\s]+[/\s]|^\s*/\s*$|\s+/\s+)'; then
-    echo "BLOCKED: Destructive rm command targeting home or root directory. Command: $COMMAND" >&2
-    exit 2
-  fi
-
-  # Block rm -rf with wildcards at dangerous levels
-  if echo "$COMMAND" | grep -qE 'rm\s+-rf\s+/[^/]*\*'; then
-    echo "BLOCKED: rm -rf with wildcard at root level" >&2
-    exit 2
-  fi
-fi
-
-# ============================================
 # BLOCK: Hardcoded secrets in commands
 # ============================================
 
@@ -62,15 +43,6 @@ SECRET_PATTERNS="(API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY|ACCESS_KEY|SECRET_KE
 
 if echo "$COMMAND" | grep -qE "$SECRET_PATTERNS"; then
   echo "BLOCKED: Potential hardcoded secret detected. Use environment variables instead." >&2
-  exit 2
-fi
-
-# ============================================
-# BLOCK: .env file modifications via shell
-# ============================================
-
-if echo "$COMMAND" | grep -qE '(echo|cat|printf|>>|>)\s+.*\.env'; then
-  echo "BLOCKED: Attempting to modify .env file via shell. Use proper secrets management." >&2
   exit 2
 fi
 
@@ -94,6 +66,109 @@ drop_heredocs() {
       { print }'
 }
 HEREDOC_FREE=$(drop_heredocs)
+
+# CMD_PARTS holds one simple command per line: heredoc bodies dropped, split on
+# ; && || | & ( ) ` and newlines, quote characters removed (the words inside
+# quotes stay, so rm -rf "$HOME" is still seen). Each rule below looks at one
+# part at a time, so a path in another part (cd /home/me/x && rm -rf "$tmp")
+# never triggers it.
+CMD_PARTS=$(printf '%s\n' "$HEREDOC_FREE" | sed -E 's/(&&|\|\||[;|&()`])/\n/g' | tr -d "\"'")
+
+# Words that may come before the real command in a part.
+PREFIX_RE='^(sudo|command|exec|nohup|time|rtk|xargs|eval|env|-[[:alnum:]-]+|[A-Za-z_][A-Za-z0-9_]*=.*|(ba|z|da)?sh)$'
+
+# Prints the words of a part from the real command on (prefixes dropped).
+command_words() {
+  local w seen=""
+  set -f
+  for w in $1; do
+    if [ -z "$seen" ] && [[ $w =~ $PREFIX_RE ]]; then continue; fi
+    seen=1
+    printf '%s\n' "$w"
+  done
+  set +f
+}
+
+# ============================================
+# BLOCK: rm -rf on home or root
+# Strict on purpose: any path under a home folder counts, not only the folder.
+# ============================================
+
+is_danger_path() {
+  case $1 in
+    "~" | "~/"* | '$HOME' | '$HOME/'* | '${HOME}' | '${HOME}/'*) return 0 ;;
+    /home/* | /Users/* | /root | /root/*) return 0 ;;
+  esac
+  # / itself, a top-level folder (/usr, /etc) or a top-level wildcard (/*, /us*)
+  [[ $1 =~ ^/[^/]*/?$ || $1 =~ ^/[^/]*\* ]] && return 0
+  return 1
+}
+
+while IFS= read -r PART; do
+  mapfile -t WORDS < <(command_words "$PART")
+  [ "${#WORDS[@]}" -gt 0 ] || continue
+  [[ ${WORDS[0]} == rm || ${WORDS[0]} == */rm ]] || continue
+  RECURSIVE="" FORCE="" TARGETS=()
+  for W in "${WORDS[@]:1}"; do
+    case $W in
+      --recursive) RECURSIVE=1 ;;
+      --force) FORCE=1 ;;
+      --*) ;;
+      -*)
+        [[ $W == *[rR]* ]] && RECURSIVE=1
+        [[ $W == *f* ]] && FORCE=1
+        ;;
+      *) TARGETS+=("$W") ;;
+    esac
+  done
+  [ -n "$RECURSIVE" ] && [ -n "$FORCE" ] || continue
+  for W in "${TARGETS[@]}"; do
+    if is_danger_path "$W"; then
+      echo "BLOCKED: rm -rf on a home or root path ($W). Command: $COMMAND" >&2
+      exit 2
+    fi
+  done
+done <<<"$CMD_PARTS"
+
+# ============================================
+# BLOCK: writing a .env file via shell
+# Reads stay allowed; .env.example, .sample, .template and .dist are never blocked.
+# ============================================
+
+is_env_file() {
+  local b=${1##*/}
+  [[ $b =~ ^\.env(\.[A-Za-z0-9_-]+)?$ ]] || return 1
+  [[ $b =~ ^\.env\.(example|sample|template|dist)$ ]] && return 1
+  return 0
+}
+
+block_env() {
+  echo "BLOCKED: writing $1 via shell. Ask the user to edit it, or use proper secrets management." >&2
+  exit 2
+}
+
+while IFS= read -r PART; do
+  # Redirections anywhere in the part: > file, >> file, >file
+  while read -r TARGET; do
+    if [ -n "$TARGET" ] && is_env_file "$TARGET"; then block_env "$TARGET"; fi
+  done < <(printf '%s\n' "$PART" | { grep -oE '>{1,2}[[:space:]]*[^[:space:]<>]+' || true; } | sed -E 's/^>{1,2}[[:space:]]*//')
+
+  mapfile -t WORDS < <(command_words "$PART")
+  [ "${#WORDS[@]}" -gt 0 ] || continue
+  ARGS=()
+  for W in "${WORDS[@]:1}"; do [[ $W == -* ]] || ARGS+=("$W"); done
+  [ "${#ARGS[@]}" -gt 0 ] || continue
+  case ${WORDS[0]##*/} in
+    tee | truncate)
+      for W in "${ARGS[@]}"; do if is_env_file "$W"; then block_env "$W"; fi; done ;;
+    cp | mv | install | ln)
+      if [ "${#ARGS[@]}" -gt 1 ] && is_env_file "${ARGS[-1]}"; then block_env "${ARGS[-1]}"; fi ;;
+    sed | perl)
+      if [[ " ${WORDS[*]:1} " =~ [[:space:]]-[[:alnum:]]*i ]]; then
+        for W in "${ARGS[@]}"; do if is_env_file "$W"; then block_env "$W"; fi; done
+      fi ;;
+  esac
+done <<<"$CMD_PARTS"
 
 # PUSH_TEXT holds one shell command per line, from two sources:
 # 1. The command itself with quoted strings stripped, so a commit message that
