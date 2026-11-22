@@ -33,11 +33,15 @@ The skill SHALL show the candidate list once and ask once with AskUserQuestion. 
 - **THEN** the skill shows the numbered table in text and uses the dialog for the choice, with ids to keep entered as free text
 
 ### Requirement: Risky items need their own yes
-A worktree with uncommitted changes, untracked files or unpushed commits, a branch with commits outside the merged head, and an orphan worktree folder SHALL be removed only after a separate explicit yes for that item. The question MUST name what would be lost (file list or commit subjects, capped).
+A worktree with uncommitted changes, untracked files or unpushed commits, a branch with commits outside the merged head, an orphan worktree folder, a worktree with an ignored file that differs from the primary checkout and a stale session folder holding any regular file other than `started` SHALL be removed only after a separate explicit yes for that item. The question MUST name what would be lost (file list or commit subjects, capped).
 
 #### Scenario: Dirty worktree
 - **WHEN** a worktree of a merged branch has 3 changed files
 - **THEN** the skill asks about that worktree alone, lists the files and removes it only on yes
+
+#### Scenario: Stale session folder with files
+- **WHEN** the user approves all safe items and a stale session folder holds 65 KB of files in `scratchpad/` or `tasks/`
+- **THEN** it is not removed with the safe group; the skill asks about it alone, naming its size and newest files
 
 #### Scenario: User declines a risky item
 - **WHEN** the user answers no for a risky item
@@ -51,7 +55,7 @@ The script MUST NOT delete the primary checkout, the default branch, the branch 
 - **THEN** it is skipped as changed and reported
 
 #### Scenario: Path escapes the scratch root
-- **WHEN** a scratchpad path resolves outside `/tmp/claude-<uid>/`
+- **WHEN** a session folder path resolves outside `/tmp/claude-<uid>/`
 - **THEN** it is refused
 
 #### Scenario: Branch checked out elsewhere
@@ -59,7 +63,7 @@ The script MUST NOT delete the primary checkout, the default branch, the branch 
 - **THEN** the branch is not deleted
 
 ### Requirement: Safe removal commands
-Worktrees SHALL be removed with `git worktree remove` without force. A worktree and its merged branch SHALL be removed together, worktree first. Local branches SHALL be deleted only after the merged check, with the tip commit written to the log.
+Worktrees SHALL be removed with `git worktree remove` without force. A worktree and its merged branch SHALL be removed together, worktree first. Local branches SHALL be deleted only after the merged check, with the tip commit written to the log. A session folder SHALL be removed as the whole `<session>/` folder without following symlinks.
 
 #### Scenario: Git refuses the removal
 - **WHEN** `git worktree remove` fails because git sees changes
@@ -68,6 +72,10 @@ Worktrees SHALL be removed with `git worktree remove` without force. A worktree 
 #### Scenario: Worktree plus branch
 - **WHEN** a clean merged worktree is approved
 - **THEN** the worktree folder is removed and then its local branch is deleted
+
+#### Scenario: Session folder removed
+- **WHEN** an empty stale session folder is approved
+- **THEN** the whole `<session>/` folder is deleted, including `scratchpad/`, `tasks/` and `started`
 
 ### Requirement: Remote branch deletes pass the push gate
 The script SHALL never push. Approved remote branch deletions SHALL be run by the skill as one `git -C <primary checkout> push origin --delete <branches>` command, after the user approved the remote group and its question stated that it is a push. The skill MUST create the push token in its own call before that command, as the safety-guards hook demands, and MUST NOT use any other way to delete remote branches.
@@ -100,7 +108,7 @@ The script SHALL run on Linux, WSL and macOS with Python 3 and git only. Where s
 
 #### Scenario: macOS session check
 - **WHEN** the platform has no `/proc` and the recorded process id exists
-- **THEN** the session counts as running and its scratchpad is kept
+- **THEN** the session counts as running and its session folder is kept
 
 #### Scenario: No gh and no glab
 - **WHEN** neither CLI is installed

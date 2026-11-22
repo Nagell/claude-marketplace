@@ -122,7 +122,7 @@ The run-it agent SHALL report a table of each promise the docs, `--help` and the
 - **THEN** it names the input that would settle it and the refuter runs that input
 
 ### Requirement: Cost per agent in run.json
-At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, first and largest prompt, duration and estimated USD, plus a run total. It SHALL count each request once by `message.id`.
+At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, first and largest prompt, duration and estimated USD, plus a run total. It SHALL count each request once by `message.id`. A Codex agent has no Claude transcript, so its `cost` SHALL be null with a reason.
 
 #### Scenario: Split response
 - **WHEN** one response is written as three transcript lines with the same `message.id`
@@ -131,6 +131,10 @@ At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.
 #### Scenario: Run total
 - **WHEN** all agents are priced
 - **THEN** `run.json` holds a total with requests, over-100k share and USD
+
+#### Scenario: Codex agent
+- **WHEN** an agent entry in `run.json` is a Codex task
+- **THEN** its `cost` is null with the reason "no Claude transcript" and the total leaves it out
 
 ### Requirement: Pricing from add-usage-collection
 `scripts/run_cost.py` SHALL price each request on the prompt tier it falls in, using the price table and tier rule of `add-usage-collection`, and SHALL NOT carry a price table of its own. When no price table is available it SHALL record tokens and tier counts and leave `usd` null.
@@ -143,8 +147,15 @@ At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.
 - **WHEN** the `usage-report` price table cannot be found
 - **THEN** tokens and tier counts are recorded and `usd` is null
 
+### Requirement: Run temp dir
+The main session SHALL create the run's temp dir with `mktemp -d -p "$SCRATCH"`, the same form `add-cleanup` sets for agents, and SHALL give its absolute path in every agent brief.
+
+#### Scenario: Run stopped early
+- **WHEN** a run stops before its sweep
+- **THEN** its temp dir sits in the session scratchpad with a `mktemp` name
+
 ### Requirement: Agent temp folders
-The main session SHALL create the run's temp dir under `$SCRATCH` and give its absolute path in every agent brief. Each agent SHALL make its own folder under it with `mktemp -d`, keep everything it creates there, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early.
+Each agent SHALL make its own folder in the run's temp dir with `mktemp -d -p <run temp dir>`, keep everything it creates there, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early.
 
 #### Scenario: Colour code in output
 - **WHEN** `ls` output carries colour escape codes

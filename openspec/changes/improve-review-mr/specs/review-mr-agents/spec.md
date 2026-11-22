@@ -22,11 +22,15 @@ The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it 
 - **THEN** `run.json` shows the resolved model id per agent
 
 ### Requirement: Engine question kept
-The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question.
+The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.md` and pass the effort answer as `--effort`.
 
 #### Scenario: First tool call
 - **WHEN** a review starts
 - **THEN** the first tool call is one question dialog with the engine, counterpart and effort questions
+
+#### Scenario: Codex effort
+- **WHEN** the user picks Codex and answers `High` in the effort question
+- **THEN** each Codex slice task runs with `--effort high`
 
 ### Requirement: Fast flag
 The skill SHALL accept `--fast`. With it, wave-1 and wave-2 agents SHALL run on Opus at the base effort instead of Haiku at max. Slice sizes, the brief, refuters and thread validation SHALL stay the same.
@@ -90,6 +94,17 @@ Each slice owner SHALL apply every lens to its files: correctness, product behav
 - **WHEN** an MR touches three files and 200 lines
 - **THEN** one slice owner reviews it and no lens agent is spawned
 
+### Requirement: End-to-end simulation trigger
+The skill SHALL spawn the optional end-to-end simulation agent when the MR changes a multi-step flow that can be driven against a stub, whatever the MR's size. It SHALL NOT use a size tier to decide.
+
+#### Scenario: Small MR with a flow
+- **WHEN** a 150-line MR changes a checkout flow that a stub server can drive
+- **THEN** the end-to-end simulation agent runs
+
+#### Scenario: Large MR without a flow
+- **WHEN** a 3,000-line MR changes only config and docs
+- **THEN** no end-to-end simulation agent runs
+
 ### Requirement: No cross-file agent by default
 The skill SHALL NOT spawn a cross-file agent by default. Run B, D and E found no key bug that only a cross-file agent caught. The one exception is the contract owner: when step 1a found a counterpart MR, exactly one contract agent SHALL apply the Contract lens (shape, meaning, duplicated rules, end to end, deploy order) against the counterpart.
 
@@ -103,7 +118,14 @@ The skill SHALL NOT spawn a cross-file agent by default. Run B, D and E found no
 
 #### Scenario: Seam between slices
 - **WHEN** a changed export in one slice is consumed by a file in another slice
-- **THEN** the owner of the slice that holds the export checks its consumers by grep
+- **THEN** the owner of the slice that holds the export greps every consumer of it, not only one
+
+### Requirement: Full counterpart scope
+With full counterpart scope, the skill SHALL cut the counterpart's changed files into slices by the same reading-load and contract rules as the primary MR's files, and SHALL still run exactly one contract agent across both MRs.
+
+#### Scenario: Both MRs reviewed
+- **WHEN** the user picks full scope for a counterpart MR with two tool contracts
+- **THEN** the counterpart gets its own slices for those contracts and one contract agent covers both MRs
 
 ### Requirement: Source agent per finding
 `run.json` SHALL record, for each finding that survives refutation, the agent that first reported it and every agent that repeated it, so an agent that adds nothing unique can be dropped.
@@ -198,7 +220,7 @@ Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledge
 - **THEN** wave 2 spawns an agent for it
 
 ### Requirement: Refutation covers sound lists and lowered highs
-Refuters SHALL also get up to 3 entries from each slice report's "checked and found sound" list, claims that something is refused, blocked or safe first. Grading SHALL flag every finding a refuter lowered from high, and the main session SHALL re-check it before the final grade.
+Refuters SHALL also get up to 3 entries from each slice report's "checked and found sound" list, claims that something is refused, blocked or safe first. Grading in step 6 SHALL flag every finding a refuter lowered from high, the main session SHALL re-check it before the final grade, and the step 7 summary SHALL list the flagged findings.
 
 #### Scenario: Wrong "sound" claim
 - **WHEN** a slice report lists "`--stop '*'` is refused" as sound and the refuter shows the guard never sees `*`
@@ -206,4 +228,4 @@ Refuters SHALL also get up to 3 entries from each slice report's "checked and fo
 
 #### Scenario: Refuter lowers a high
 - **WHEN** a refuter lowers a finding from high to medium
-- **THEN** the grading table flags it and the main session re-checks it before the final grade
+- **THEN** step 6's grading flags it, the main session re-checks it before the final grade, and the step 7 summary lists it

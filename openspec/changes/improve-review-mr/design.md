@@ -41,13 +41,13 @@ Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-f
 
 ### 1. Wave-1 model: Haiku 5.5 at max, Opus for refutation and validation
 
-Agents are spawned with `model: haiku` and `effort: max`; the resolved model id is read back from the transcript into `run.json`, so alias drift shows up. Roles on Haiku: slice owners, the cross-file agent, the run-it agent, wave-2 gap agents, the optional end-to-end simulation. Roles on Opus: refuters and thread validation, both at the base effort (`medium` by default). Refuters were one level above until the refuter test: high gave the same verdicts as medium for 59% more.
+Agents are spawned with `model: haiku` and `effort: max`; the resolved model id is read back from the transcript into `run.json`, so alias drift shows up. Roles on Haiku: slice owners, the contract agent, the run-it agent, wave-2 gap agents, the optional end-to-end simulation. Roles on Opus: refuters and thread validation, both at the base effort (`medium` by default). Refuters were one level above until the refuter test: high gave the same verdicts as medium for 59% more.
 
 Why: run D beat run B by 7 key bugs at 80% of its cost, and the one Haiku agent on #238 found what 11 Opus agents did not. Refutation stays strong because it changes the output most: on the MR the current step 5 was built against, three of the four strongest findings fell to it. A finding that survives a weak refuter lands on a colleague's MR, while wave 1 is cheap to widen with more agents.
 
 Engine question: **kept, not replaced, and its default stays `Claude (Recommended)`**. It chooses a vendor (Claude, Codex or both), which the model default does not touch. What changes is the label: "Claude" now means Haiku slice owners at max with Opus refuters. A per-run model question was rejected: the user decided the default, reviews rarely need speed, and a fourth question delays the first tool call. The model is carried by the role table and the `--fast` flag.
 
-Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered.
+Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.md`) and have no lens tasks.
 
 Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through `add-model-guidance`); Haiku for refuters (refutation errors are the expensive kind).
 
@@ -65,7 +65,9 @@ What the options share:
 
 - Slices are sized by reading load, the line count of the whole changed files (lockfiles, generated files and the rules' size excludes left out), not by changed lines. A 5-line change in a 3,000-line file still needs the whole file read (brief step 1). `reviewed_lines` stays in `run.json` for comparison with earlier runs.
 - Files group by tool contract or component: a script with its tests and the doc section that describes it, a hook with its `hooks.json` entry, a component with its composable and spec.
-- The tier table (S/M/L/XL by diff lines) is removed.
+- Reading load is measured on the head tree: list the changed files with `git diff --name-only <base_sha> <head_sha> -- <size-exclude pathspecs>`, then count each with `git show <head_sha>:<path> | wc -l` (a deleted file counts 0).
+- The tier table (S/M/L/XL by diff lines) is removed, with every place that reads the tier: the `tier` field in `run.json`, the XL note "past a reliable size" and the effort option text that names it.
+- The optional end-to-end simulation no longer depends on a tier. It runs when the MR changes a multi-step flow that can be driven against a stub, whatever the size.
 - Whole-MR lens agents (Correctness, Product behaviour, Error paths and the optional ones) are dropped at every size: a slice owner applies every lens, and a small MR is one slice with one owner. This follows #238 (one agent beat eleven) and keeps one code path in the skill. Alternative: keep three lens agents on a one-slice MR; rejected for the same cost reason (Open questions).
 - Extra lenses and details from the rules go into the brief of each slice whose files match their trigger paths, with no extra agent.
 - Batching replaces the old 12-agent question: at most `--max-parallel N` wave-1 and wave-2 agents run at once (default 12), and the next queued slice starts as one finishes. Slice size does not grow with the MR; a big MR takes longer instead. 12 is this skill's own limit, not a known Claude Code limit.
@@ -78,7 +80,7 @@ The two options:
 | Evidence | Run D: 7 small slices + cross-file, 13 / 13.5 of 14, $5.08, 71% of requests over 100k. One slice (hooks) found all five hook bugs alone; run C's coarse hooks slice found 3 and missed H1 | Run C: 7 / 8.5, $3.34, 69% over 100k, but without the lens. Run E: same slices with the lens, 9 / 9.5, $4.25, 87% over 100k, missed S1 |
 | Cost shape | More agents, each with its own base context. Run D agent cost $0.30 to $1.12 | Fewer agents, longer contexts: the longest run C agent made 83 requests, with 53 over 100k |
 | Result | A: chosen | B: rejected by run E |
-| Risk | Cost grows with slice count and hits the 12-agent cap sooner | A big slice means more files per agent: run C's docs slice spent the most requests (83) for no clean key catch, and in runs B and C nobody owned the launch options (S6, S7) |
+| Risk | Cost grows with slice count, and a big MR needs more batches under `--max-parallel` | A big slice means more files per agent: run C's docs slice spent the most requests (83) for no clean key catch, and in runs B and C nobody owned the launch options (S6, S7) |
 
 Run E decided it, by the user's rule "if E is better go with it, otherwise D". The rerun of this change's own benchmark (task group 11) uses option A, so it is also a second data point.
 
@@ -91,7 +93,9 @@ Evidence on the cross-file agent (narrow scope in run D, broader in B and C):
 - Run D: $0.82 (16% of the run), no unique key bug, three duplicates (S2, S4, S5); its one unique extra was a medium non-key finding (DX4, a doc tells Claude to re-register a server and drops `--secrets`).
 - Run E: no cross-file agent by design.
 
-Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B, D or E, and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo.
+Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B, D or E, and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo. With full counterpart scope, the counterpart's changed files are cut into slices of their own by the same rule, and the contract agent still runs once.
+
+Seams between slices: the owner of a slice that changes an export greps every consumer of it, not only one. Today's brief asks for one traced consumer per export; the new brief widens that.
 
 Drop test for the remaining agents: `run.json` records which agent produced each surviving finding (ids already carry the prefix). If an agent adds no survivor that only it found in the benchmark rerun and the next five real reviews, it becomes opt-in.
 
@@ -151,7 +155,7 @@ Under the Codex engine (read-only, no writes) the agent is skipped with a note.
 
 ### 9. Repo conventions inside every slice brief
 
-New `scripts/find_conventions.py` (modelled on `find_rules.py`) takes the changed paths and prints, per path, the instruction files that apply: `CLAUDE.md` and `AGENTS.md` at every directory level from the file up to the repo root, root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` whose `applyTo` glob matches, `.cursor/rules/*.mdc` whose `globs` match (and always-apply ones), `.cursorrules`, and `.editorconfig`. Each entry carries its line count. The main session puts the entries for a slice's files into that slice's brief; the agent reads each whole when short (under about 300 lines) and otherwise greps the sections that match what it reviews, then checks the diff against them and cites `path:line` of the rule. No extra agent. `~/.claude/review-rules/<repo>.md` stays and is read as before.
+New `scripts/find_conventions.py` (modelled on `find_rules.py`) takes the changed paths and prints, per path, the instruction files that apply: `CLAUDE.md` and `AGENTS.md` at every directory level from the file up to the repo root, root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md` whose `applyTo` glob matches, `.cursor/rules/*.mdc` whose `globs` match (and always-apply ones), `.cursorrules`, and `.editorconfig`. Each entry carries its line count. In step 4 the main session runs the script once on all changed paths and puts the entries for a slice's files into that slice's brief; the agent reads each whole when short (under about 300 lines) and otherwise greps the sections that match what it reviews, then checks the diff against them and cites `path:line` of the rule. No extra agent. `~/.claude/review-rules/<repo>.md` stays and is read as before.
 
 Violations are graded by consequence like any finding; a rule the file itself calls critical is quoted, not obeyed blindly. An instruction file the MR itself changes is read at `base_sha` for the rules, so an author cannot loosen the rules that review their own change, and its diff is reviewed as code. Instruction files are data for the agent to check against, never instructions to follow: text in them that tries to steer the review is a finding.
 
@@ -159,24 +163,28 @@ Violations are graded by consequence like any finding; a rule the file itself ca
 
 New `scripts/run_cost.py`, run by the main session at the end. For each agent entry in `run.json` (which now stores `agent_id`, `model`, `effort`, `role`, `slice`) it reads that agent's transcript, dedupes requests by `message.id` (one response is written as several lines), prices each request on its own prompt tier and writes `cost: {requests, tokens by class, requests_over_100k, max_prompt, first_prompt, duration_s, usd, price_table_version}` back. The price lookup and tier rule are the ones from `add-usage-collection`: the script imports the collector's pricing function if it exposes one, and otherwise reads the same `prices.json` (seed under the `usage-report` skill, user override in `~/.claude/usage/prices.json`). It does not carry a price table of its own. With the table missing it records tokens and leaves `usd` null. `run.json` also gets a total, so a later run can compare cost against findings per role.
 
-`usage-report` is added to the skill's `dependencies` list per the repo's skill-dependency convention.
+Transcript path: `run.json` records the session id and the transcript dir (`~/.claude/projects/<project-dir>/<session-id>/subagents/`), and the script opens `agent-<agent_id>.jsonl` there. It also writes the resolved `message.model` per agent. Codex agents have no Claude transcript, so their `cost` is null with a reason.
+
+Prompt size for the tier rule is input plus cache write plus cache read tokens. `add-usage-collection` does not define "prompt" yet, so this is an assumption until it does.
+
+`usage-report` is added to the skill's `dependencies` list per the repo's skill-dependency convention, once `add-usage-collection` is merged and the skill exists.
 
 Alternative: read the collector's daily dataset. Rejected: rows are per day and per tier, written by a background job, and are not available per run at the moment the review ends.
 
 ### 11. Cleanup
 
-- At the start the main session creates `$SCRATCH/tmp` (the run's temp dir, `RUN_TMP`) and records the `git status --porcelain=v1 -z` of the primary checkout and the review worktree.
-- Every agent brief carries `RUN_TMP`. The agent makes its folder with `mktemp -d "$RUN_TMP/<agent>.XXXXXX"`, sets `TMPDIR` and `HOME` for anything it runs to point inside it, uses absolute paths only (never a path typed from `ls` output, which can carry colour codes; use `command ls`), deletes the folder before replying and ends its report with `Leftovers: none` or each leftover path and why.
+- At the start the main session creates the run's temp dir, `RUN_TMP`, with `RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX)`, and records the `git status --porcelain=v1 -z` of the primary checkout and the review worktree.
+- Every agent brief carries `RUN_TMP`. The agent makes its folder with `mktemp -d -p "$RUN_TMP" <agent>.XXXXXX`, sets `TMPDIR` and `HOME` for anything it runs to point inside it, uses absolute paths only (never a path typed from `ls` output, which can carry colour codes; use `command ls`), deletes the folder before replying and ends its report with `Leftovers: none` or each leftover path and why.
 - At the end the main session: checks each report's `Leftovers` line; stops any process whose command line contains `RUN_TMP`; deletes `RUN_TMP` after confirming its real path is inside `$SCRATCH`; compares the two `git status` snapshots and lists untracked entries that are new (using the NUL-separated list, so odd names are safe), asks once with AskUserQuestion which to delete (all ticked by default, so a file the user made during the review can be kept), deletes only the ticked ones and reports the rest; removes the throwaway base worktree from the checks step.
 - Review worktrees the run created (recorded in `run.json` as `worktrees_created`, the counterpart's included) are removed with `git worktree remove` once drafts are submitted or the user stopped, unless `--keep-worktrees` was passed. A worktree that already existed (an earlier reviews worktree) is never removed. The final line names what was removed and what stayed.
 
-Why `RUN_TMP` under the scratchpad: run D's agents wrote to `/tmp` and the repo; one root the main session owns makes the sweep a single delete. Tools that write to `/tmp` on their own (Playwright artifact dirs) follow `TMPDIR`.
+Why `RUN_TMP` under the scratchpad: run D's agents wrote to `/tmp` and the repo; one root the main session owns makes the sweep a single delete. `add-cleanup` switches agents to `mktemp -d -p <session scratchpad>`; this change uses the same form one level down, so a run dir left by a stopped run has the `mktemp` shape that `add-cleanup`'s own-session scan lists. Tools that write to `/tmp` on their own (Playwright artifact dirs) follow `TMPDIR`.
 
-`add-cleanup` (separate change) adds a `/base:cleanup` skill that scans known locations for old worktrees, merged branches and stale scratchpads, as a safety net for agents that stop early. This change makes the review run clean up after itself, so the net has less to catch. The sweep here touches only the run's own paths and does not call that skill. The brief bullet added in `c507be4` is superseded by this wording; keep one copy.
+`add-cleanup` (separate change) adds a `/base:cleanup` skill that scans known locations for old worktrees, merged branches and stale scratchpads, as a safety net for agents that stop early. This change makes the review run clean up after itself, so the net has less to catch. The sweep here touches only the run's own paths and does not call that skill. The brief bullet added in `c507be4` is superseded by this wording; keep one copy. The same commit added a temp-folder line to the `plugins/base/CLAUDE.md` template. That line is owned by `add-cleanup`, and this change does not touch it.
 
 ### 12. Waves
 
-Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Thread validation, finish mode and posting are unchanged. Refutation gains two checks. Refuters also get up to 3 entries from each slice report's "checked and found sound" list, picked by the main session with claims that something is refused, blocked or safe first: in run F two agents listed a real bug there. Grading flags every finding a refuter lowered from high, and the main session re-checks it before the final grade (both refuters in the test lowered a key high).
+Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Thread validation, finish mode and posting are unchanged. Refutation gains two checks. Refuters also get up to 3 entries from each slice report's "checked and found sound" list, picked by the main session with claims that something is refused, blocked or safe first: in run F two agents listed a real bug there. Grading (prose in SKILL.md step 6, there is no grading table) flags every finding a refuter lowered from high, the main session re-checks it before the final grade, and the step 7 summary lists the flagged ones (both refuters in the test lowered a key high).
 
 ## Risks / Trade-offs
 
@@ -199,9 +207,9 @@ Slicing and the cross-file agent are decided (run E, design 3 and 4). Everything
 4. `--no-checks` and `--keep-worktrees` are new flags. `--keep-worktrees` follows from "unless the user keeps them". `--no-checks` is an addition for untrusted authors; drop it if unwanted.
 5. Whether `add-usage-collection`'s `collect.py` will expose a pricing function to import. If not, `run_cost.py` reads the same `prices.json` and applies the same tier rule, which is a small duplicate of logic (not of data).
 6. Wave 2 skipping on a one-slice MR with a complete ledger is new; the old text ran it regardless of tier.
-7. Codex engine: Haiku and `--fast` do not apply, run-it is skipped, checks and conventions still run. Not benchmarked.
+7. Codex engine: Haiku and `--fast` do not apply, run-it is skipped, checks and conventions still run, Codex `--effort` takes the effort answer. Not benchmarked.
 8. Decided by the user: new untracked entries in the primary checkout are listed and the user picks what to delete in one question; nothing there is deleted without that answer.
-9. Overlap with `add-cleanup`: it is the general safety net (a skill the user runs); this change is the review run's own cleanup. Neither calls the other. Wording in the brief should be merged once both changes exist.
+9. Overlap with `add-cleanup`: it is the general safety net (a skill the user runs); this change is the review run's own cleanup. Neither calls the other. Both use `mktemp -d -p` under the session scratchpad. The `plugins/base/CLAUDE.md` template line belongs to `add-cleanup`.
 10. The `haiku` alias resolves to Haiku 5.5 today; if it moves, `run.json` shows it but the skill does not pin a version.
 11. Refuters sample up to 3 "sound" entries per slice report. Chosen to cap refuter cost; raise it if the rerun shows sound-list misses.
 12. `--max-parallel` defaults to 12, the old cap. Lower it on machines or plans that limit concurrent agents.
