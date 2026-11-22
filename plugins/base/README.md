@@ -234,9 +234,9 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 
 ### Blocked Operations
 
-- `rm -rf` targeting home (`~`) or root (`/`) directories
+- `rm -rf` on anything under a home folder (`~`, `$HOME`, `/home/<user>`, `/Users/<user>`) or on root and top-level paths (`/`, `/usr`, `/*`), in any flag form (`-rf`, `-fr`, `-r -f`). Only the `rm` part of a command is checked, so a home path elsewhere in it doesn't count
 - Hardcoded secrets (API_KEY, TOKEN, PASSWORD patterns 16+ chars)
-- Modifications to `.env` files via shell
+- Writing a `.env` file via shell (`>`, `>>`, `tee`, `cp`/`mv` onto it, `sed -i`). Reading is allowed, and `.env.example`, `.sample`, `.template` and `.dist` are never blocked
 - Force pushes (`-f`, `--force`, `+refspec`) without `--force-with-lease`
 - Every `git push` without a push token: after you approve that push, Claude creates `<repo root>/.claude-push-token` and the hook consumes it on the push
 
@@ -313,7 +313,8 @@ base/
 ├── hooks/
 │   ├── hooks.json
 │   ├── safety-guards.sh
-│   └── post-edit-format.sh
+│   ├── post-edit-format.sh
+│   └── tests/test_safety_guards.sh
 ├── agents/
 ├── skills/
 └── README.md
