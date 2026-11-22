@@ -49,6 +49,12 @@ The base plugin's safety-guards hook enforces this, deliberately strictly.
 - Each further push, and any force push, needs its own yes. A yes never loosens anything else.
 - Standing permission only if I say it outright ("for this session you have full push allowance"); never inferred. It ends with the session.
 
+## Scratch Work & Cleanup
+
+- Experiments, test files, stubs and installs go in one folder you create with `mktemp -d`; delete it before you finish, also when you stop early.
+- Remove worktrees and branches you created once they're merged or no longer needed.
+- Report anything you leave behind on purpose, with its path.
+
 ## Code Style
 
 - Simple, direct, boring solutions; no over-engineering.
