@@ -122,7 +122,7 @@ The run-it agent SHALL report a table of each promise the docs, `--help` and the
 - **THEN** it names the input that would settle it and the refuter runs that input
 
 ### Requirement: Cost per agent in run.json
-At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, first and largest prompt, duration and estimated USD, plus a run total. It SHALL count each request once by `message.id`. A Codex agent has no Claude transcript, so its `cost` SHALL be null with a reason.
+At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, first and largest prompt, duration and estimated USD, plus a run total. The `usage` scanner's summary function SHALL supply them, counting each request once by `message.id`. A Codex agent has no Claude transcript, so its `cost` SHALL be null with a reason.
 
 #### Scenario: Split response
 - **WHEN** one response is written as three transcript lines with the same `message.id`
@@ -136,16 +136,16 @@ At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.
 - **WHEN** an agent entry in `run.json` is a Codex task
 - **THEN** its `cost` is null with the reason "no Claude transcript" and the total leaves it out
 
-### Requirement: Pricing from add-usage-collection
-`scripts/run_cost.py` SHALL price each request on the prompt tier it falls in, using the price table and tier rule of `add-usage-collection`, and SHALL NOT carry a price table of its own. When no price table is available it SHALL record tokens and tier counts and leave `usd` null.
+### Requirement: Pricing from the usage scanner
+`scripts/run_cost.py` SHALL price each request on the prompt tier it falls in through the `usage` scanner's per-agent summary function. It SHALL NOT carry its own price table, dedupe or token parsing. When the scanner cannot be imported, each agent's `cost` SHALL be null with the reason "usage scanner not found".
 
 #### Scenario: Tier crossing
 - **WHEN** a Haiku request has a prompt of 120k tokens including cache reads
 - **THEN** it is priced at the long-prompt tier
 
-#### Scenario: Prices missing
-- **WHEN** the `usage-report` price table cannot be found
-- **THEN** tokens and tier counts are recorded and `usd` is null
+#### Scenario: Scanner missing
+- **WHEN** the `usage` skill's scanner cannot be imported
+- **THEN** each agent's `cost` is null with the reason "usage scanner not found"
 
 ### Requirement: Run temp dir
 The main session SHALL create the run's temp dir with `mktemp -d -p "$SCRATCH"`, the same form `add-cleanup` sets for agents, and SHALL give its absolute path in every agent brief.

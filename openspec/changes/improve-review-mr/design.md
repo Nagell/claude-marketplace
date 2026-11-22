@@ -20,7 +20,7 @@ The #238 single-agent runs (Haiku max, Opus medium, Sonnet high) all ran the hoo
 
 Refuter test on run F's 35 findings (same brief, no answer key): Opus high kept 34, refuted 1, $2.76; Opus medium kept 33, refuted the same 1, left 1 unsettled, $1.74. Both kept every key bug and both lowered the sandbox-off finding (a key high) to medium. Neither saw the `--stop '*'` bug that two run-F agents had listed as sound, because refuters only get findings.
 
-Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-file agent. The price table, tier rule (Haiku 5.5 charges 5x per request whose prompt is over 100k tokens, cache reads included) and the collector come from `add-usage-collection`; `add-model-guidance` consumes the same dataset. This design refers to them and defines no table of its own.
+Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-file agent. The price table, tier rule (Haiku 5.5 charges 5x per request whose prompt is over 100k tokens, cache reads included) and the transcript scanner come from `add-usage-skill`; its later `models` mode (`add-usage-models-mode`) reuses the same scanner. This design refers to them and defines no table of its own.
 
 ## Goals / Non-Goals
 
@@ -161,15 +161,15 @@ Violations are graded by consequence like any finding; a rule the file itself ca
 
 ### 10. Real cost per agent in `run.json`
 
-New `scripts/run_cost.py`, run by the main session at the end. For each agent entry in `run.json` (which now stores `agent_id`, `model`, `effort`, `role`, `slice`) it reads that agent's transcript, dedupes requests by `message.id` (one response is written as several lines), prices each request on its own prompt tier and writes `cost: {requests, tokens by class, requests_over_100k, max_prompt, first_prompt, duration_s, usd, price_table_version}` back. The price lookup and tier rule are the ones from `add-usage-collection`: the script imports the collector's pricing function if it exposes one, and otherwise reads the same `prices.json` (seed under the `usage-report` skill, user override in `~/.claude/usage/prices.json`). It does not carry a price table of its own. With the table missing it records tokens and leaves `usd` null. `run.json` also gets a total, so a later run can compare cost against findings per role.
+New `scripts/run_cost.py`, run by the main session at the end. For each agent entry in `run.json` (which now stores `agent_id`, `model`, `effort`, `role`, `slice`) it calls `summarize_agent(path)` from the `usage` skill's scanner (`plugins/base/skills/usage/scripts/scan.py`) on that agent's transcript and writes `cost: {requests, tokens by class, requests_over_100k, max_prompt, first_prompt, duration_s, usd, price_table_version}` back. `summarize_agent` does the dedupe by `message.id`, the token classes, the prompt sizes and the per-request price on its tier, using the seed `prices.json` with the user override in `~/.claude/usage/prices.json` merged over it. `run_cost.py` has no dedupe, token parsing or price table of its own, so its numbers match the `usage` report. When the scanner cannot be imported, each `cost` is null with the reason "usage scanner not found". `run.json` also gets a total, so a later run can compare cost against findings per role.
 
 Transcript path: `run.json` records the session id and the transcript dir (`~/.claude/projects/<project-dir>/<session-id>/subagents/`), and the script opens `agent-<agent_id>.jsonl` there. It also writes the resolved `message.model` per agent. Codex agents have no Claude transcript, so their `cost` is null with a reason.
 
-Prompt size for the tier rule is input plus cache write plus cache read tokens. `add-usage-collection` does not define "prompt" yet, so this is an assumption until it does.
+Prompt size for the tier rule is input plus cache write plus cache read tokens, as `add-usage-skill` defines it.
 
-`usage-report` is added to the skill's `dependencies` list per the repo's skill-dependency convention, once `add-usage-collection` is merged and the skill exists.
+`usage` is added to the skill's `dependencies` list per the repo's skill-dependency convention, once `add-usage-skill` is merged and the skill exists.
 
-Alternative: read the collector's daily dataset. Rejected: rows are per day and per tier, written by a background job, and are not available per run at the moment the review ends.
+Alternative: run the `usage` scanner over the whole session. Rejected: it reports per skill run, and `run_cost.py` needs the agents listed in `run.json` at the moment the review ends, so it summarizes those transcripts one by one with the shared summary function.
 
 ### 11. Cleanup
 
@@ -205,7 +205,7 @@ Slicing and the cross-file agent are decided (run E, design 3 and 4). Everything
 2. `--fast` uses base effort (`medium` by default) rather than a fixed `medium`; with a `High` answer it is Opus high. The user said "Opus (medium)".
 3. Run-it threshold (about 30 runnable changed lines or a new runnable file) and the soft budget numbers (40 tool calls, 150 KB) are guesses to calibrate from the rerun.
 4. `--no-checks` and `--keep-worktrees` are new flags. `--keep-worktrees` follows from "unless the user keeps them". `--no-checks` is an addition for untrusted authors; drop it if unwanted.
-5. Whether `add-usage-collection`'s `collect.py` will expose a pricing function to import. If not, `run_cost.py` reads the same `prices.json` and applies the same tier rule, which is a small duplicate of logic (not of data).
+5. The exact import path of the `usage` scanner. `add-usage-skill` requires `summarize_agent` and the pricing functions to be importable; `run_cost.py` adds `../../usage/scripts` relative to its own file to the import path.
 6. Wave 2 skipping on a one-slice MR with a complete ledger is new; the old text ran it regardless of tier.
 7. Codex engine: Haiku and `--fast` do not apply, run-it is skipped, checks and conventions still run, Codex `--effort` takes the effort answer. Not benchmarked.
 8. Decided by the user: new untracked entries in the primary checkout are listed and the user picks what to delete in one question; nothing there is deleted without that answer.

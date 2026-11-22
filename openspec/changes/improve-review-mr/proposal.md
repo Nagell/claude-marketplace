@@ -19,7 +19,7 @@ The skill also has no agent whose job is to run the code under review, ignores t
 - The agent brief gains the "what the code does NOT set" lens as standing text, a repo-conventions lens, and tool-output rules that keep context small.
 - A deterministic checks step (lint, typecheck, format check, tests) runs in the review worktree with no LLM and turns failures that are new at head into findings.
 - A "run it" agent exercises runnable code (scripts, CLIs, hooks, skills) in a throwaway environment and compares behaviour with what the docs promise.
-- `run.json` records real cost per agent from transcripts, priced per request with the table from `add-usage-collection`.
+- `run.json` records real cost per agent from transcripts, priced per request with the price logic of the `usage` skill's scanner from `add-usage-skill`.
 - Every agent works in its own `mktemp -d` folder under the run's temp dir, which sits in the session scratchpad (`$SCRATCH`). The main session sweeps leftovers and removes the review worktrees it created, unless the user keeps them.
 - Kept as is: engine question, counterpart handling, thread validation, refutation, drafts as one review, platform files.
 
@@ -36,10 +36,10 @@ None. There are no main specs yet; the current behaviour is described by `plugin
 
 ## Impact
 
-- `plugins/base/skills/review-mr/SKILL.md`: steps 0, 2a, 4, 5, 6 (grading flags lowered highs) and 7 change; new steps for checks and run-it. Step 4 batches agents (`--max-parallel N`, default 12) instead of asking about the count. Frontmatter gains `--fast`, `--no-checks`, `--keep-worktrees` and `--max-parallel` in `argument-hint`, and `usage-report` in `dependencies` once `add-usage-collection` is merged.
+- `plugins/base/skills/review-mr/SKILL.md`: steps 0, 2a, 4, 5, 6 (grading flags lowered highs) and 7 change; new steps for checks and run-it. Step 4 batches agents (`--max-parallel N`, default 12) instead of asking about the count. Frontmatter gains `--fast`, `--no-checks`, `--keep-worktrees` and `--max-parallel` in `argument-hint`, and `usage` in `dependencies` once `add-usage-skill` is merged.
 - `plugins/base/skills/review-mr/references/agent-brief.md`: new lenses, context rules, temp-folder rules, leftovers line in the report.
 - New scripts with tests under `plugins/base/skills/review-mr/`: `scripts/find_conventions.py`, `scripts/run_checks.py`, `scripts/run_cost.py`.
-- Reads `add-usage-collection` (price table, per-request pricing, tier rule). This change should land after it, or fall back to token counts without USD.
+- Reuses `add-usage-skill` (the `usage` skill's scanner: its per-agent summary function with dedupe, token classes, price table and tier rule). This change should land after it; without the scanner, each agent's `cost` is null with a reason.
 - Related to `add-cleanup` (a `/base:cleanup` safety-net skill): this change only makes the review run clean up its own temp folders and worktrees and does not call that skill. The temp-folder line in the `plugins/base/CLAUDE.md` template is owned by `add-cleanup`; this change leaves it alone.
 - Cost: a typical review runs more, smaller agents on a cheaper model. The benchmark rerun (last task group) decides whether the numbers hold.
 - Release: `feat(base)`, minor bump.
