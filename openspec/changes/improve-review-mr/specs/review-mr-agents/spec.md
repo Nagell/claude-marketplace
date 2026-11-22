@@ -7,11 +7,11 @@ Say which model and effort each `review-mr` agent runs on, how the diff is cut i
 ## ADDED Requirements
 
 ### Requirement: Model and effort per role
-The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it agent), wave-2 gap agents and the optional end-to-end simulation on Haiku 5.5 at max effort. It SHALL run refuters on Opus one effort level above the base, and thread validation on Opus at the base. Every Agent call SHALL state model and effort, and `run.json` SHALL record both with the model id resolved from the transcript.
+The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it agent), wave-2 gap agents and the optional end-to-end simulation on Haiku 5.5 at max effort. It SHALL run refuters and thread validation on Opus at the base effort. Every Agent call SHALL state model and effort, and `run.json` SHALL record both with the model id resolved from the transcript.
 
 #### Scenario: Default run
 - **WHEN** the user starts a review with no `--fast`
-- **THEN** slice owners run on Haiku at max effort and refuters on Opus one level above the effort answered in step 0
+- **THEN** slice owners run on Haiku at max effort and refuters on Opus at the effort answered in step 0
 
 #### Scenario: Effort answer does not change Haiku
 - **WHEN** the user answers `Low` in the effort question
@@ -33,7 +33,7 @@ The skill SHALL accept `--fast`. With it, wave-1 and wave-2 agents SHALL run on 
 
 #### Scenario: Fast with default effort
 - **WHEN** the user passes `--fast` and answered `Medium`
-- **THEN** slice owners run on Opus at medium and refuters on Opus at high
+- **THEN** slice owners and refuters run on Opus at medium
 
 #### Scenario: Fast with Codex only
 - **WHEN** the user passes `--fast` and picks only the Codex engine
@@ -68,12 +68,16 @@ The skill SHALL cut slices to a target of about 400 lines of whole files with a 
 - **WHEN** one changed file has 2,000 lines
 - **THEN** it is its own slice, split into ranges of about 700 lines
 
-### Requirement: Agent cap
-When the plan needs more than about 12 agents in wave 1 the skill SHALL state the count before spawning and let the user pick all agents or fewer and larger slices.
+### Requirement: Parallel agent limit
+The skill SHALL run at most N wave-1 and wave-2 agents at once, N set by `--max-parallel N` with a default of 12, and SHALL start the next queued agent as one finishes. It SHALL NOT merge slices or ask the user to pick fewer, larger slices because of the agent count.
 
-#### Scenario: Too many agents
-- **WHEN** the plan needs 15 agents
-- **THEN** the skill shows the count and asks before spawning
+#### Scenario: More slices than the limit
+- **WHEN** the plan needs 15 slice agents and no `--max-parallel` is given
+- **THEN** 12 start, the other 3 start as earlier ones finish, and no question is asked
+
+#### Scenario: Lower limit
+- **WHEN** the user passes `--max-parallel 4`
+- **THEN** no more than 4 review agents run at the same time
 
 ### Requirement: Slice owners apply every lens
 Each slice owner SHALL apply every lens to its files: correctness, product behaviour, error paths, the "does not set" lens, repo conventions, and each extra lens or detail from the rules whose trigger paths match its files. The skill SHALL NOT spawn whole-MR lens agents at any size, and a one-slice MR SHALL have one owner.
@@ -192,3 +196,14 @@ Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledge
 #### Scenario: Dark ground
 - **WHEN** a wave-1 ledger marks a changed file `not examined`
 - **THEN** wave 2 spawns an agent for it
+
+### Requirement: Refutation covers sound lists and lowered highs
+Refuters SHALL also get up to 3 entries from each slice report's "checked and found sound" list, claims that something is refused, blocked or safe first. Grading SHALL flag every finding a refuter lowered from high, and the main session SHALL re-check it before the final grade.
+
+#### Scenario: Wrong "sound" claim
+- **WHEN** a slice report lists "`--stop '*'` is refused" as sound and the refuter shows the guard never sees `*`
+- **THEN** the claim becomes a finding and goes through grading
+
+#### Scenario: Refuter lowers a high
+- **WHEN** a refuter lowers a finding from high to medium
+- **THEN** the grading table flags it and the main session re-checks it before the final grade

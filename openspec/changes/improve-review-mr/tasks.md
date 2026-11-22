@@ -21,12 +21,14 @@ Paths are under `plugins/base/skills/review-mr/` unless noted. Python tests run 
 ## 4. Models, flags and engine question
 
 - [ ] 4.1 In `SKILL.md` step 0, relabel the engine option `Claude (Recommended)` as Haiku slice owners with Opus refuters, reword the effort question so it sets the Opus roles only, and keep one dialog. Verify: step 0 still says one AskUserQuestion with the same questions and no model question.
-- [ ] 4.2 Replace the "Agents and effort" table with the role table (model and effort per role from the "Model and effort per role" requirement) and add `--fast` (wave 1 and 2 on Opus at base effort, no effect on Codex). Update `argument-hint` and the description for `--fast`, `--no-checks` and `--keep-worktrees`. Verify: the table lists every role in the requirement and each Agent call in steps 3 to 5 states `model` and `effort`.
+- [ ] 4.2 Replace the "Agents and effort" table with the role table (model and effort per role from the "Model and effort per role" requirement) and add `--fast` (wave 1 and 2 on Opus at base effort, no effect on Codex). Update `argument-hint` and the description for `--fast`, `--no-checks`, `--keep-worktrees` and `--max-parallel`. Verify: the table lists every role in the requirement and each Agent call in steps 3 to 5 states `model` and `effort`.
 
 ## 5. Waves, run.json and the agent plan
 
 - [ ] 5.1 Update wave 2 in `SKILL.md`: it takes `Unfinished:` lines as dark ground and is skipped for a one-slice MR with a complete ledger. Verify: the wave 2 section names both rules.
 - [ ] 5.2 Extend `run.json` in step 2a with per-agent `agent_id`, `model`, `effort`, `role`, `slice`, `files`, `report`, per-finding source agents and duplicates, `worktrees_created` and the run temp dir. Verify: the example object in step 2a lists every field in the specs.
+- [ ] 5.3 Replace the agent-count question in step 4 with batching: at most `--max-parallel N` (default 12) wave-1 and wave-2 agents at once, the next queued one started as one finishes, slices never merged for count. Verify: step 4 names the flag and its default and no longer asks about the count.
+- [ ] 5.4 In step 5, hand refuters up to 3 "checked and found sound" entries per slice report (refused, blocked or safe claims first), and in grading flag every finding a refuter lowered from high for a re-check by the main session. Verify: step 5 and the grading step name both rules.
 
 ## 6. Slicing in SKILL.md
 
@@ -55,7 +57,7 @@ Paths are under `plugins/base/skills/review-mr/` unless noted. Python tests run 
 
 ## 11. Benchmark rerun
 
-- [ ] 11.1 Rerun the hooks and browser benchmark with the new skill rules: turn the snapshot into a throwaway git repo (an empty base commit, the snapshot as head) and drive steps 4 and 5 and the new steps with the new brief and the slicing rule from 1.1, no posting. Arms: default (Haiku max) twice, and `--fast` (Opus medium) once. Use the add-model-guidance benchmark runner if it exists by then, otherwise by hand as runs B to D were done. Verify: each arm has a report set, a `run.json` with `run_cost.py` output and a checker score using `checker-brief.md` and `answer-key.md`.
+- [ ] 11.1 Rerun the hooks and browser benchmark with the new skill rules: turn the snapshot into a throwaway git repo (an empty base commit, the snapshot as head) and drive steps 4 and 5 and the new steps with the new brief and the slicing rule from 1.1, no posting. Arms: default (Haiku max) twice, and `--fast` (Opus medium on the same small slices as run D) once; refuters on Opus at base effort in every arm. Use the add-model-guidance benchmark runner if it exists by then, otherwise by hand as runs B to D were done. Verify: each arm has a report set, a `run.json` with `run_cost.py` output and a checker score using `checker-brief.md` and `answer-key.md`.
 - [ ] 11.2 Compare with `RESULTS.md` and add the rows. Verify: the table reports, per arm, key bugs caught strict and with partials, real cost, share of requests over 100k, first-request prompt size, duration per agent, leftover temp folders and stray files (target none), and unique findings per agent type (cross-file or contract agent if any, run-it, checks). Pass bar: all high-severity bugs caught as in run D, cost no higher than run D ($5.08), under 50% of requests over 100k or a recalibrated budget written into the brief, zero leftovers.
 - [ ] 11.3 Apply the drop tests: if the contract agent or the run-it agent added no unique survivor in 11.1 and the next five real reviews, make it opt-in; recalibrate the 40-call and 150 KB budget and the 30-line run-it threshold from the measured data. Verify: design.md Open questions 3 and the drop-test paragraphs are updated with the numbers.
 

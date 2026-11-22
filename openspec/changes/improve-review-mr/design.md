@@ -11,10 +11,14 @@ Evidence, all from `~/.claude/model-bench/` (one run per arm, no repeats; treat 
 | B | Opus 5.5 medium, 3 component slices + 1 cross-file | 6 strict, 7 with partials | $6.38 | not applicable |
 | C | Haiku 5.5 max, same slices | 7 / 8.5 | $3.34 | 69% |
 | D | Haiku 5.5 max, 7 small slices + narrow cross-file + "does NOT set" lens | 13 / 13.5 | $5.08 | 71% |
+| E | Haiku 5.5 max, 3 component slices + lens, no cross-file | 9 / 9.5 | $4.25 | 87% |
+| F | Opus 5.5 medium, same slices and prompts as E | 9 / 9.5 | $6.99 | not applicable |
 | #238 | one Haiku max agent | found the push-gate bypass | about $0.50 | not measured |
 | #238 | full review-mr, 11 Opus agents | missed it | $21.68 | not applicable |
 
 The #238 single-agent runs (Haiku max, Opus medium, Sonnet high) all ran the hook with test input. Only the Haiku run reported the multi-line and heredoc bypass of the push gate.
+
+Refuter test on run F's 35 findings (same brief, no answer key): Opus high kept 34, refuted 1, $2.76; Opus medium kept 33, refuted the same 1, left 1 unsettled, $1.74. Both kept every key bug and both lowered the sandbox-off finding (a key high) to medium. Neither saw the `--stop '*'` bug that two run-F agents had listed as sound, because refuters only get findings.
 
 Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-file agent. The price table, tier rule (Haiku 5.5 charges 5x per request whose prompt is over 100k tokens, cache reads included) and the collector come from `add-usage-collection`; `add-model-guidance` consumes the same dataset. This design refers to them and defines no table of its own.
 
@@ -37,13 +41,13 @@ Cost per agent in run D: $0.30 to $1.12 for the slices and $0.82 for the cross-f
 
 ### 1. Wave-1 model: Haiku 5.5 at max, Opus for refutation and validation
 
-Agents are spawned with `model: haiku` and `effort: max`; the resolved model id is read back from the transcript into `run.json`, so alias drift shows up. Roles on Haiku: slice owners, the cross-file agent, the run-it agent, wave-2 gap agents, the optional end-to-end simulation. Roles on Opus: refuters (one effort level above base, so `high` by default) and thread validation (base).
+Agents are spawned with `model: haiku` and `effort: max`; the resolved model id is read back from the transcript into `run.json`, so alias drift shows up. Roles on Haiku: slice owners, the cross-file agent, the run-it agent, wave-2 gap agents, the optional end-to-end simulation. Roles on Opus: refuters and thread validation, both at the base effort (`medium` by default). Refuters were one level above until the refuter test: high gave the same verdicts as medium for 59% more.
 
 Why: run D beat run B by 7 key bugs at 80% of its cost, and the one Haiku agent on #238 found what 11 Opus agents did not. Refutation stays strong because it changes the output most: on the MR the current step 5 was built against, three of the four strongest findings fell to it. A finding that survives a weak refuter lands on a colleague's MR, while wave 1 is cheap to widen with more agents.
 
 Engine question: **kept, not replaced, and its default stays `Claude (Recommended)`**. It chooses a vendor (Claude, Codex or both), which the model default does not touch. What changes is the label: "Claude" now means Haiku slice owners at max with Opus refuters. A per-run model question was rejected: the user decided the default, reviews rarely need speed, and a fourth question delays the first tool call. The model is carried by the role table and the `--fast` flag.
 
-Effort question: kept, but it now sets the Opus roles only (thread validation at base, refuters one above, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered.
+Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered.
 
 Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through `add-model-guidance`); Haiku for refuters (refutation errors are the expensive kind).
 
@@ -51,7 +55,7 @@ Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not
 
 `--fast` puts every wave-1 and wave-2 agent on Opus at the base effort (`medium` by default) instead of Haiku max. Slice sizes and the brief do not change. It is for the cases where the user waits on the review: measured from transcript timestamps, the slowest agent (the run's wall time) took 8.9 min in run B (Opus medium, 4 agents), 23.1 min in run C (Haiku max, 4 agents) and 23.7 min in run D (Haiku max, 8 agents), so Haiku runs are about 2.5x slower and smaller slices do not shorten them. The rerun records durations too. Refuters and validation are unaffected. With the Codex engine the flag has no effect and the skill says so in one line.
 
-Not measured: Opus medium with the new slicing and lens. Run B used coarse slices and no lens. The rerun adds a `--fast` arm.
+Run F measured Opus medium with the lens on 3 component slices: 9 of 14 key bugs (same count as Haiku run E, different misses), $6.99, slowest agent 9.2 min against 32.9 for E, $0.78 per caught bug against run D's $0.39. So `--fast` is faster, not better. Not measured yet: Opus on run D's 7 small slices; the rerun's `--fast` arm uses them.
 
 ### 3. Slicing: small contract-sized slices (decided by run E)
 
@@ -64,7 +68,7 @@ What the options share:
 - The tier table (S/M/L/XL by diff lines) is removed.
 - Whole-MR lens agents (Correctness, Product behaviour, Error paths and the optional ones) are dropped at every size: a slice owner applies every lens, and a small MR is one slice with one owner. This follows #238 (one agent beat eleven) and keeps one code path in the skill. Alternative: keep three lens agents on a one-slice MR; rejected for the same cost reason (Open questions).
 - Extra lenses and details from the rules go into the brief of each slice whose files match their trigger paths, with no extra agent.
-- The existing cap stays: when wave 1 would exceed about 12 agents the skill says so with the count and the user picks all or fewer and larger slices.
+- Batching replaces the old 12-agent question: at most `--max-parallel N` wave-1 and wave-2 agents run at once (default 12), and the next queued slice starts as one finishes. Slice size does not grow with the MR; a big MR takes longer instead. 12 is this skill's own limit, not a known Claude Code limit.
 
 The two options:
 
@@ -172,13 +176,13 @@ Why `RUN_TMP` under the scratchpad: run D's agents wrote to `/tmp` and the repo;
 
 ### 12. Waves
 
-Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Refutation, thread validation, grading, finish mode and posting are unchanged.
+Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Thread validation, finish mode and posting are unchanged. Refutation gains two checks. Refuters also get up to 3 entries from each slice report's "checked and found sound" list, picked by the main session with claims that something is refused, blocked or safe first: in run F two agents listed a real bug there. Grading flags every finding a refuter lowered from high, and the main session re-checks it before the final grade (both refuters in the test lowered a key high).
 
 ## Risks / Trade-offs
 
 - One run per arm: the 13-of-14 result may be partly luck. The rerun repeats the Haiku arm twice and adds a `--fast` arm; the claim in the specs is the process, not a recall number.
 - Haiku's lower recall on subtle logic is unmeasured: the hooks and browser case is shell and config heavy, which suits the "does NOT set" lens. A frontend or business-logic MR may need Opus. The `--fast` flag is not the answer to that; `add-model-guidance` is.
-- Option A puts more agents on a small MR than one owner would need: bounded by the 12-agent cap and one slice per contract. Option B risks long contexts that pay the 5x tier.
+- Option A puts more agents on a small MR than one owner would need: bounded by one slice per contract; `--max-parallel` limits how many run at once, not how many exist. Option B risks long contexts that pay the 5x tier.
 - Seams between slices have no owner now that the cross-file agent is dropped; the benchmark rerun checks whether anything is lost.
 - Deterministic checks can be slow or need installed dependencies; time limits and "not run" results keep that from blocking a review. Checks run repo-defined commands, which execute the MR's own code (a test, a lint plugin). The commands come from base manifests, run in the review worktree and never with fix flags, but the code under test is the author's. `--no-checks` skips the step for an author the reviewer does not trust (added flag; see Open questions).
 - Run-it executes MR code. The throwaway environment limits damage but is not a security boundary; the brief forbids real network, push and credentials, and the agent is read-only on the repo.
@@ -199,3 +203,5 @@ Slicing and the cross-file agent are decided (run E, design 3 and 4). Everything
 8. Decided by the user: new untracked entries in the primary checkout are listed and the user picks what to delete in one question; nothing there is deleted without that answer.
 9. Overlap with `add-cleanup`: it is the general safety net (a skill the user runs); this change is the review run's own cleanup. Neither calls the other. Wording in the brief should be merged once both changes exist.
 10. The `haiku` alias resolves to Haiku 5.5 today; if it moves, `run.json` shows it but the skill does not pin a version.
+11. Refuters sample up to 3 "sound" entries per slice report. Chosen to cap refuter cost; raise it if the rerun shows sound-list misses.
+12. `--max-parallel` defaults to 12, the old cap. Lower it on machines or plans that limit concurrent agents.

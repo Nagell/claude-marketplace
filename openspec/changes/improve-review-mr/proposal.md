@@ -14,7 +14,7 @@ The skill also has no agent whose job is to run the code under review, ignores t
 
 ## What Changes
 
-- Wave-1 agents run on Haiku 5.5 at max effort by default. Refuters and thread validation stay on Opus. A new `--fast` flag puts wave 1 on Opus at medium effort.
+- Wave-1 agents run on Haiku 5.5 at max effort by default. Refuters and thread validation stay on Opus. A new `--fast` flag puts wave 1 on Opus at medium effort. Refuters run at the base effort, not one above (same verdicts for 59% less in a test), also check a sample of each agent's "checked and sound" list, and grading flags any high a refuter lowered.
 - Slices are sized by what an agent reads (whole files plus edges), about one tool contract or component each. The three whole-MR lens agents are dropped: slice owners apply every lens. There is no cross-file agent by default (run E); only a contract owner runs when a counterpart MR exists.
 - The agent brief gains the "what the code does NOT set" lens as standing text, a repo-conventions lens, and tool-output rules that keep context small.
 - A deterministic checks step (lint, typecheck, format check, tests) runs in the review worktree with no LLM and turns failures that are new at head into findings.
@@ -36,7 +36,7 @@ None. There are no main specs yet; the current behaviour is described by `plugin
 
 ## Impact
 
-- `plugins/base/skills/review-mr/SKILL.md`: steps 0, 2a, 4, 5 and the end of 7 change; new steps for checks and run-it. Frontmatter gains `--fast` and `--keep-worktrees` in `argument-hint` and `usage-report` in `dependencies`.
+- `plugins/base/skills/review-mr/SKILL.md`: steps 0, 2a, 4, 5 and the end of 7 change; new steps for checks and run-it. Step 4 batches agents (`--max-parallel N`, default 12) instead of asking about the count. Frontmatter gains `--fast`, `--keep-worktrees` and `--max-parallel` in `argument-hint` and `usage-report` in `dependencies`.
 - `plugins/base/skills/review-mr/references/agent-brief.md`: new lenses, context rules, temp-folder rules, leftovers line in the report.
 - New scripts with tests under `plugins/base/skills/review-mr/`: `scripts/find_conventions.py`, `scripts/run_checks.py`, `scripts/run_cost.py`.
 - Reads `add-usage-collection` (price table, per-request pricing, tier rule). This change should land after it, or fall back to token counts without USD.
