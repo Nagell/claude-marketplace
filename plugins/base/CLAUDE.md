@@ -54,7 +54,8 @@ The base plugin's safety-guards hook enforces this, deliberately strictly.
 - Plan: `openspec-explore` → `base:openspec-grill` → `openspec-propose` → `base:openspec-plan-check`.
 - Build: `openspec-apply-change` → `openspec-verify-change` → open the PR → `base:review-mr` → `base:resolve-review` (author side, on the review threads).
 - Close: `openspec-sync-specs` when specs must land before archiving, then `openspec-archive-change` after merge.
-- Revise a plan with `openspec-update-change` (not by hand), then run the plan check again. Don't skip the grill or the plan check.
+- Change a written plan with `openspec-update-change`, not by editing its files, so they stay consistent; then rerun the plan check.
+- Don't skip the grill or the plan check.
 
 ## Scratch Work & Cleanup
 
