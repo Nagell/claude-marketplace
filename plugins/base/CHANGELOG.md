@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.2.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.2...base-v2.2.0) (2026-11-22)
+
+
+### Features
+
+* **base:** cleanup rule, plus cleanup and review-mr proposals ([8acc84a](https://github.com/Nagell/claude-marketplace/commit/8acc84a8a0f047d56e5dd5cfbee987ecf444e7b6))
+* **base:** tell agents to clean up their scratch work ([c507be4](https://github.com/Nagell/claude-marketplace/commit/c507be4dabb4e4f31d2d86fe29eecde6a076b674))
+
+
+### Documentation
+
+* **base:** add the OpenSpec planning order to the CLAUDE.md template ([c819a6e](https://github.com/Nagell/claude-marketplace/commit/c819a6efe5488956672c8610efe695d4aa0c1c7c))
+* **base:** clarify how to revise an OpenSpec plan ([ef1258e](https://github.com/Nagell/claude-marketplace/commit/ef1258e939a7e3c895dcefc1680c3c268e7d8d75))
+
 ## [2.1.2](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.1...base-v2.1.2) (2026-11-21)
 
 
