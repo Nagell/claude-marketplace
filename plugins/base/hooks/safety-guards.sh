@@ -16,7 +16,7 @@ INPUT=$(cat)
 # Extract the command from JSON input
 # Use sed for compatibility (grep -oP is not available on all systems)
 # Pattern handles JSON-escaped quotes (\") by matching [^"\\] OR escape sequences (\\.)
-COMMAND=$(echo "$INPUT" | sed -n 's/.*"command"\s*:\s*"\(\([^"\\]*\(\\.[^"\\]*\)*\)\)".*/\1/p' 2>/dev/null | sed 's/\\"/"/g;s/\\\\/\\/g' | head -1)
+COMMAND=$(echo "$INPUT" | sed -n 's/.*"command"[[:space:]]*:[[:space:]]*"\(\([^"\\]*\(\\.[^"\\]*\)*\)\)".*/\1/p' 2>/dev/null | sed 's/\\"/"/g;s/\\\\/\\/g' | head -1)
 
 # If we couldn't extract command, allow (fail open for non-Bash tools)
 if [ -z "$COMMAND" ]; then
@@ -89,6 +89,14 @@ command_words() {
   set +f
 }
 
+# Sets WORDS to the words command_words prints for a part. A read loop instead
+# of mapfile, which macOS /bin/bash 3.2 lacks.
+read_words() {
+  local w
+  WORDS=()
+  while IFS= read -r w; do WORDS+=("$w"); done < <(command_words "$1")
+}
+
 # ============================================
 # BLOCK: rm -rf on home or root
 # Strict on purpose: any path under a home folder counts, not only the folder.
@@ -105,7 +113,7 @@ is_danger_path() {
 }
 
 while IFS= read -r PART; do
-  mapfile -t WORDS < <(command_words "$PART")
+  read_words "$PART"
   [ "${#WORDS[@]}" -gt 0 ] || continue
   [[ ${WORDS[0]} == rm || ${WORDS[0]} == */rm ]] || continue
   RECURSIVE="" FORCE="" TARGETS=()
@@ -121,7 +129,7 @@ while IFS= read -r PART; do
       *) TARGETS+=("$W") ;;
     esac
   done
-  [ -n "$RECURSIVE" ] && [ -n "$FORCE" ] || continue
+  [ -n "$RECURSIVE" ] && [ -n "$FORCE" ] && [ "${#TARGETS[@]}" -gt 0 ] || continue
   for W in "${TARGETS[@]}"; do
     if is_danger_path "$W"; then
       echo "BLOCKED: rm -rf on a home or root path ($W). Command: $COMMAND" >&2
@@ -153,7 +161,7 @@ while IFS= read -r PART; do
     if [ -n "$TARGET" ] && is_env_file "$TARGET"; then block_env "$TARGET"; fi
   done < <(printf '%s\n' "$PART" | { grep -oE '>{1,2}[[:space:]]*[^[:space:]<>]+' || true; } | sed -E 's/^>{1,2}[[:space:]]*//')
 
-  mapfile -t WORDS < <(command_words "$PART")
+  read_words "$PART"
   [ "${#WORDS[@]}" -gt 0 ] || continue
   ARGS=()
   for W in "${WORDS[@]:1}"; do [[ $W == -* ]] || ARGS+=("$W"); done
@@ -162,7 +170,9 @@ while IFS= read -r PART; do
     tee | truncate)
       for W in "${ARGS[@]}"; do if is_env_file "$W"; then block_env "$W"; fi; done ;;
     cp | mv | install | ln)
-      if [ "${#ARGS[@]}" -gt 1 ] && is_env_file "${ARGS[-1]}"; then block_env "${ARGS[-1]}"; fi ;;
+      if [ "${#ARGS[@]}" -gt 1 ] && is_env_file "${ARGS[${#ARGS[@]} - 1]}"; then
+        block_env "${ARGS[${#ARGS[@]} - 1]}"
+      fi ;;
     sed | perl)
       if [[ " ${WORDS[*]:1} " =~ [[:space:]]-[[:alnum:]]*i ]]; then
         for W in "${ARGS[@]}"; do if is_env_file "$W"; then block_env "$W"; fi; done
@@ -203,6 +213,7 @@ while IFS= read -r SEGMENT; do
   [[ $SEGMENT =~ $PUSH_RE ]] || continue
   PUSH_FOUND=1
   read -ra PUSH_ARGS <<<"${SEGMENT#*"${BASH_REMATCH[0]}"}"
+  [ "${#PUSH_ARGS[@]}" -gt 0 ] || continue
   for ARG in "${PUSH_ARGS[@]}"; do
     case $ARG in
       --force-with-lease* | --force-if-includes) continue ;;
