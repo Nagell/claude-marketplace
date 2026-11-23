@@ -1,0 +1,497 @@
+#!/usr/bin/env python3
+"""Read Claude Code transcripts on demand: skill runs, their agents, deduped requests and cost.
+
+Reads ~/.claude/projects/<project>/<session>.jsonl and <session>/subagents/agent-<id>.jsonl
+(+ .meta.json). Never writes. Stdlib only, Python 3.9+.
+
+    python3 scan.py --days 30 [--projects-dir DIR] [--prices FILE] [--override FILE]
+"""
+import argparse
+import collections
+import datetime as dt
+import glob
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import prices  # noqa: E402
+
+PROJECTS_DIR = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+SYNTHETIC = "<synthetic>"
+LONG_PROMPT = 100_000
+NO_SKILL = None
+NOT_TYPED_PREFIXES = ("<task-notification>", "<local-command", "<bash-")
+BUILTIN_COMMANDS = {
+    "add-dir", "agents", "bug", "clear", "compact", "config", "context", "cost", "doctor", "exit",
+    "export", "fast", "feedback", "help", "hooks", "ide", "keybindings", "login", "logout", "mcp",
+    "memory", "model", "permissions", "plugin", "plugins", "pr-comments", "privacy-settings",
+    "quit", "release-notes", "reload-plugins", "reload-skills", "rename", "resume", "rewind",
+    "sandbox", "status", "statusline", "terminal-setup", "theme", "upgrade", "usage", "vim",
+}
+TOKEN_FIELDS = ("input", "cache_write_5m", "cache_write_1h", "cache_read", "output")
+
+
+# ---------- parsing ----------
+
+def parse_ts(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def read_jsonl(path):
+    """Parsed lines and the count of lines that could not be parsed."""
+    entries, skipped = [], 0
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            for raw in fh:
+                if not raw.strip():
+                    continue
+                try:
+                    obj = json.loads(raw)
+                except ValueError:
+                    skipped += 1
+                    continue
+                if isinstance(obj, dict):
+                    entries.append(obj)
+                else:
+                    skipped += 1
+    except OSError:
+        skipped += 1
+    return entries, skipped
+
+
+def first_ts(entries):
+    for e in entries:
+        t = parse_ts(e.get("timestamp"))
+        if t:
+            return t
+    return None
+
+
+def content_of(e):
+    msg = e.get("message")
+    return msg.get("content") if isinstance(msg, dict) else None
+
+
+def is_typed_prompt(e):
+    if e.get("type") != "user":
+        return False
+    origin = e.get("origin")
+    if isinstance(origin, dict):
+        return origin.get("kind") == "human"
+    if "origin" in e and origin is not None:
+        return False
+    c = content_of(e)
+    if not isinstance(c, str) or e.get("isMeta") or e.get("toolUseResult") is not None:
+        return False
+    return not c.lstrip().startswith(NOT_TYPED_PREFIXES)
+
+
+def command_name(e):
+    c = content_of(e)
+    if e.get("type") != "user" or not isinstance(c, str) or "<command-name>" not in c:
+        return None
+    name = c.split("<command-name>", 1)[1].split("</command-name>", 1)[0].strip()
+    return name.lstrip("/") or None
+
+
+def is_skill_load(e):
+    if e.get("type") != "user" or not e.get("isMeta"):
+        return False
+    return "Base directory for this skill" in json.dumps(content_of(e) or "")
+
+
+def tool_uses(e):
+    c = content_of(e)
+    if not isinstance(c, list):
+        return []
+    return [b for b in c if isinstance(b, dict) and b.get("type") == "tool_use"]
+
+
+def final_text(entries):
+    """Text of the last assistant line that has text."""
+    for e in reversed(entries):
+        if e.get("type") != "assistant":
+            continue
+        c = content_of(e)
+        if isinstance(c, str) and c.strip():
+            return c
+        if isinstance(c, list):
+            texts = [b.get("text", "") for b in c if isinstance(b, dict) and b.get("type") == "text"]
+            if any(t.strip() for t in texts):
+                return "\n".join(texts)
+    return ""
+
+
+def count_unfinished(text):
+    return sum(1 for line in text.splitlines() if line.lstrip().startswith("Unfinished:"))
+
+
+# ---------- requests and dedupe ----------
+
+class Counters:
+    def __init__(self):
+        self.skipped_lines = 0
+        self.api_errors = 0
+        self.unpriced = collections.Counter()
+
+
+def collect_requests(entries, seen, table, counters):
+    """Deduped requests of one file, in order: {id: request}. Ids in `seen` (earlier files) are dropped.
+
+    Each request keeps the largest value per usage field over its lines.
+    """
+    reqs = collections.OrderedDict()
+    anon = 0
+    for idx, e in enumerate(entries):
+        if e.get("type") != "assistant":
+            continue
+        msg = e.get("message")
+        if not isinstance(msg, dict):
+            counters.skipped_lines += 1
+            continue
+        model = msg.get("model")
+        if model == SYNTHETIC:
+            mid = msg.get("id")
+            if mid and (mid in seen or mid in reqs):
+                continue
+            counters.api_errors += 1
+            if mid:
+                reqs[mid] = None  # placeholder so later lines of the same error are not counted again
+            continue
+        usage = msg.get("usage")
+        if not isinstance(usage, dict):
+            counters.skipped_lines += 1
+            continue
+        mid = msg.get("id")
+        if not mid:
+            anon += 1
+            mid = f"__line{idx}_{anon}"
+        if mid in seen:
+            continue
+        tokens = prices.token_classes(usage)
+        r = reqs.get(mid)
+        if r is None:
+            reqs[mid] = {
+                "id": mid, "line": idx, "model": model, "effort": e.get("effort"),
+                "ts": parse_ts(e.get("timestamp")), "tokens": tokens,
+                "skill": e.get("attributionSkill"),
+            }
+        else:
+            for f in TOKEN_FIELDS:
+                r["tokens"][f] = max(r["tokens"][f], tokens[f])
+    out = collections.OrderedDict()
+    for mid, r in reqs.items():
+        seen.add(mid)
+        if r is None:
+            continue
+        r["prompt"] = prices.prompt_size(r["tokens"])
+        r["cost"] = prices.request_cost(table, r["model"], r["tokens"])
+        if r["cost"] is None:
+            counters.unpriced[r["model"] or "unknown"] += 1
+        out[mid] = r
+    return out
+
+
+def empty_totals():
+    return {"requests": 0, "tokens": {f: 0 for f in TOKEN_FIELDS}, "cost": 0.0,
+            "unpriced_requests": 0, "largest_prompt": 0, "over_100k": 0}
+
+
+def add_request(tot, r):
+    tot["requests"] += 1
+    for f in TOKEN_FIELDS:
+        tot["tokens"][f] += r["tokens"][f]
+    if r["cost"] is None:
+        tot["unpriced_requests"] += 1
+    else:
+        tot["cost"] += r["cost"]
+    tot["largest_prompt"] = max(tot["largest_prompt"], r["prompt"])
+    if r["prompt"] > LONG_PROMPT:
+        tot["over_100k"] += 1
+
+
+def merge_totals(a, b):
+    a["requests"] += b["requests"]
+    for f in TOKEN_FIELDS:
+        a["tokens"][f] += b["tokens"][f]
+    a["cost"] += b["cost"]
+    a["unpriced_requests"] += b["unpriced_requests"]
+    a["largest_prompt"] = max(a["largest_prompt"], b["largest_prompt"])
+    a["over_100k"] += b["over_100k"]
+
+
+def iso(t):
+    return t.isoformat().replace("+00:00", "Z") if t else None
+
+
+# ---------- agents ----------
+
+def read_meta(agent_path):
+    meta_path = agent_path[: -len(".jsonl")] + ".meta.json"
+    try:
+        with open(meta_path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def agent_id_of(path):
+    base = os.path.basename(path)
+    return base[len("agent-"): -len(".jsonl")] if base.startswith("agent-") else base
+
+
+def _summarize(path, entries, reqs, meta, since=None):
+    tot = empty_totals()
+    models, efforts = collections.Counter(), collections.Counter()
+    times = []
+    for r in reqs.values():
+        if since and r["ts"] and r["ts"] < since:
+            continue
+        add_request(tot, r)
+        models[r["model"]] += 1
+        if r["effort"]:
+            efforts[r["effort"]] += 1
+    for e in entries:
+        t = parse_ts(e.get("timestamp"))
+        if t:
+            times.append(t)
+    tot["cost"] = round(tot["cost"], 6)
+    return {
+        "agent_id": agent_id_of(path),
+        "path": path,
+        "agent_type": meta.get("agentType"),
+        "description": meta.get("description"),
+        "requested_model": meta.get("model"),
+        "requested_effort": meta.get("effort"),
+        "model": models.most_common(1)[0][0] if models else None,
+        "effort": efforts.most_common(1)[0][0] if efforts else None,
+        **tot,
+        "duration_s": round((max(times) - min(times)).total_seconds(), 1) if times else None,
+        "start": iso(min(times)) if times else None,
+        "unfinished": count_unfinished(final_text(entries)),
+        "finished": meta.get("finished"),
+        "spawn_depth": meta.get("spawnDepth"),
+        "parent_agent_id": meta.get("parentAgentId"),
+        "tool_use_id": meta.get("toolUseId"),
+        "skill_attribution": collections.Counter(
+            e.get("attributionSkill") for e in entries
+            if e.get("type") == "assistant" and e.get("attributionSkill")).most_common(1),
+    }
+
+
+def summarize_agent(path, table=None, seen=None, counters=None, since=None):
+    """Deduped requests, token classes, prompt sizes and cost of one agent transcript."""
+    table = table or prices.PriceTable()
+    counters = counters or Counters()
+    entries, skipped = read_jsonl(path)
+    counters.skipped_lines += skipped
+    reqs = collect_requests(entries, set() if seen is None else seen, table, counters)
+    out = _summarize(path, entries, reqs, read_meta(path), since)
+    out["skipped_lines"] = skipped
+    return out, entries
+
+
+# ---------- runs ----------
+
+def detect_runs(entries, reqs, session_key):
+    """Runs of one session file and the run of each request id and each Agent tool_use id."""
+    has_attr = any(e.get("type") == "assistant" and e.get("attributionSkill") for e in entries)
+    runs, req_run, tool_run = [], {}, {}
+    cur = None
+    line_req = {r["line"]: mid for mid, r in reqs.items()}
+    pending_cmd = None
+
+    def start(skill, t):
+        nonlocal cur
+        cur = {"run_id": f"{session_key}#{len(runs) + 1}", "skill": skill, "start": t, "end": t}
+        runs.append(cur)
+
+    for idx, e in enumerate(entries):
+        t = parse_ts(e.get("timestamp"))
+        if is_typed_prompt(e):
+            if cur:
+                cur["end"] = t or cur["end"]
+            cur = None
+            name = command_name(e)
+            pending_cmd = name if (name and not has_attr) else None
+            if pending_cmd and (":" in pending_cmd or pending_cmd not in BUILTIN_COMMANDS):
+                start(pending_cmd, t)
+                pending_cmd = None
+            continue
+        if pending_cmd and is_skill_load(e):
+            start(pending_cmd, t)
+            pending_cmd = None
+        if e.get("type") != "assistant":
+            continue
+        if has_attr:
+            skill = e.get("attributionSkill")
+            if skill and (cur is None or cur["skill"] != skill):
+                start(skill, t)
+        else:
+            for b in tool_uses(e):
+                if b.get("name") == "Skill":
+                    inp = b.get("input") if isinstance(b.get("input"), dict) else {}
+                    name = inp.get("skill") or inp.get("command") or inp.get("name")
+                    if name:
+                        start(str(name).lstrip("/"), t)
+        if cur and t:
+            cur["end"] = t
+        run = cur["run_id"] if cur else None
+        mid = line_req.get(idx)
+        if mid:
+            req_run[mid] = run
+        for b in tool_uses(e):
+            if b.get("name") in ("Agent", "Task") and b.get("id"):
+                tool_run[b["id"]] = run
+    return runs, req_run, tool_run
+
+
+def skill_display(name):
+    return name.split(":", 1)[1] if name and ":" in name else name
+
+
+# ---------- scan ----------
+
+def find_sessions(projects_dir, since_epoch):
+    out = []
+    for path in glob.glob(os.path.join(projects_dir, "*", "*.jsonl")):
+        session_dir = path[: -len(".jsonl")]
+        agents = [a for a in glob.glob(os.path.join(session_dir, "subagents", "**", "agent-*.jsonl"), recursive=True)
+                  if os.path.getmtime(a) >= since_epoch]
+        if os.path.getmtime(path) >= since_epoch or agents:
+            out.append((path, agents))
+    return out
+
+
+def scan(days=30, projects_dir=PROJECTS_DIR, table=None, now=None):
+    table = table or prices.PriceTable()
+    now = now or dt.datetime.now(dt.timezone.utc)
+    since = now - dt.timedelta(days=days)
+    counters = Counters()
+    seen = set()
+    loaded = []
+    for path, agents in find_sessions(projects_dir, since.timestamp()):
+        entries, skipped = read_jsonl(path)
+        counters.skipped_lines += skipped
+        loaded.append((first_ts(entries) or now, path, entries, agents))
+    loaded.sort(key=lambda x: (x[0], x[1]))
+
+    runs_out, no_skill = [], empty_totals()
+    files_read = 0
+    for _, path, entries, agent_paths in loaded:
+        files_read += 1
+        project = os.path.basename(os.path.dirname(path))
+        session = os.path.basename(path)[: -len(".jsonl")]
+        reqs = collect_requests(entries, seen, table, counters)
+        runs, req_run, tool_run = detect_runs(entries, reqs, session)
+        by_id = {r["run_id"]: dict(r, project=project, session=session, own=empty_totals(), agents=[])
+                 for r in runs}
+        for mid, r in reqs.items():
+            if r["ts"] and r["ts"] < since:
+                continue
+            run = by_id.get(req_run.get(mid))
+            add_request(run["own"] if run else no_skill, r)
+
+        # agents: parents first, so a nested agent finds its parent's run
+        summaries = []
+        for ap in agent_paths:
+            files_read += 1
+            s, a_entries = summarize_agent(ap, table, seen, counters, since)
+            summaries.append((s, a_entries))
+        summaries.sort(key=lambda x: (x[0]["spawn_depth"] or 1, x[0]["start"] or ""))
+        agent_run = {}
+        for s, a_entries in summaries:
+            run_id = tool_run.get(s["tool_use_id"]) if s["tool_use_id"] in tool_run else None
+            if run_id is None and s["parent_agent_id"]:
+                run_id = agent_run.get(s["parent_agent_id"])
+            if run_id is None and s["tool_use_id"] not in tool_run:
+                run_id = _run_by_time(runs, s)
+            agent_run[s["agent_id"]] = run_id
+            for e in a_entries:
+                for b in tool_uses(e):
+                    if b.get("name") in ("Agent", "Task") and b.get("id"):
+                        tool_run.setdefault(b["id"], run_id)
+            del s["skill_attribution"]
+            if run_id and run_id in by_id:
+                by_id[run_id]["agents"].append(s)
+            elif s["requests"]:
+                merge_totals(no_skill, s)
+
+        for run in by_id.values():
+            total = empty_totals()
+            merge_totals(total, run["own"])
+            for a in run["agents"]:
+                merge_totals(total, a)
+            if not total["requests"]:
+                continue
+            total["cost"] = round(total["cost"], 6)
+            run["own"]["cost"] = round(run["own"]["cost"], 6)
+            runs_out.append({
+                "run_id": run["run_id"], "skill": run["skill"], "skill_display": skill_display(run["skill"]),
+                "project": run["project"], "session": run["session"],
+                "start": iso(run["start"]), "end": iso(run["end"]),
+                "total": total, "own": run["own"], "agents": run["agents"],
+            })
+
+    # Unfinished: is a review-mr convention; n/a for a skill whose agents never wrote it
+    uses = collections.defaultdict(bool)
+    for r in runs_out:
+        uses[r["skill"]] |= any(a["unfinished"] for a in r["agents"])
+    for r in runs_out:
+        r["unfinished_convention"] = uses[r["skill"]]
+        for a in r["agents"]:
+            if not uses[r["skill"]]:
+                a["unfinished"] = None
+        r["total"]["unfinished"] = (sum(a["unfinished"] for a in r["agents"]) if uses[r["skill"]] else None)
+
+    no_skill["cost"] = round(no_skill["cost"], 6)
+    runs_out.sort(key=lambda r: r["start"] or "")
+    return {
+        "estimate": True,
+        "window": {"days": days, "since": iso(since), "until": iso(now)},
+        "prices": table.versions(),
+        "files_read": files_read,
+        "skipped_lines": counters.skipped_lines,
+        "api_errors": counters.api_errors,
+        "unpriced_models": dict(counters.unpriced),
+        "runs": runs_out,
+        "no_skill": no_skill,
+    }
+
+
+def _run_by_time(runs, s):
+    """Fallback for an agent without a matching tool_use: its own attribution, then its start time."""
+    start = parse_ts(s["start"])
+    attr = s["skill_attribution"][0][0] if s["skill_attribution"] else None
+    candidates = [r for r in runs if start and r["start"] and r["start"] <= start <= (r["end"] or start)]
+    if attr:
+        for r in candidates:
+            if r["skill"] == attr:
+                return r["run_id"]
+        for r in runs:
+            if r["skill"] == attr:
+                return r["run_id"]
+    return candidates[-1]["run_id"] if candidates else None
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    p.add_argument("--days", type=int, default=30)
+    p.add_argument("--projects-dir", default=PROJECTS_DIR)
+    p.add_argument("--prices", default=prices.SEED_PATH, help="seed price table")
+    p.add_argument("--override", default=prices.OVERRIDE_PATH, help="user price override")
+    a = p.parse_args(argv)
+    table = prices.PriceTable(a.prices, a.override)
+    json.dump(scan(a.days, a.projects_dir, table), sys.stdout, indent=1)
+    sys.stdout.write("\n")
+
+
+if __name__ == "__main__":
+    main()
