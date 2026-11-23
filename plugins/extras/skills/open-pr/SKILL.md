@@ -19,6 +19,11 @@ skill before writing.
 
 ## 2. Ask for the author's note, once
 
+First check the switch: `echo "${PR_AUTHOR_NOTE:-on}"`. When it prints `0`, `off`, `false`
+or `no`, skip this step entirely: no question, no note. Anything else, or unset, means ask.
+Set it per repo in `.claude/settings.local.json` under `env` (for example a personal repo
+where nobody else reads the descriptions).
+
 Ask with AskUserQuestion, e.g. "Want to add a line in your own words about what this MR is
 for?", with a skip option. A skip means no note; don't ask again. Use the answer verbatim:
 no rewording, shortening or fixing.

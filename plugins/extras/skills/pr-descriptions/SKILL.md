@@ -44,6 +44,8 @@ under the title and signed with their `git config user.name`:
 
 - **Ask once, when you first write the description.** Offer a skip. A skip means no note,
   and you don't ask again.
+- **Unless the switch is off.** When `PR_AUTHOR_NOTE` is `0`, `off`, `false` or `no`, don't
+  ask and write no note. Unset means on.
 - **Never write it yourself.** Use the answer exactly as given: no rewording, shortening
   or fixing. When you rewrite the description later, keep the note byte-for-byte.
 

@@ -145,6 +145,8 @@ After each push Claude makes, the hook refreshes the open GitHub PR (via `gh`) o
 - Each run calls `claude -p` on Haiku, capped at $0.50, and saves the previous description to `~/.local/state/mr-desc-refresh/backups/`.
 - Log: `~/.local/state/mr-desc-refresh/refresh.log`.
 
+`open-pr` asks once for an author's note in your own words. Set `PR_AUTHOR_NOTE=0` (or `off`) to skip that question, for example in a personal repo's `.claude/settings.local.json` under `env`. Unset means on.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- REQUIREMENTS -->
