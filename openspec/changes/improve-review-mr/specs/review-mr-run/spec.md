@@ -129,6 +129,17 @@ The run-it agent SHALL work in a throwaway environment under the run's temp dir:
 - **WHEN** the code under test calls `curl` to a remote service
 - **THEN** the agent answers it with a stub and records the arguments
 
+### Requirement: Run-it network cut off
+The run-it agent SHALL run the code under test with the network cut off, `unshare -rn <command>`, so a tool the stubs missed fails instead of reaching a server. Where `unshare` is not available, it SHALL use a `PATH` without `/usr/bin` and `/bin` that links in only plain tools and no network tools (`gh`, `glab`, `curl`, `wget`, `git`, `npm`, `npx`).
+
+#### Scenario: Unstubbed network call
+- **WHEN** the code under test calls a network tool that has no stub
+- **THEN** the call fails under `unshare -rn` and reaches no server
+
+#### Scenario: No unshare
+- **WHEN** `unshare` is not available
+- **THEN** the agent runs the code with a `PATH` that holds no network tools
+
 ### Requirement: Run-it report
 The run-it agent SHALL report a table of each promise the docs, `--help` and the MR description make about the runnable thing, the command it ran, what happened and whether they match. Each mismatch SHALL be a measured finding and SHALL still go through refutation. A slice owner that cannot settle a claim by reading SHALL mark it derived and name the command that would settle it, and the refuter SHALL run it in a throwaway environment.
 
@@ -174,7 +185,7 @@ The main session SHALL create the run's temp dir with `mktemp -d -p "$SCRATCH"`,
 - **THEN** its temp dir sits in the session scratchpad with a `mktemp` name
 
 ### Requirement: Agent temp folders
-Each agent SHALL make its own folder in the run's temp dir with `mktemp -d -p <run temp dir>`, keep everything it creates there, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early. The delete SHALL name the folder by its literal path, not a shell variable, so a permission allow rule can match it.
+Each agent SHALL make its own folder in the run's temp dir with `mktemp -d -p <run temp dir>`, keep everything it creates there, downloads included, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early. The delete SHALL name the folder by its literal path, not a shell variable, so a permission allow rule can match it.
 
 #### Scenario: Delete by literal path
 - **WHEN** an agent deletes its temp folder

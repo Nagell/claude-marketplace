@@ -205,11 +205,15 @@ The brief SHALL NOT set a budget of tool calls or tool output. An agent SHALL st
 - **THEN** wave 2 starts a fresh agent on exactly those files
 
 ### Requirement: Report file written as text
-Agent reports SHALL be named `wave<n>-<slice>.txt` in the session scratch dir. The brief SHALL say that writing this one report file is required and allowed, so a read-only agent does not skip it.
+Agent reports SHALL be named `wave<n>-<slice>.txt` in the session scratch dir. The brief SHALL say that writing this one report file is required and allowed, so a read-only agent does not skip it. When an agent's Write is refused and it replies with the report text, the main session SHALL save that reply as the agent's report and SHALL NOT ask the agent again.
 
 #### Scenario: Read-only agent writes its report
 - **WHEN** a read-only slice owner finishes
 - **THEN** it writes `wave1-<slice>.txt` and replies with that path
+
+#### Scenario: Write refused
+- **WHEN** a slice owner's Write tool refuses the report file and the agent replies with the report text
+- **THEN** the main session saves the reply as `wave1-<slice>.txt` and goes on
 
 ### Requirement: Sound claims cover what was tested
 The brief SHALL let an agent list a claim as checked and found sound only when it tested or read the claim against every rule or code path the claim covers. A claim tested on one path SHALL name that path.
@@ -219,7 +223,7 @@ The brief SHALL let an agent list a claim as checked and found sound only when i
 - **THEN** its sound list says "quoted text: tested on the push gate only"
 
 ### Requirement: Waves and refutation
-Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledgers and `Unfinished:` lines, and SHALL be skipped when there is one slice and its ledger leaves no dark ground. Every finding that will be posted SHALL be refuted by an Opus agent, whichever engine produced it, except findings measured by deterministic checks.
+Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledgers and `Unfinished:` lines, and SHALL be skipped when there is one slice and its ledger leaves no dark ground. Every finding that will be posted, of every severity, SHALL be refuted by an Opus agent, whichever engine produced it, except findings measured by deterministic checks.
 
 #### Scenario: Complete ledger, one slice
 - **WHEN** a one-slice MR returns a ledger with every file examined
@@ -228,6 +232,10 @@ Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledge
 #### Scenario: Dark ground
 - **WHEN** a wave-1 ledger marks a changed file `not examined`
 - **THEN** wave 2 spawns an agent for it
+
+#### Scenario: Low finding refuted
+- **WHEN** a slice owner reports a low finding that will go in the lows thread
+- **THEN** a refuter checks it like a high one
 
 ### Requirement: Refutation covers sound lists and lowered highs
 Refuters SHALL also get up to 3 entries from each slice report's "checked and found sound" list, claims that something is refused, blocked or safe first. Grading in step 6 SHALL flag every finding a refuter lowered from high, the main session SHALL re-check it before the final grade, and the step 7 summary SHALL list the flagged findings.
