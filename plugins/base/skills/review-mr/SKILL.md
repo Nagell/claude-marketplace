@@ -676,7 +676,10 @@ brings from general knowledge.
 
 Each agent writes its report to `$SCRATCH/wave1-<slice>.txt` (`wave1-contract.txt`,
 `wave1-runit.txt`) and replies with the path. A long reply truncates in transit
-and the tail is lost silently.
+and the tail is lost silently. Some subagents are refused the report write by
+their Write tool and reply with the report text instead: when a reply is not a
+path, save it to that agent's report path yourself and go on, without asking
+the agent again.
 
 ### Wave 2: the gap hunt
 

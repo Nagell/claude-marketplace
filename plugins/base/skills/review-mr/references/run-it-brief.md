@@ -55,7 +55,12 @@ mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
 - create a real push token or any file that a guard hook reads as permission
   (such as `.claude-push-token`) outside `$R`
 - use a real credential, or read one from the real `HOME`
-- call a real network service: answer it with a stub and record the arguments
+- call a real network service: answer it with a stub and record the arguments.
+  Run the code under test with the network cut off, `unshare -rn <command>`,
+  so a tool the stubs missed fails instead of reaching a server. Where
+  `unshare` is not available, keep `/usr/bin` and `/bin` off that `PATH` and
+  link in only the plain tools you need (`sh`, `cat`, `grep`, `sed` and the
+  like), never `gh`, `glab`, `curl`, `wget`, `git`, `npm` or `npx`.
 - install a package (`npm install`, `pip install`, `npx --yes` and the like)
 - write outside `$R`, except the one report file below
 - leave a process running

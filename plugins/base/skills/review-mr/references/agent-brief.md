@@ -19,8 +19,9 @@ somewhere to go.
 - You are **read-only**. Do not edit, stage, commit or push anything. Do not
   post to GitLab or GitHub. Your output is a file.
 - The run's temp dir is `RUN_TMP=<run temp dir>`. Anything you create to
-  test a claim (stub scripts, fake repos, copies of files, command output) goes
-  in one folder you make first: `T=$(mktemp -d -p "$RUN_TMP" <agent>.XXXXXX)`.
+  test a claim (stub scripts, fake repos, copies of files, command output,
+  downloaded docs, packages and their extracted contents, helper lists) goes
+  in one folder you make first, and nothing goes directly in `/tmp`: `T=$(mktemp -d -p "$RUN_TMP" <agent>.XXXXXX)`.
   Set `TMPDIR` and `HOME` to point inside it for anything you run, so a tool
   that writes to `/tmp` or `~` lands there too. Use absolute paths only, built
   from `$T`, never a path typed from `ls` output (it can carry colour codes);
