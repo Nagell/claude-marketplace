@@ -143,7 +143,7 @@ Finish mode is offered on a re-review where only a couple of mediums and some lo
 7. Reviews in two waves. Every agent writes a coverage ledger, and the second wave works the ground the first one left unexamined.
 8. Sends an Opus refutation agent to break each finding, with a browser if one is available, before anything is drafted.
 9. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
-10. Records each agent's cost in `run.json` (from the `usage` scanner when installed), then deletes its temp folders, asks before deleting any new untracked file in your checkout and removes the review worktrees it created.
+10. Deletes its temp folders, asks before deleting any new untracked file in your checkout and removes the review worktrees it created.
 
 ### Project rules
 

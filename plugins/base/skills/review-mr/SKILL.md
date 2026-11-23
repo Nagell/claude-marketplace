@@ -55,7 +55,7 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
   the platform clients with the same subcommands; `scripts/find_rules.py`,
   the rules lookup; `scripts/find_conventions.py`, the lookup of the repo's
   own instruction files (step 4); `scripts/run_checks.py`, the deterministic
-  checks (step 4a); and `scripts/run_cost.py`, the cost per agent (step 8).
+  checks (step 4a).
   All stdlib Python, with tests in `tests/`.
 - **Project rules** - `~/.claude/review-rules/<repo>.md`: everything specific
   to one repo or product (step 0a).
@@ -415,8 +415,8 @@ slices grow each agent's context and miss more. On PR #238 one agent on a
 small scope found what eleven lens and slice agents missed.
 
 Start `$SCRATCH/run.json` now and keep it current for the whole run. It is how
-a later run can tell whether these settings found more, and `run_cost.py`
-(step 8) reads it, so it is not optional:
+a later run can tell whether these settings found more, and the `usage`
+report reads it to price the run by role and slice, so it is not optional:
 
 ```json
 {
@@ -431,15 +431,13 @@ a later run can tell whether these settings found more, and `run_cost.py`
     {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
      "slice": "slice-2", "model": "haiku", "effort": "max",
      "files": ["hooks/guard.sh", "hooks/hooks.json"],
-     "report": "$SCRATCH/wave1-slice-2.txt", "resolved_model": null, "cost": null,
-     "cost_reason": null}
+     "report": "$SCRATCH/wave1-slice-2.txt"}
   ],
   "findings": [
     {"id": "slice-2-1", "draft_id": "H1", "source": "slice-2",
      "duplicates": ["runit"], "survived": true}
   ],
-  "checks": {"findings": [], "pre_existing": [], "not_run": [], "untrusted": []},
-  "cost_total": null
+  "checks": {"findings": [], "pre_existing": [], "not_run": [], "untrusted": []}
 }
 ```
 
@@ -449,8 +447,9 @@ is the name of its parent dir and the project dir the one above that.
 transcript). `role` is one of `slice-owner`, `contract`, `runit`, `gap`,
 `e2e`, `refuter` and `thread-validation`; a Codex task gets `"model": "codex"`.
 For each finding that survives refutation, `source` is the agent that first
-reported it and `duplicates` every agent that repeated it. `resolved_model`
-and `cost` are filled by `run_cost.py` at the end.
+reported it and `duplicates` every agent that repeated it. `run.json` holds no
+cost and no resolved model id: the `usage` skill reads both from each agent's
+transcript and is the only place that prices a review run.
 
 ## 3. Read the thread state before reviewing
 
@@ -1302,28 +1301,10 @@ Then run step 8. Finish by confirming what landed: one line per thread -
 posted, reopened, resolved, verified - and name anything you deliberately left
 unposted. The final line says which worktrees were removed and which stayed.
 
-## 8. Record the cost and clean up
+## 8. Clean up
 
 Run this once the drafts are submitted, and also when the user stopped the
 run or it failed after step 1.
-
-**Cost per agent.** Fill each agent's `cost` and `resolved_model` in
-`run.json` from its transcript, plus a run total:
-
-```bash
-python3 $SKILL_DIR/scripts/run_cost.py --run $SCRATCH/run.json
-```
-
-It opens `agent-<agent_id>.jsonl` in the `transcript_dir` that `run.json`
-records and prices it with `summarize_agent` from the `usage` skill's scanner
-(`plugins/base/skills/usage/scripts/scan.py`), so its numbers match the
-`usage` report. When the scanner is not installed, each `cost` is null with
-the reason "usage scanner not found". A Codex task has no Claude transcript,
-so its `cost` is null with the reason "no Claude transcript" and the total
-leaves it out. The reasons are checked in this order: Codex task, "transcript
-not found", "usage scanner not found", then "usage scanner failed: <error>"
-for a transcript the scanner raised on. When no agent is priced,
-`cost_total.reason` is the most common reason. Print the total in one line: requests, share over 100k, USD.
 
 **Sweep.** Touch only the run's own paths. Every command below uses the
 literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
