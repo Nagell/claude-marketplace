@@ -48,11 +48,11 @@ Detection SHALL cover Node `package.json` scripts (`lint`, `typecheck`, `type-ch
 - **THEN** `ruff check` and `ruff format --check` run on those two files
 
 ### Requirement: Safe and time-boxed runs
-`scripts/run_checks.py run` SHALL stop a command at 120 seconds and the step at 300 seconds in total, SHALL NOT pass auto-fix flags and SHALL NOT install dependencies. The rules' machine notes SHALL apply as they do for git and the platform CLI. A command whose dependencies are missing SHALL be reported as "dependencies not installed" unless the machine notes say how to run it.
+`scripts/run_checks.py run` SHALL stop a command at 120 seconds and the step at 300 seconds in total, SHALL NOT pass auto-fix flags and SHALL NOT install dependencies. The rules' machine notes SHALL apply as they do for git and the platform CLI. A command whose dependencies are missing SHALL be reported as "dependencies not installed" unless the machine notes say how to run it. Each command SHALL run in its own session, so a timeout stops every process it started.
 
 #### Scenario: Timeout
 - **WHEN** a test command runs past 120 seconds
-- **THEN** it is stopped and listed as "not run: timed out" and no finding is made
+- **THEN** it and every process it started are stopped, it is listed as "not run: timed out" and no finding is made
 
 #### Scenario: Missing dependencies
 - **WHEN** `node_modules` is absent in the review worktree
@@ -61,6 +61,20 @@ Detection SHALL cover Node `package.json` scripts (`lint`, `typecheck`, `type-ch
 #### Scenario: Fix flag
 - **WHEN** a repo's `lint` script runs `eslint --fix`
 - **THEN** the step runs a check-only form on the changed files or skips that script and says why
+
+### Requirement: Check command environment
+Each check command SHALL run with an allowlisted environment (`PATH`, `LANG`, `CI=1`, `NO_COLOR`, `HOME`, `XDG_*` and `TMPDIR` under the run's temp dir, and the package managers' cache and offline settings) and, where `unshare -rn` works, with the network cut off; otherwise the JSON SHALL say `"network": "not cut"`.
+
+#### Scenario: Reviewer secrets
+- **WHEN** the reviewer's environment holds a token
+- **THEN** no check command sees it, and the commands reach no network where `unshare` works
+
+### Requirement: Untrusted package config
+A Node package whose package manager config (`.npmrc`, `.yarnrc`, `.yarnrc.yml`, `.pnpmfile.cjs`, `pnpm-workspace.yaml`) differs between `base_sha` and head, or that has `node_modules` committed, SHALL be listed under `untrusted` with the reason, and none of its commands SHALL run.
+
+#### Scenario: Changed npm config
+- **WHEN** the MR adds an `.npmrc` next to a `package.json` with a `lint` script
+- **THEN** `lint` is listed under `untrusted` and not run
 
 ### Requirement: Failures become findings only if new
 A failing command SHALL be re-run at `base_sha` in a throwaway worktree under the run's temp dir, on the same files, and SHALL become a finding only when its normalised messages are not also present at base. A failing test SHALL be re-run once at head to rule out flakiness.

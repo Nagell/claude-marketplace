@@ -10,7 +10,11 @@ change which commands run. A manifest that is new in the MR is listed under
 manager reads its body at head: when the body of a detected script, or of any
 script it runs by name (pre/post hooks included), differs between base and
 head, the script is listed under ``untrusted`` with the reason "script body
-changed in this MR" and never run. Prints a JSON plan:
+changed in this MR" and never run. A package whose package manager config
+(.npmrc, .yarnrc(.yml), .pnpmfile.cjs, pnpm-workspace.yaml) changes in the MR,
+or that has node_modules committed, is listed under ``untrusted`` with the
+reason and none of its commands runs. A script that reaches a fix flag through
+a script it runs by name is skipped. Prints a JSON plan:
 
   {"commands": [{"id", "kind", "cwd", "argv", "files", "source", "needs"}],
    "untrusted": [{"manifest", "commands", "reason"?}],
@@ -20,8 +24,14 @@ changed in this MR" and never run. Prints a JSON plan:
 what must exist in the worktree for the command to run (``node_modules``).
 
 ``run`` executes a plan in the review worktree: 120 s per command, 300 s in
-total, no fix flags, no installs. A command whose dependencies are missing is
-skipped with "dependencies not installed". A timeout is "not run", never a
+total, no fix flags, no installs. Each command runs in its own session (a
+timeout kills the whole process group) with an allowlisted environment (PATH,
+LANG, CI, NO_COLOR, HOME/XDG/TMPDIR under ``--tmp``, package manager cache and
+offline settings) and, where ``unshare -rn`` works, with the network cut; the
+JSON says ``"network": "cut"`` or ``"not cut"``. A command whose dependencies
+are missing is skipped with "dependencies not installed"; a pytest or mypy
+run that fails on an import error with no project venv is "not run: missing
+dependencies". A timeout is "not run", never a
 failure. A failing command is re-run at ``--base`` in a throwaway worktree
 under ``--tmp`` (removed afterwards), and only messages that are not also
 present there become findings. A failing test is re-run once at head first,
@@ -32,18 +42,24 @@ command is "base run failed" with the reason and makes no finding. Prints:
 
   {"results": [...], "findings": [{"id": "check-1", "severity", "command",
    "messages"}], "pre_existing": [...], "not_run": [...],
-   "base_worktree": <path or null>, "error": <only when git worktree add failed>}
+   "base_worktree": <path or null>, "network": "cut" | "not cut",
+   "error": <only when git worktree add failed>}
+
+Messages are compared as counts after dropping paths, line and column
+numbers and timings, so a moved error is not new and a second copy is.
 """
 
 from __future__ import annotations
 
 import argparse
+import collections
 import fnmatch
 import json
 import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -68,6 +84,10 @@ PRETTIER_CONFIGS = (".prettierrc", ".prettierrc.json", ".prettierrc.yml",
 JS_EXT = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte")
 FIX_FLAGS = {"--fix": None, "--write": "--check", "-w": None}
 SHELL_OPS = re.compile(r"&&|\|\||[|;<>`$]")
+# package manager config that changes what a script runs (script-shell, hooks, ...)
+PM_CONFIGS = (".npmrc", ".yarnrc", ".yarnrc.yml", ".pnpmfile.cjs", "pnpm-workspace.yaml")
+PY_TOOLS = ("pytest", "mypy")
+IMPORT_ERROR = re.compile(r"ModuleNotFoundError|ImportError|No module named|\[import-not-found\]")
 PER_COMMAND = 120
 TOTAL = 300
 BASE_RESERVE = 0.25  # share of TOTAL kept back from head runs for base re-runs
@@ -131,9 +151,10 @@ def strip_fix(script: str) -> tuple[list[str] | None, str]:
     tokens = shlex.split(script)
     out = []
     for t in tokens:
-        if t in FIX_FLAGS:
-            if FIX_FLAGS[t]:
-                out.append(FIX_FLAGS[t])
+        flag = t.split("=", 1)[0]  # "--fix" and "--fix=true" alike
+        if flag in FIX_FLAGS:
+            if FIX_FLAGS[flag]:
+                out.append(FIX_FLAGS[flag])
             continue
         out.append(t)
     return out, "fix flag removed"
@@ -175,6 +196,27 @@ def changed_scripts(name: str, base_scripts: dict, head_scripts: dict) -> list[s
     """Scripts ``name`` may run whose body differs between base and head."""
     reached = scripts_reached(name, base_scripts) | scripts_reached(name, head_scripts)
     return sorted(n for n in reached if base_scripts.get(n) != head_scripts.get(n))
+
+
+def package_untrusted(base: Snapshot, head: Snapshot, root: str) -> str | None:
+    """Why the package's commands must not run at all, or None."""
+    dirs = parents(join(root, "x"))  # the project root, then up to the repo root
+    for d in dirs:
+        for name in PM_CONFIGS:
+            rel = join(d, name)
+            if base.has(rel) != head.has(rel) or (base.has(rel) and base.read(rel) != head.read(rel)):
+                return f"package manager config changed in this MR: {rel}"
+    prefixes = tuple(join(d, "node_modules/") for d in dirs)
+    if any(f.startswith(prefixes) for f in head.files):
+        return "node_modules is committed to the repo"
+    return None
+
+
+def exec_argv(pm: str, argv: list[str]) -> list[str]:
+    """Run a tool from node_modules: never install it, and keep its flags away from npm."""
+    if pm == "npm":
+        return ["npm", "exec", "--no", "--", *argv]
+    return [pm, "exec", *argv]
 
 
 def list_changed_script(plan: dict, manifest: str, name: str) -> None:
@@ -219,6 +261,12 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
             head_scripts = json.loads(head.read(manifest)).get("scripts", {}) or {}
         except ValueError:
             head_scripts = {}
+        why_not = package_untrusted(base, head, root)
+        if why_not:
+            plan["untrusted"].append({"manifest": manifest, "reason": why_not,
+                                      "commands": [f"run {n}" for n in NODE_SCRIPTS
+                                                   if n in scripts]})
+            continue
         for name, kind in NODE_SCRIPTS.items():
             if name not in scripts:
                 continue
@@ -228,12 +276,17 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
                 continue
             body = str(scripts[name])
             source = f"{manifest} scripts.{name}"
+            if any(has_fix_flag(str(scripts.get(n, "")))
+                   for n in scripts_reached(name, scripts) - {name}):
+                plan["skipped"].append({"source": source,
+                                        "reason": "a script it runs uses a fix flag; skipped"})
+                continue
             if has_fix_flag(body):
                 argv, why = strip_fix(body)
                 if argv is None:
                     plan["skipped"].append({"source": source, "reason": why})
                     continue
-                add(plan, kind, root, [pm, "exec", *argv], [], source + " (fix flag removed)",
+                add(plan, kind, root, exec_argv(pm, argv), [], source + " (fix flag removed)",
                     "node_modules")
                 continue
             add(plan, kind, root, [pm, "run", name], [], source, "node_modules")
@@ -380,28 +433,84 @@ def deps_missing(cmd: dict, tree: Path) -> str | None:
                 return None
             if d == tree:
                 break
-        return "dependencies not installed"
+        return "dependencies not installed (no node_modules in the review worktree)"
     if need and shutil.which(need) is None:
         return f"dependencies not installed ({need} not on PATH)"
     return None
 
 
+def has_venv(tree: Path, cwd: str) -> bool:
+    return bool(os.environ.get("VIRTUAL_ENV")) or any(
+        (tree / d / ".venv").is_dir() for d in {".", cwd})
+
+
+def check_env(tmp: Path) -> dict:
+    """An allowlisted environment: no tokens, no SSH agent, HOME inside ``tmp``."""
+    real_home = Path.home()
+    home = tmp / "home"
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "LANG": os.environ.get("LANG", "C.UTF-8"),
+        "HOME": str(home), "TMPDIR": str(tmp / "tmp"),
+        "XDG_CONFIG_HOME": str(home / ".config"), "XDG_CACHE_HOME": str(home / ".cache"),
+        "XDG_DATA_HOME": str(home / ".local/share"), "XDG_STATE_HOME": str(home / ".local/state"),
+        "CI": "1", "NO_COLOR": "1", "TERM": "dumb",
+        # package managers: own caches, offline, never install
+        "npm_config_cache": str(home / ".npm"), "npm_config_yes": "false",
+        "npm_config_offline": "true", "YARN_CACHE_FOLDER": str(home / ".yarn-cache"),
+        "GOPROXY": "off", "GOTOOLCHAIN": "local", "CARGO_NET_OFFLINE": "true",
+        # installed toolchains and module caches are only found through these
+        "GOPATH": os.environ.get("GOPATH", str(real_home / "go")),
+        "CARGO_HOME": os.environ.get("CARGO_HOME", str(real_home / ".cargo")),
+        "RUSTUP_HOME": os.environ.get("RUSTUP_HOME", str(real_home / ".rustup")),
+    }
+    for name in ("GOMODCACHE", "VIRTUAL_ENV", "LC_ALL"):
+        if os.environ.get(name):
+            env[name] = os.environ[name]
+    for key in ("HOME", "TMPDIR", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME",
+                "XDG_STATE_HOME"):
+        Path(env[key]).mkdir(parents=True, exist_ok=True)
+    return env
+
+
+def network_cut() -> list[str]:
+    """``unshare -rn`` when it works here, else nothing."""
+    if shutil.which("unshare") is None:
+        return []
+    try:
+        ok = subprocess.run(["unshare", "-rn", "true"], capture_output=True,
+                            timeout=10).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        ok = False
+    return ["unshare", "-rn"] if ok else []
+
+
 def execute(argv: list[str], cwd: Path, timeout: float, env: dict) -> dict:
     start = time.monotonic()
     try:
-        proc = subprocess.run(argv, cwd=cwd, capture_output=True, text=True,
-                              timeout=timeout, env=env)
-    except subprocess.TimeoutExpired:
-        return {"status": "timeout", "seconds": round(time.monotonic() - start, 1)}
+        # own session, so a timeout kills the whole process group, test-runner children too
+        proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                env=env, start_new_session=True)
     except OSError as e:
         return {"status": "error", "exit": None, "output": str(e), "seconds": 0.0}
-    out = (proc.stdout or "") + (proc.stderr or "")
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        proc.communicate()
+        return {"status": "timeout", "seconds": round(time.monotonic() - start, 1)}
     return {"status": "pass" if proc.returncode == 0 else "fail", "exit": proc.returncode,
-            "output": out, "seconds": round(time.monotonic() - start, 1)}
+            "output": out or "", "seconds": round(time.monotonic() - start, 1)}
 
 
 NOISE = [
     (re.compile(r"\x1b\[[0-9;]*[A-Za-z]"), ""),           # colour codes
+    (re.compile(r"\(\d+,\d+\)"), ""),                       # (line,col), tsc
+    (re.compile(r"^\s*\d+(:\d+)?(?=\s)"), ""),               # leading line:col, eslint stylish
     (re.compile(r"(:\d+)+(?=[:\s)]|$)"), ""),              # :line:col
     (re.compile(r"\b\d+(\.\d+)?\s*(ms|s|sec|seconds)\b"), "<t>"),  # durations
     (re.compile(r"0x[0-9a-f]+"), "<addr>"),
@@ -409,8 +518,10 @@ NOISE = [
 ]
 
 
-def normalise(output: str, roots: list[Path]) -> set[str]:
-    msgs = set()
+def normalise(output: str, roots: list[Path]) -> collections.Counter:
+    """Messages with paths, positions and timings removed, counted, so a second
+    copy of an error that exists once at base still counts as new."""
+    msgs: collections.Counter = collections.Counter()
     for line in output.splitlines():
         for r in roots:
             line = line.replace(str(r) + os.sep, "").replace(str(r), "")
@@ -418,7 +529,7 @@ def normalise(output: str, roots: list[Path]) -> set[str]:
             line = rx.sub(sub, line)
         line = line.strip()
         if line:
-            msgs.add(line)
+            msgs[line] += 1
     return msgs
 
 
@@ -447,12 +558,13 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
         total: float = TOTAL, wrap: list[str] | None = None,
         skip_deps_check: bool = False) -> dict:
     tmp.mkdir(parents=True, exist_ok=True)
-    env = dict(os.environ, TMPDIR=str(tmp), CI="1")
+    env = check_env(tmp)
+    net = network_cut()
     deadline = time.monotonic() + total
     # head runs stop this much before the deadline, so a base re-run always has time
     reserve = min(per_command, total * BASE_RESERVE)
     report: dict = {"results": [], "findings": [], "pre_existing": [], "not_run": [],
-                    "base_worktree": None}
+                    "base_worktree": None, "network": "cut" if net else "not cut"}
     base_wt: Path | None = None
     base_error: str | None = None
 
@@ -463,7 +575,7 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
         budget = min(per_command, left() - keep)
         if budget <= 0:
             return {"status": "timeout", "seconds": 0.0, "reason": "total time limit"}
-        return execute([*(wrap or []), *cmd["argv"]], tree / cmd["cwd"], budget, env)
+        return execute([*net, *(wrap or []), *cmd["argv"]], tree / cmd["cwd"], budget, env)
 
     def base_failed(res: dict, cmd: dict, why: str) -> None:
         reason = f"base run failed: {why}"
@@ -488,6 +600,12 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
             res["head"] = {"exit": head.get("exit"), "output_tail": tail(head.get("output", ""))}
             if head["status"] == "pass":
                 res["status"] = "pass"
+                continue
+            if (cmd.get("needs") in PY_TOOLS and not has_venv(repo, cmd["cwd"])
+                    and IMPORT_ERROR.search(head.get("output", ""))):
+                reason = "not run: missing dependencies (no project venv)"
+                res.update(status="not_run", reason=reason)
+                report["not_run"].append({"id": cmd["id"], "reason": reason})
                 continue
             if cmd["kind"] == "test":
                 again = go(cmd, repo, reserve)
@@ -523,8 +641,9 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 continue
             roots = [repo, base_wt, tmp]
             head_msgs = normalise(head.get("output", ""), roots)
-            base_msgs = normalise(base.get("output", ""), roots) if base["status"] == "fail" else set()
-            new = sorted(head_msgs - base_msgs)
+            base_msgs = (normalise(base.get("output", ""), roots) if base["status"] == "fail"
+                         else collections.Counter())
+            new = sorted((head_msgs - base_msgs).elements())
             if base["status"] == "fail" and not new:
                 res["status"] = "pre_existing"
                 report["pre_existing"].append({"id": cmd["id"], "argv": cmd["argv"]})

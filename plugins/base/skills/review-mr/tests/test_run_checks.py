@@ -2,6 +2,7 @@ import json
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,50 @@ def test_fix_flag_stripped_or_skipped(repo):
     plan = rc.detect(repo, base, head)
     assert argvs(plan) == [["pnpm", "exec", "eslint", "src"]]
     assert any("compound" in s["reason"] for s in plan["skipped"])
+
+
+def test_fix_flag_value_form_stripped(repo):
+    pkg = json.dumps({"scripts": {"lint": "eslint --fix=true src", "format:check": "prettier --write=x ."}})
+    base, head = base_and_head(repo, {"package.json": pkg, "i.ts": "1"}, {"i.ts": "2"})
+    assert argvs(rc.detect(repo, base, head)) == [["pnpm", "exec", "eslint", "src"],
+                                                  ["pnpm", "exec", "prettier", "--check", "."]]
+
+
+def test_fix_flag_in_a_reached_script_skips(repo):
+    pkg = json.dumps({"scripts": {"check": "pnpm format", "format": "prettier --write ."}})
+    base, head = base_and_head(repo, {"package.json": pkg, "i.ts": "1"}, {"i.ts": "2"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert plan["skipped"] == [{"source": "package.json scripts.check",
+                                "reason": "a script it runs uses a fix flag; skipped"}]
+
+
+def test_npm_exec_never_installs_and_keeps_flags(repo):
+    pkg = json.dumps({"scripts": {"lint": "prettier --write src"}})
+    base, head = base_and_head(repo, {"package.json": pkg, "package-lock.json": "{}", "i.ts": "1"},
+                               {"i.ts": "2"})
+    assert argvs(rc.detect(repo, base, head)) == [
+        ["npm", "exec", "--no", "--", "prettier", "--check", "src"]]
+
+
+@pytest.mark.parametrize("cfg", [".npmrc", ".yarnrc.yml", "pnpm-workspace.yaml"])
+def test_changed_pm_config_marks_package_untrusted(repo, cfg):
+    pkg = json.dumps({"scripts": {"lint": "eslint ."}})
+    base, head = base_and_head(repo, {"package.json": pkg, "a.ts": "1"},
+                               {"a.ts": "2", cfg: "script-shell=./evil.sh\n"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert plan["untrusted"] == [{"manifest": "package.json", "commands": ["run lint"],
+                                  "reason": f"package manager config changed in this MR: {cfg}"}]
+
+
+def test_committed_node_modules_marks_package_untrusted(repo):
+    pkg = json.dumps({"scripts": {"lint": "eslint ."}})
+    base, head = base_and_head(repo, {"package.json": pkg, "eslint.config.js": "", "a.ts": "1"},
+                               {"a.ts": "2", "node_modules/.bin/eslint": "evil\n"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert plan["untrusted"][0]["reason"] == "node_modules is committed to the repo"
 
 
 def test_new_manifest_listed_not_run(repo):
@@ -264,6 +309,68 @@ def test_base_run_keeps_time_from_total(repo, tmp_path, monkeypatch):
     assert out["pre_existing"] == [{"id": "cmd-1", "argv": ["lint"]}]
 
 
+def test_commands_get_an_allowlisted_env_and_no_network(repo, tmp_path, monkeypatch):
+    monkeypatch.setenv("REVIEW_CANARY_TOKEN", "secret")
+    probe = ("import os, socket, sys\n"
+             "print('canary', os.environ.get('REVIEW_CANARY_TOKEN'))\n"
+             "print('home', os.environ['HOME'])\n"
+             "try:\n"
+             "    socket.create_connection(('1.1.1.1', 53), timeout=2); print('net up')\n"
+             "except OSError:\n"
+             "    print('net down')\n"
+             "sys.exit(1)\n")
+    base, _ = base_and_head(repo, {"a": "1"}, {"probe.py": probe})
+    run_tmp = tmp_path / "run"
+    out = rc.run(plan_for(base, [sys.executable, "probe.py"]), repo, run_tmp)
+    text = out["results"][0]["head"]["output_tail"]
+    assert "canary None" in text
+    assert f"home {run_tmp / 'home'}" in text
+    if out["network"] == "cut":
+        assert "net down" in text
+    else:
+        assert out["network"] == "not cut"
+
+
+def test_timeout_kills_the_process_group(repo, tmp_path):
+    marker = tmp_path / "grandchild-alive"
+    child = f"import pathlib, time\ntime.sleep(1.5)\npathlib.Path({str(marker)!r}).touch()\n"
+    spawn = ("import subprocess, sys, time\n"
+             "subprocess.Popen([sys.executable, 'child.py'])\n"
+             "time.sleep(10)\n")
+    base, _ = base_and_head(repo, {"a": "1"}, {"spawn.py": spawn, "child.py": child})
+    out = rc.run(plan_for(base, [sys.executable, "spawn.py"]), repo, tmp_path / "run",
+                 per_command=0.5)
+    assert out["not_run"] == [{"id": "cmd-1", "reason": "not run: timed out"}]
+    time.sleep(2)
+    assert not marker.exists()
+
+
+def test_normalise_drops_positions():
+    a = rc.normalise("src/a.ts(10,5): error TS2322: bad\n  10:5  error  no-x\nb.py:3:1: E1 x", [])
+    b = rc.normalise("src/a.ts(12,5): error TS2322: bad\n  12:7  error  no-x\nb.py:9:4: E1 x", [])
+    assert a == b
+
+
+def test_second_copy_of_a_base_error_is_new(repo, tmp_path):
+    count = ("import sys, pathlib\n"
+             "n = pathlib.Path('a.txt').read_text().count('BAD')\n"
+             "for _ in range(n): print('a.txt: E1 forbidden word BAD')\n"
+             "sys.exit(1 if n else 0)\n")
+    base, _ = base_and_head(repo, {"check.py": count, "a.txt": "BAD\n"}, {"a.txt": "BAD\nBAD\n"})
+    out = rc.run(plan_for(base, [sys.executable, "check.py"]), repo, tmp_path / "run")
+    assert out["findings"][0]["messages"] == ["a.txt: E1 forbidden word BAD"]
+
+
+def test_import_error_without_venv_is_not_run(repo, tmp_path, monkeypatch):
+    monkeypatch.delenv("VIRTUAL_ENV", raising=False)
+    base, _ = base_and_head(repo, {"a": "1"}, {"t.py": "import project_dep_not_installed\n"})
+    plan = plan_for(base, [sys.executable, "t.py"], kind="test", needs="pytest")
+    out = rc.run(plan, repo, tmp_path / "run", skip_deps_check=True)
+    assert out["findings"] == []
+    assert out["not_run"] == [{"id": "cmd-1",
+                               "reason": "not run: missing dependencies (no project venv)"}]
+
+
 def test_failed_worktree_add_reports_error(repo, tmp_path):
     _, _ = base_and_head(repo, {"check.py": CHECK, "a.txt": "fine"}, {"a.txt": "BAD"})
     plan = plan_for("0" * 40, [sys.executable, "check.py", "a.txt"], files=["a.txt"])
@@ -279,7 +386,9 @@ def test_missing_node_modules_skips(repo, tmp_path):
     base, head = base_and_head(repo, {"package.json": pkg, "a.ts": "1"}, {"a.ts": "2"})
     out = rc.run(rc.detect(repo, base, head), repo, tmp_path / "run")
     assert out["results"][0]["status"] == "skipped"
-    assert out["results"][0]["reason"] == "dependencies not installed"
+    reason = "dependencies not installed (no node_modules in the review worktree)"
+    assert out["results"][0]["reason"] == reason
+    assert out["not_run"] == [{"id": "cmd-1", "reason": reason}]
     assert out["findings"] == []
 
 
