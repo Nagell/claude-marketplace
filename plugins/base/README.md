@@ -75,7 +75,7 @@ After installing, run:
 /base:plugin-setup
 ```
 
-This installs all recommended official plugins in one command. Restart Claude Code after installation.
+This walks you through installing the recommended plugins and optional settings. Restart Claude Code after installation.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -94,7 +94,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:setup-zsh`      | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor                                                                                                                                                         |
 | `/base:review-mr`      | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs))                                                                                                                                                                                                   |
 | `/base:resolve-review` | Answer the review on your own MR or PR: check each open thread against the current code, plan fixes and replies, post and resolve only what you approve ([details](#answering-a-review))                                                                                                                             |
-| `/base:cleanup`        | Find merged branches, worktrees of merged work and scratch folders of stopped sessions, then remove only what you approve, with a log                                                                                                                                                                                |
+| `/base:cleanup`        | Find merged branches, worktrees of merged work and scratch folders of stopped sessions, then remove only what you approve, with a log, including forced removal of approved dirty worktrees and remote branch deletes                                                                                                |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
@@ -121,19 +121,29 @@ On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybind
 
 Pass an MR or PR URL, or `!iid` inside the repo.
 
-| Flag                       | Effect                         |
-| -------------------------- | ------------------------------ |
-| `--both`, or a second URL  | Review a paired change in full |
-| `--finish` / `--no-finish` | Force finish mode on or off    |
+| Flag                       | Effect                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `--both`, or a second URL  | Review a paired change in full                                                          |
+| `--finish` / `--no-finish` | Force finish mode on or off                                                             |
+| `--fast`                   | Wave 1 and 2 on Opus at the chosen effort instead of Haiku max; faster, not better      |
+| `--no-checks`              | Run none of the MR's code: skip the lint, type and test commands and the run-it sandbox |
+| `--keep-worktrees`         | Keep the review worktrees the run created                                               |
+| `--max-parallel N`         | At most N review agents at once (default 12)                                            |
+
+Finish mode is offered on a re-review where only a couple of mediums and some lows remain: every remaining finding goes into one non-blocking comment plus an approval. Like everything else, it is posted only after you accept it.
 
 ### What a run does
 
-1. Asks which engine (Claude, Codex or both) and what effort to use, and whether to review a paired MR in full or only the boundary between the two.
+1. Asks which engine (Claude, Codex or both) and what effort to use, and whether to review a paired MR in full or only the boundary between the two. The effort sets the Opus roles and the Codex `--effort`.
 2. Checks the MR out at its head in a `reviews` worktree, and diffs against the MR's own merge base rather than `main`.
 3. Reads the existing threads first, so a re-review checks earlier findings instead of repeating them.
-4. Reviews in two waves. Every agent writes a coverage ledger, and the second wave works the ground the first one left unexamined.
-5. Sends a refutation agent to break each finding, with a browser if one is available, before anything is drafted.
-6. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
+4. Cuts the changed files into slices of about 400 lines of whole files, one tool contract or component each. One slice owner per slice applies every lens, on Haiku at max effort (Opus with `--fast`). There are no whole-MR lens agents and no cross-file agent; a contract agent runs only when a paired MR exists. Each brief lists the repo's own instruction files (`CLAUDE.md`, `AGENTS.md`, Copilot and Cursor rules) that apply to the slice.
+5. Runs the repo's lint, typecheck, format and test commands on the changed files in the background, with no LLM. Only failures that are new at head become findings.
+6. Runs changed scripts, hooks and CLIs in a throwaway sandbox when enough runnable code changed (not under the Codex engine alone), and compares what they do with what the docs promise. A default run executes the MR's tests, lint configs and changed scripts on your machine; `--no-checks` skips both.
+7. Reviews in two waves. Every agent writes a coverage ledger, and the second wave works the ground the first one left unexamined.
+8. Sends an Opus refutation agent to break each finding, with a browser if one is available, before anything is drafted.
+9. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
+10. Deletes its temp folders, asks before deleting any new untracked file in your checkout and removes the review worktrees it created.
 
 ### Project rules
 
@@ -254,10 +264,10 @@ Then `openspec init --scope global --tools claude` inside each project creates i
 
 ## Hooks
 
-| Hook                  | Trigger                  | Action                                |
-| --------------------- | ------------------------ | ------------------------------------- |
-| `safety-guards.sh`    | PreToolUse (Bash)        | Block dangerous commands              |
-| `post-edit-format.sh` | PostToolUse (Edit/Write) | Auto-format with prettier/eslint/ruff |
+| Hook                  | Trigger                  | Action                                                                      |
+| --------------------- | ------------------------ | --------------------------------------------------------------------------- |
+| `safety-guards.sh`    | PreToolUse (Bash)        | Block dangerous commands                                                    |
+| `post-edit-format.sh` | PostToolUse (Edit/Write) | Auto-format with prettier/eslint/ruff, including eslint and ruff lint fixes |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -297,6 +307,7 @@ The included [CLAUDE.md](CLAUDE.md) sets opinionated defaults: plain language (w
 - Claude Code
 - Git
 - Node.js (for the npx-run formatters)
+- `jq`, for the status line that `/base:plugin-setup` offers
 - Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr` and `/base:resolve-review`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

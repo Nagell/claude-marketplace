@@ -35,6 +35,14 @@ The author's personal rule; other users can drop this section.
 - pnpm when the package manager is unclear (no lock file).
 - Nuxt frontend errors need a browser: ask me to open the generated URL.
 
+## Models
+
+- Coding: Opus 5.5 medium (current default, not benchmarked)
+- Simple helpers (search, lookups, summaries, commit messages): Haiku 5.5 high (not benchmarked)
+- Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)
+- Review refuters: Opus 5.5 medium (every severity)
+- Review with --fast: Opus 5.5 medium slices (faster, finds less)
+
 ## Commits
 
 - Conventional commits (feat:, fix:, …), first line under 72 characters.

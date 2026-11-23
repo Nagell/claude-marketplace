@@ -1,7 +1,7 @@
 ---
 name: review-mr
-description: Review a GitLab merge request or a GitHub pull request in an isolated worktree and post the findings in the user's name as one review (drafts, then one submit with a verdict), with range anchors, suggestion fences and every low in one thread. Asks upfront whether to review with Claude, Codex, or both, and at what effort, checks the branch out at head_sha against the MR's own target branch, loads the repo's review rules from ~/.claude/review-rules/, finds the MR for the same change in the paired repo when the rules name one and reviews the boundary between the two, or both in full, reads the existing threads first so a re-review validates our earlier findings instead of repeating them, runs the review in two waves so the second one hunts the ground the first left unopened, then sends a refutation agent with a browser and the code that owns the product rules to break the survivors before anything is drafted, then shows the draft comments and the proposed thread actions, each summarised in plain English, for acceptance before anything reaches the MR. On a re-review where only a couple of mediums and some lows remain, it offers to close the MR instead: every remaining finding in one non-blocking comment plus an approval. Invoke only via /review-mr.
-argument-hint: "<mr-or-pr-url | !iid> [<second url>] [--both] [--finish | --no-finish]"
+description: "Review a GitLab merge request or a GitHub pull request in an isolated worktree and post the findings in the user's name as one review (drafts, then one submit with a verdict), with range anchors, suggestion fences and every low in one thread. Asks upfront whether to review with Claude, Codex, or both, and at what effort, checks the branch out at head_sha against the MR's own target branch, loads the repo's review rules from ~/.claude/review-rules/, finds the MR for the same change in the paired repo when the rules name one and reviews the boundary between the two, or both in full, reads the existing threads first so a re-review validates our earlier findings instead of repeating them, cuts the changed files into contract-sized slices with one Haiku owner each (Opus with --fast) that also checks the repo's own instruction files, runs the repo's lint, type and test commands with no LLM (skip with --no-checks), runs changed scripts and hooks in a throwaway sandbox, runs the review in two waves so the second one hunts the ground the first left unopened, at most --max-parallel agents at once, then sends an Opus refutation agent with a browser and the code that owns the product rules to break the survivors before anything is drafted, then shows the draft comments and the proposed thread actions, each summarised in plain English, for acceptance before anything reaches the MR. On a re-review where only a couple of mediums and some lows remain, it offers to close the MR instead: every remaining finding in one non-blocking comment plus an approval. Records each agent's cost in run.json, then sweeps its temp folders and removes the review worktrees it created (keep them with --keep-worktrees). Invoke only via /review-mr."
+argument-hint: "<mr-or-pr-url | !iid> [<second url>] [--both] [--finish | --no-finish] [--fast] [--no-checks] [--keep-worktrees] [--max-parallel N]"
 disable-model-invocation: true
 effort: high
 dependencies:
@@ -23,8 +23,17 @@ unreadable walls of text get skipped.
 Input is an MR URL or `!iid`, optionally followed by `--finish` (force finish
 mode, step 6a) or `--no-finish` (never offer it). A second MR URL from the
 paired repo, or `--both`, asks for a full review of both halves of the change
-(step 1a). Nothing is posted, resolved,
-reopened or approved until the user accepts.
+(step 1a). The other flags:
+
+- `--fast` - wave 1 and wave 2 on Opus at the base effort instead of Haiku at
+  max (step 4). Faster, not better.
+- `--no-checks` - skip the deterministic checks (step 4a) and the run-it
+  agent (step 4b), for an author whose code you do not want to run.
+- `--keep-worktrees` - keep the review worktrees this run created (step 8).
+- `--max-parallel N` - at most N wave-1 and wave-2 agents at once, default 12
+  (step 4).
+
+Nothing is posted, resolved, reopened or approved until the user accepts.
 
 Two things shape the whole run. A single review pass misses things that a second
 pass finds, so step 4 runs two waves and the second one is aimed at what the
@@ -37,12 +46,17 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
   worktree, sizing, waves, refutation, grading and acceptance to posting.
 - **Agent brief** - `references/agent-brief.md`: what every review agent is
   told, including the coverage ledger it reports.
+- **Run-it brief** - `references/run-it-brief.md`: the throwaway sandbox and
+  the "promises versus behaviour" table for the run-it agent (step 4b).
 - **Platforms** - `platforms/gitlab.md` and `platforms/github.md`: how each
   platform fetches an MR, anchors comments, holds drafts, submits a verdict,
   and resolves or reopens threads.
 - **Scripts** - `scripts/gitlab_comments.py` and `scripts/github_comments.py`,
-  the platform clients with the same subcommands, and `scripts/find_rules.py`,
-  the rules lookup.
+  the platform clients with the same subcommands; `scripts/find_rules.py`,
+  the rules lookup; `scripts/find_conventions.py`, the lookup of the repo's
+  own instruction files (step 4); `scripts/run_checks.py`, the deterministic
+  checks (step 4a).
+  All stdlib Python, with tests in `tests/`.
 - **Project rules** - `~/.claude/review-rules/<repo>.md`: everything specific
   to one repo or product (step 0a).
 - **Browser** - the browser skill the rules name, or any installed skill
@@ -57,6 +71,10 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
 `--iid` (the MR iid or PR number), and offer the same subcommands, so every
 command below reads the same on both platforms.
 
+These names, and `$RUN_TMP` (step 1), are placeholders, not shell variables:
+the Bash tool keeps no variables between calls, so write the literal absolute
+path into every command.
+
 ## 0. Choose the review engine, the counterpart scope and the effort
 
 These questions are the run's **first tool call** - before reading the rules,
@@ -66,8 +84,9 @@ once, with three questions.
 
 The engine:
 
-- `Claude (Recommended)` - the multi-lens agent pass in step 4.
-- `Codex` - the same lenses and waves, run as Codex tasks instead.
+- `Claude (Recommended)` - Haiku slice owners at max effort, with Opus
+  refuters (step 4 and 5).
+- `Codex` - the same slices and waves, run as Codex tasks instead.
 - `Both` - run both and compare, weighting every finding the same regardless of
   which engine produced it.
 
@@ -82,22 +101,25 @@ ship as two MRs:
 Skip the second question when the user passed `--both` or two MR URLs: that is
 `Full review of both` already.
 
-The effort, which sets the base for every agent the run spawns:
+The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
+under `--fast`) and the `--effort` of every Codex task:
 
 - `Medium (Recommended)` - the default.
 - `Low` - cheaper, for a small or familiar MR.
-- `High` - for a risky change or one past a reliable size.
+- `High` - for a risky change.
 
-File-slice owners and refuters run one level above the base: `low` → `medium`,
-`medium` → `high`, `high` → `xhigh`. Slice owners are the role the run data
-supports, and refutation is the step that changes the output most. Every other
-agent runs at the base.
+Haiku agents from the role table always run at max, whatever the answer. Do
+not ask about the model: the `## Models` lines, the role table in step 4 and
+`--fast` carry it.
 
 Carry the answers through as `<engine>`, `<scope>` and `<effort>`. `<engine>`
 changes only which pass(es) run in step 4 and the merge behaviour in step 5 when
 it is `Both`; `<scope>` only matters once step 1a finds a counterpart;
-`<effort>` sets every Agent call in steps 3-5 and the `--effort` of every Codex
-task, by the same table.
+`<effort>` is the base effort in the role table (step 4) and the `--effort` of
+every Codex task.
+
+With `--fast` and `<engine>` `Codex` alone, say in one line that `--fast` does
+not apply to Codex, then run the Codex review as usual.
 
 ## 0a. Platform and project rules
 
@@ -217,8 +239,11 @@ clone, then carry on as below.
 
 Work in `<base>/reviews`. Whether it exists is settled by
 `git -C <repo> worktree list`, not by guessing from the session's working
-directory or asking - an existing `reviews` worktree is reused as is, since
-step 2 checks out the MR head in it anyway. Create it only if that list lacks it:
+directory or asking - an existing `reviews` worktree is reused, since step 2
+checks out the MR head in it anyway. Before reusing it, run
+`git -C <base>/reviews status --porcelain`; when it lists anything, stop and
+ask the user, since edits and untracked files there would be reviewed and
+tested as part of the MR. Create it only if that list lacks it:
 
 ```bash
 git -C <repo> fetch origin <default branch>
@@ -229,6 +254,29 @@ If the rules carry machine notes for git (a sandbox that blocks one of these,
 say), run each command the way they say. Never work in the primary checkout - it
 usually holds uncommitted work on an unrelated branch, and a review must not
 disturb it.
+
+Note whether this run created the worktree. A created one goes into
+`worktrees_created` in `run.json` (step 2a) and is removed in step 8; a reused
+one is never removed. The same goes for the counterpart's worktree in full
+scope.
+
+### The run's temp dir and the status snapshots
+
+Every agent of this run works under one temp dir in the session scratchpad,
+so the sweep in step 8 is a single delete. Snapshot the git status of the
+primary checkout and the review worktree now, so step 8 can tell which
+untracked files the run left behind:
+
+```bash
+RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX) && echo "$RUN_TMP"
+git -C <repo> status --porcelain=v1 -z -uall > "$RUN_TMP/status-primary.before"
+git -C <base>/reviews status --porcelain=v1 -z -uall > "$RUN_TMP/status-review.before"
+```
+
+Note the printed path: it is `run_tmp` in `run.json` and the literal value
+of `$RUN_TMP` in every later command. Give that absolute path in every agent
+brief. A stopped run leaves a
+`review.XXXXXX` dir in the scratchpad, which `/base:cleanup` lists.
 
 ## 1a. Find the counterpart MR
 
@@ -258,7 +306,7 @@ From here on, "the counterpart" is that MR, `<cp_iid>` its iid and
 | ---- | --------------------------------------------------------------------- | ------------------------------------------------------- |
 | 2    | save its diff only                                                    | its own reviews worktree at its `head_sha`, as step 1-2 |
 | 3    | its threads, only to drop duplicates                                  | its threads, re-review validation included              |
-| 4    | one extra **Contract** lens in wave 1                                 | every lens and wave 2 cover both MRs                    |
+| 4    | one **contract agent** in wave 1                                      | its files sliced by the same rule, plus one contract agent |
 | 5-7  | contract findings only; those whose proof sits in its code post on it | every finding posts on the MR whose code it is about    |
 
 Save its diff either way:
@@ -300,42 +348,112 @@ worktree happens to contain:
 python3 $SCRIPT --project <id> --iid <iid> diff --out $SCRATCH/mr.diff
 ```
 
-### 2a. Size the review
+### 2a. Plan the slices
 
-Measure the diff before planning any agents, because the size decides how many
-agents step 4 spawns. Count changed lines (added plus
-removed) from the reviews worktree, leaving out lockfiles, locale files and
-generated files, which nobody reviews line by line. Add the rules' size
-excludes to the pathspecs:
+Measure the reading load before planning any agents, because it decides how
+many slice owners step 4 spawns. Reading load is the line count of the whole
+changed files at head, not the changed lines: a 5-line change in a 900-line
+file still needs the whole file read (brief step 1), so it counts 900. Leave
+out lockfiles, locale files and generated files, which nobody reviews line by
+line. The default pathspecs below cover lockfiles, minified files,
+`*.generated.*`, `dist/` and `build/` output, `locales/`, JSON under `i18n/`
+and `*.po` files at any depth, even when there are no rules; add the rules'
+size excludes after them:
 
 ```bash
-git -C <worktree> diff --numstat <base_sha> <head_sha> -- . \
-  ':(exclude)*.lock' ':(exclude)*-lock.*' ':(exclude)pnpm-lock.yaml' \
-  <the rules' size excludes> \
-  | awk '$1 != "-" { n += $1 + $2; f++ } END { print n+0, f+0 }'
+EXCL=(':(exclude)*.lock' ':(exclude)*-lock.*' ':(exclude)pnpm-lock.yaml'
+  ':(exclude)go.sum' ':(exclude)*.lockb' ':(exclude)npm-shrinkwrap.json'
+  ':(exclude)packages.lock.json'
+  ':(exclude)*.min.js' ':(exclude)*.min.css' ':(exclude)*.generated.*'
+  ':(exclude)*.po' ':(exclude,glob)**/dist/**' ':(exclude,glob)**/build/**'
+  ':(exclude,glob)**/locales/**' ':(exclude,glob)**/i18n/**/*.json'
+  <the rules' size excludes>)
+GD=(git -C <worktree> -c core.quotePath=false diff --name-only --no-renames <base_sha> <head_sha>)
+"${GD[@]}" > "$RUN_TMP/changed.txt"
+"${GD[@]}" -- . "${EXCL[@]}" > "$RUN_TMP/counted.txt"
+grep -vxFf "$RUN_TMP/counted.txt" "$RUN_TMP/changed.txt" > "$RUN_TMP/excluded.txt"
+while IFS= read -r f; do
+  printf '%s\t%s\n' "$(git -C <worktree> show "<head_sha>:$f" 2>/dev/null | wc -l)" "$f"
+done < "$RUN_TMP/counted.txt" > "$RUN_TMP/load.tsv"
+awk -F'\t' '{ n += $1 } END { print n+0, NR }' "$RUN_TMP/load.tsv"
 ```
 
-| tier | reviewed lines | what changes in step 4                                  |
-| ---- | -------------- | ------------------------------------------------------- |
-| S    | under 300      | lenses only                                             |
-| M    | 300-999        | lenses, plus file-slice owners in wave 1                |
-| L    | 1000-2499      | as M                                                    |
-| XL   | 2500 and over  | as L; say in step 7 that the MR is past a reliable size |
+The excludes apply to the line count only. `changed.txt` keeps every changed
+file, and no file in `excluded.txt` is silently dropped: give each one to the
+owner of the slice that changed its source (a lockfile to the slice with its
+manifest, a locale file to the slice with the component that uses the key),
+as a lightweight file that adds 0 lines of load and gets a "check it matches
+its source" read, not a line-by-line one. List any excluded file that no slice
+fits under "Not reviewed" in the step-7 summary.
 
-In the counterpart's full scope, size the two diffs together.
+A deleted file counts 0 (`git show` finds nothing at head). Also keep the old
+changed-line count as `reviewed_lines`, so this run compares with earlier
+ones:
 
-Start `$SCRATCH/run.json` now and keep it current for the whole run:
-`{mr, round, head_sha, base_sha, reviewed_lines, files, tier, effort, agents: []}`, one
-`agents` entry per spawn with `role`, `effort`, `files` and its report path. It
-is how a later run can tell whether these settings found more, so it is not
-optional.
+```bash
+git -C <worktree> diff --numstat <base_sha> <head_sha> -- . "${EXCL[@]}" \
+  | awk '$1 != "-" { n += $1 + $2 } END { print n+0 }'
+```
 
-Why this exists: across 182 earlier runs, a later round found 10% more on MRs
-under 300 lines and 22% more at 1000-2499, and the share of agents that left
-files unexamined went from 19% to 65%. Agents did about the same amount of work
-whatever the size, so on a big MR each one simply read less. Effort was never
-set, so nothing yet shows how much effort alone helps; the file-slice owners
-are the part the data supports.
+**Cut the slices.** Group the files by tool contract or component: a script
+with its tests and the doc section that describes it, a hook with its
+`hooks.json` entry, a component with its composable and spec. Then cut to a
+target of **about 400 lines of whole files per slice, hard limit about 700**.
+A file above the limit is its own slice; above about 1,500 lines it splits
+into ranges of about 700 lines, one slice each, and the slice block names
+the range. Write the plan to
+`$RUN_TMP/slices.json` as `[{slice, files: [{path, lines}], load}]`.
+
+There are no size tiers and no whole-MR lens agents: a small MR is one slice
+with one owner. In the counterpart's full scope, its changed files get slices
+of their own by the same rule.
+
+Why this size: benchmark run E (three component-sized Haiku slices of about
+1,000 lines, `~/.claude/model-bench/review-hooks-browser/RESULTS.md`) caught 9
+of 14 known bugs with 87% of requests over 100k tokens, while run D's seven
+small slices caught 13 of 14 for $0.39 per caught bug against $0.47. Wider
+slices grow each agent's context and miss more. On PR #238 one agent on a
+small scope found what eleven lens and slice agents missed.
+
+Start `$SCRATCH/run.json` now and keep it current for the whole run. It is how
+a later run can tell whether these settings found more, and the `usage`
+report reads it to price the run by role and slice, so it is not optional:
+
+```json
+{
+  "mr": "<url>", "round": 1, "head_sha": "<sha>", "base_sha": "<sha>",
+  "reviewed_lines": 812, "reading_load": 2905, "files": 23, "effort": "medium",
+  "fast": false, "engine": "claude",
+  "session_id": "<session id>",
+  "transcript_dir": "~/.claude/projects/<project dir>/<session id>/subagents",
+  "run_tmp": "<RUN_TMP>",
+  "worktrees_created": ["<base>/reviews"],
+  "agents": [
+    {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
+     "slice": "slice-2", "model": "haiku", "effort": "max",
+     "model_name": "Haiku 5.5", "model_source": "user",
+     "files": ["hooks/guard.sh", "hooks/hooks.json"],
+     "report": "$SCRATCH/wave1-slice-2.txt"}
+  ],
+  "findings": [
+    {"id": "slice-2-1", "draft_id": "H1", "source": "slice-2",
+     "duplicates": ["runit"], "survived": true}
+  ],
+  "checks": {"findings": [], "pre_existing": [], "not_run": [], "untrusted": []}
+}
+```
+
+`$SCRATCH` is `.../<project dir>/<session id>/scratchpad`, so the session id
+is the name of its parent dir and the project dir the one above that.
+`agent_id` is the id the Agent call returns (`agent-<agent_id>.jsonl` is its
+transcript). `role` is one of `slice-owner`, `contract`, `runit`, `gap`,
+`e2e`, `refuter` and `thread-validation`; a Codex task gets `"model": "codex"`.
+`model_name` and `model_source` come from "Agents, models and effort";
+`model_name` is left out when the table was used.
+For each finding that survives refutation, `source` is the agent that first
+reported it and `duplicates` every agent that repeated it. `run.json` holds no
+cost and no resolved model id: the `usage` skill reads both from each agent's
+transcript and is the only place that prices a review run.
 
 ## 3. Read the thread state before reviewing
 
@@ -378,7 +496,7 @@ Then judge what actually landed, and pick the action:
 | fix is real, thread already resolved, and our last note isn't a closing one | reply `✅ Verified` with `--resolve`             |
 | fix is real, thread already resolved, we already closed it                  | nothing                                          |
 | fix is real, thread still open                                              | reply `✅ Verified` with `--resolve`             |
-| the finding still stands, thread resolved                                   | unresolve, reply with what still stands          |
+| the finding still stands, thread resolved                                   | reply with what still stands, `--reopen`         |
 | the finding still stands, thread still open                                 | nothing, unless the reply asked us something     |
 | the code is gone or reverted, so the finding no longer applies              | reply `Does not apply anymore.` with `--resolve` |
 
@@ -407,21 +525,22 @@ have something to say.
 Run whichever engine(s) `<engine>` selected, from inside the reviews worktree
 checked out at `head_sha`.
 
-- **Codex** - the same two waves as below, lenses, slice owners, brief and gap
-  hunt included, with each agent run as a Codex task instead of an Agent call.
-  It needs the `openai-codex` Claude Code plugin; when its companion script is
-  missing, say so and offer the Claude engine instead:
+- **Codex** - the same two waves as below, slice owners, contract agent, brief
+  and gap hunt included, with each agent run as a Codex task instead of an
+  Agent call: one Codex task per slice, no lens tasks. It needs the
+  `openai-codex` Claude Code plugin; when its companion script is missing, say
+  so and offer the Claude engine instead:
 
   ```bash
-  CODEX=$(ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs \
+  CODEX=$(command ls -d ~/.claude/plugins/cache/openai-codex/codex/*/scripts/codex-companion.mjs \
     | sort -V | tail -1)
-  node "$CODEX" task --background --fresh --effort <role effort> "<brief + lens>"
+  node "$CODEX" task --background --fresh --effort <effort> "<brief + slice>"
   ```
 
   What differs from the Claude agents:
   - A task runs read-only without network: no platform CLI, `curl` or file
     writes. Its report comes back as its reply; collect it with
-    `node "$CODEX" result <job>` and save it to `$SCRATCH/wave<n>-<lens>.md`
+    `node "$CODEX" result <job>` and save it to `$SCRATCH/wave<n>-<slice>.txt`
     yourself. Tell it so in the brief, and that claims it cannot measure are
     derived.
   - The harness does not track the jobs. Watch them from the main session with a
@@ -430,6 +549,8 @@ checked out at `head_sha`.
     subagent, which is not woken when its loop ends.
   - Not the native `review` / `adversarial-review`: they take no effort and no
     brief, so they cannot be pointed away from what is already found.
+  - Haiku and `--fast` do not apply, and the run-it agent (step 4b) is skipped.
+    The checks (step 4a) and the conventions lookup still run.
 
 - **Both** - launch the Claude wave 1 and the Codex wave 1 at the same time, both
   in the background, so neither blocks the other; wave 2 then works the ground
@@ -439,40 +560,71 @@ checked out at `head_sha`.
   like any two agents disagreeing, against the code. When both flag the same
   issue, merge it into one comment.
 
-### Agents and effort
+### Agents, models and effort
 
-Every Agent call in this skill passes `effort` explicitly, from `<effort>`
-(step 0) and this table, and records it in `run.json`:
+Every Agent call in this skill passes `model` and `effort` explicitly and
+records both in `run.json`.
 
-| role                                        | effort         |
-| ------------------------------------------- | -------------- |
-| thread validation (step 3)                  | base           |
-| wave 1 lens agents                          | base           |
-| wave 1 file-slice owners (M and up)         | one above base |
-| wave 2 gap agents                           | base           |
-| refuters (step 5)                           | one above base |
-| end-to-end simulation (optional, L / XL)    | base           |
+Before spawning, read the `## Models` section of `~/.claude/CLAUDE.md`, then of
+the repo's `CLAUDE.md`; when both have a line, the repo's wins. These lines set
+a role's model and effort:
 
-- **Lenses stay one agent each**, reading the whole MR, at every size.
-- **File-slice owners (M and up).** Next to the lenses, spawn one agent per
-  slice of about 300-400 reviewed lines, grouping the changed files by directory
-  or feature. Each one reads its files whole, applies every lens to them, and
-  follows each change into the unchanged code that calls it. Name them
-  `slice-<n>`. This adds one agent per slice, not one per lens per slice: every
-  agent costs about 110k tokens of context before it reads anything.
-  On !121 the slice owners found what two rounds of lens agents had missed
-  across the whole MR, in the logic of the multi-step flows.
-- **End-to-end simulation (optional, L / XL).** Use it only when the MR changes
-  a multi-step flow that can be driven against a stub: a script or skill that
-  calls an API across rounds, a state machine. It is the most expensive agent
-  in the logs and found one survivor on !121, independently of a slice owner.
-- **Cap.** When the tier asks for more than about 12 agents in wave 1, say so
-  before spawning, with the count, and let the user pick: all of them, or fewer
-  and larger slices.
+- `- Review slices:` every role below except refuters and thread validation.
+- `- Review refuters:` refuters and thread validation.
+- `- Review with --fast:` the slice roles when `--fast` is given.
 
-Finding ids carry their source agent's prefix (`correctness-3`, `slice-2-1`, `e2e-1`)
-from the report through refutation into the draft files, so `run.json` can say
-which role produced each survivor.
+Map the model name to the Agent alias (Haiku `haiku`, Sonnet `sonnet`, Opus
+`opus`, Fable `fable`) and keep the full name (`Haiku 5.5`) in `run.json` as
+`model_name`. A role with no line uses this table and `<effort>` (step 0);
+"base" is `<effort>`. Record `model_source` per agent: `user`, `repo` or
+`table`.
+
+| role                                   | model, effort | with `--fast`  |
+| -------------------------------------- | ------------- | -------------- |
+| wave 1 slice owners                    | haiku, max    | opus, base     |
+| wave 1 contract agent (counterpart)    | haiku, max    | opus, base     |
+| wave 1 run-it agent (step 4b)          | haiku, max    | opus, base     |
+| wave 2 gap agents                      | haiku, max    | opus, base     |
+| end-to-end simulation (optional)       | haiku, max    | opus, base     |
+| refuters (step 5)                      | opus, base    | opus, base     |
+| thread validation (step 3)             | opus, base    | opus, base     |
+
+Why: on the hooks and browser benchmark, Haiku at max with the brief's "does
+NOT set" lens caught 13 of 14 known bugs for $5.08, where Opus at medium on
+component slices caught 6 for $6.38, and one Haiku agent found the push-gate
+bypass on PR #238 that eleven Opus agents missed. Refutation stays on Opus
+because its errors are the expensive kind: a wrong finding that survives lands
+on a colleague's MR. Refuters run at the base effort, not one above: high gave
+the same verdicts as medium for 59% more. `--fast` exists because Haiku runs
+are about 2.5x slower; it is faster, not better.
+
+### Who runs in wave 1
+
+- **Slice owners.** One agent per slice from step 2a, named `slice-<n>`. Each
+  reads its files whole, applies every lens below to them, and greps every
+  consumer of each changed export. There are no whole-MR lens agents at any
+  size: a small MR is one slice with one owner.
+- **Contract agent.** Only when step 1a found a counterpart: exactly one
+  agent, named `contract`, with both diffs and the Contract lens below. There
+  is no other cross-file agent: in benchmark runs B, D and E it added no bug
+  the slices missed, and in run B it was the most expensive agent. Seams
+  between slices are covered by each owner grepping every consumer.
+- **Run-it agent.** Step 4b says when.
+- **End-to-end simulation (optional).** Use it when the MR changes a
+  multi-step flow that can be driven against a stub, whatever the size: a
+  script or skill that calls an API across rounds, a state machine. It is the
+  most expensive agent in the logs and found one survivor on !121,
+  independently of a slice owner.
+
+**Batching.** Run at most `--max-parallel N` wave-1 and wave-2 agents at once,
+default 12, and start the next queued agent as one finishes. Do not ask about
+the count, and never merge slices to need fewer agents: a big MR takes longer
+instead. 12 is this skill's own limit, not a known Claude Code one; lower it
+on machines or plans that limit concurrent agents.
+
+Finding ids carry their source agent's prefix (`slice-2-1`, `contract-1`,
+`runit-1`, `e2e-1`, `check-1`) from the report through refutation into the
+draft files, so `run.json` can say which agent produced each survivor.
 
 ### Why two waves
 
@@ -485,8 +637,8 @@ caught, so you look elsewhere.
 
 ### Wave 1: breadth
 
-Pick the lenses from what the MR actually touches, not from a fixed list. Always
-include the first three:
+Every slice owner applies these lenses to its files, the first three always,
+the rest where the slice touches what they are about:
 
 - **Correctness** - the mechanism that misbehaves, with its trigger.
 - **Product behaviour** - what a user sees, and whether it matches what the MR
@@ -494,22 +646,26 @@ include the first three:
   reading the diff.
 - **Error paths and silent failures** - swallowed errors, fallbacks that hide a
   broken call, an empty state that means "failed" and reads as "none".
+- **What the code does NOT set** and **repo conventions** - standing sections
+  of the brief, applied to every slice.
 - **Tests** - only where the MR changes behaviour that could be covered.
-- **Accessibility and design system** - on frontend MRs touching markup,
+- **Accessibility and design system** - on frontend files touching markup,
   design-system components or CSS.
 - **i18n** - wherever locale files or user-visible strings change.
 - **Types and API contracts** - where signatures, schemas or generated types move.
   When none moved, skip it and say why.
 - **Comments** - only when the rules name a comments file and that file exists
   at the reviewed head: `git -C <worktree> cat-file -e <head_sha>:<path>`. When
-  the rules name none, or the file is missing at head, skip the lens and say
-  which of the two it was. Do not fall back to other repo conventions.
-- **Extra lenses the rules list** under a name not above, whenever the MR
-  touches their trigger paths. Where the rules describe a lens above (which
-  design system, which locale paths), that wording goes into that lens's
-  prompt; it neither widens the lens's trigger nor starts a second agent.
-- **Contract** - whenever step 1a found a counterpart. It gets both diffs and
-  reads where the two halves meet, shape and logic both:
+  the rules name none, or the file is missing at head, skip this lens and say
+  which of the two it was; the repo's instruction files (conventions entries
+  below) still apply.
+- **Extra lenses the rules list** under a name not above, in the brief of each
+  slice whose files match their trigger paths. Where the rules describe a lens
+  above (which design system, which locale paths), that wording goes into the
+  brief of each matching slice. Neither starts an agent.
+- **Contract** - the contract agent's lens, whenever step 1a found a
+  counterpart. It gets both diffs and reads where the two halves meet, shape
+  and logic both:
   - **Shape** - every field, type, nullability and enum value one side reads
     against what the other side serves; URLs and route names; feature-flag
     keys and their defaults; permissions; message and broadcast channel names.
@@ -526,35 +682,61 @@ include the first three:
     and off, still has to work, since the two MRs rarely ship in the same
     release.
 
-  In full scope the other lenses cover both MRs, but this one still runs.
+  In full scope the counterpart's files have slice owners of their own, but
+  the contract agent still runs once, across both MRs.
+
+**Repo conventions.** Before writing the briefs, look up the repo's own
+instruction files (`CLAUDE.md`, `AGENTS.md`, Copilot and Cursor rules,
+`CONTRIBUTING.md`, `.editorconfig`) once, for all changed paths, as they are
+at `base_sha`:
+
+```bash
+python3 $SKILL_DIR/scripts/find_conventions.py --repo <worktree> \
+  --ref <base_sha> --paths-file "$RUN_TMP/changed.txt" > "$RUN_TMP/conventions.json"
+```
+
+Put the entries for a slice's files into that slice's brief, under "Your
+slice". The owner checks the diff against them and cites `path:line` of the
+rule; no separate agent. An entry marked `changed` is an instruction file the
+MR itself edits: the owner reads its rules at `base_sha` and reviews its diff
+as code. `~/.claude/review-rules/<repo>.md` is read as before; the
+conventions come in addition to it.
 
 Give every agent the brief in `references/agent-brief.md` with the paths filled
-in, the counterpart section included whenever step 1a found one, then its own
-lens. The brief is what makes wave 2 possible: it obliges each
-agent to open every changed file whole, follow one edge out of each, and report
-a coverage ledger saying what it did not examine and why.
+in, `RUN_TMP` and the slice block included, the counterpart section included
+whenever step 1a found one, then its lenses. The brief is what makes wave 2
+possible: it obliges each agent to open every changed file whole, grep every
+consumer of each changed export, and report a coverage ledger saying what it
+did not examine and why.
 
 If the repo ships its own review material - the rules name where it lives -
-hand the relevant file to the matching lens. It is how that repo wants its MRs
-read, and it is more specific than anything an agent brings from general
-knowledge.
+hand the relevant file to the slice owners whose files it covers. It is how
+that repo wants its MRs read, and it is more specific than anything an agent
+brings from general knowledge.
 
-Each agent writes its report to `$SCRATCH/wave1-<lens>.md` and replies with the
-path. A long reply truncates in transit and the tail is lost silently.
+Each agent writes its report to `$SCRATCH/wave1-<slice>.txt` (`wave1-contract.txt`,
+`wave1-runit.txt`) and replies with the path. A long reply truncates in transit
+and the tail is lost silently. Some subagents are refused the report write by
+their Write tool and reply with the report text instead: when a reply is not a
+path, save it to that agent's report path yourself and go on, without asking
+the agent again.
 
 ### Wave 2: the gap hunt
 
 Merge the wave 1 ledgers into one list and work out what is still dark:
 
-- changed files nobody examined, or that only one lens touched
-- changed exports whose consumers nobody traced
+- changed files nobody examined
+- every file on a report's `Unfinished:` line: that agent could not finish
+  reading it, so wave 2 starts a fresh agent on exactly those files
+- changed exports whose consumers nobody grepped
 - the seams: where a changed file meets an unchanged one that assumes the old
   behaviour
-- anything a lens declared out of scope
+- anything an agent declared out of scope
 
-Spawn fresh agents for wave 2, one per area of dark ground, each with the brief,
-the merged findings list from wave 1 ("already found, don't repeat these") and
-its assigned ground.
+Skip wave 2 when there is one slice and its ledger leaves no dark ground: every
+file examined and no `Unfinished:` line. Otherwise spawn fresh agents for wave
+2, one per area of dark ground, each with the brief, the merged findings list
+from wave 1 ("already found, don't repeat these") and its assigned ground.
 
 Fresh rather than the wave 1 agents, which was tested head to head on one MR
 with both variants working the same five areas. Reusing the wave 1 agents is
@@ -566,7 +748,7 @@ on the same ground found it as a live defect. The fresh agents also caught that
 their headline finding was pre-existing, which the reused ones asserted the
 opposite of. That error is the expensive one, so fresh wins.
 
-Reports go to `$SCRATCH/wave2-<area>.md`, same rule about replying with the path.
+Reports go to `$SCRATCH/wave2-<area>.txt`, same rule about replying with the path.
 
 ### When an agent goes quiet
 
@@ -574,11 +756,99 @@ A subagent's plain text isn't visible to you. If an idle notification arrives
 with no report path, `SendMessage` them: their output isn't visible, reply to
 `main` with the path. Don't wait silently or assume they found nothing.
 
+## 4a. Deterministic checks (no LLM)
+
+Skip this step when the user passed `--no-checks`. Otherwise start it in the
+background from the main session at the same time as wave 1, so it costs no
+agent tokens. It runs the repo's own lint, typecheck, format-check and test
+commands on the changed files in the review worktree:
+
+```bash
+python3 $SKILL_DIR/scripts/run_checks.py detect --repo <worktree> \
+  --base <base_sha> --head <head_sha> --paths-file "$RUN_TMP/changed.txt" \
+  > "$RUN_TMP/checks-plan.json"
+python3 $SKILL_DIR/scripts/run_checks.py run --plan "$RUN_TMP/checks-plan.json" \
+  --repo <worktree> --tmp "$RUN_TMP/checks" > "$RUN_TMP/checks.json"
+```
+
+- `detect` reads manifests and config as they are at `base_sha`, so the MR
+  cannot change which commands are chosen. The chosen commands still run head
+  code with the head's config, so pass or fail follows the head's lint, type
+  and test config. It covers `package.json` scripts (`lint`,
+  `typecheck`, `type-check`, `check`, `format:check`, `test`, `test:unit`) run
+  with the package manager the lockfile names (pnpm when there is none),
+  `eslint`, `prettier --check`, `ruff`, `mypy`, `pytest`, `go vet`, `go test`,
+  `cargo check`, `cargo test` and `shellcheck`. `pytest` is planned only when
+  a pytest config exists (`[tool.pytest` in `pyproject.toml`, `pytest.ini`
+  or `[tool:pytest` in `setup.cfg`), and a project `.venv` tool is used
+  before one on `PATH`. A manifest that is new in the
+  MR is listed under `untrusted` and never run. A script runs by name, so the
+  package manager reads its body at head: when its body, or the body of a
+  script it runs by name, differs between base and head, it is listed under
+  `untrusted` with "script body changed in this MR" and never run. A script
+  with a fix flag runs in a check-only form or is skipped with the reason.
+- `run` stops a command at 120 s and the step at 300 s, never passes a fix
+  flag and never installs anything. A command whose dependencies are missing
+  is skipped with "dependencies not installed", and a timeout is "not run",
+  never a failure.
+- The rules' machine notes apply as they do for git and the platform CLI:
+  `--wrap "<prefix>"` runs every command through the prefix they name, and
+  `--skip-deps-check` runs a command whose dependencies live somewhere the
+  notes describe.
+- A failing command is re-run at `base_sha` in a throwaway worktree under
+  `$RUN_TMP/checks` (removed afterwards), on the same files. Only messages
+  that are not also there become findings. A failing test is re-run once at
+  head first, to rule out a flaky one. Head runs leave a quarter of the 300 s
+  for base re-runs. When a base re-run times out or errors, or the base
+  worktree cannot be made (`error` in the output), the command goes under
+  `not_run` as "base run failed" with the reason and makes no finding. The
+  base re-run uses the head's `node_modules` and `.venv`; the result's
+  `base.deps` says `"head"` when it did, so a failure caused by a dependency
+  bump in the MR can show as pre-existing. A head command that cannot start
+  is "not run: could not start".
+- `checks.json` holds `results`, `findings`, `pre_existing`, `not_run`,
+  `base_worktree`, `base_worktree_removed` and `network`.
+
+When nothing is detected, say so in one line and go on. Each entry of
+`findings` is a finding with its `check-<n>` id and the command that produced
+it. Its default severity is medium for a failing test or type error and low for
+a lint or format failure (the lows thread); regrade by consequence in step 6, so
+a failing test that shows a user-visible break may go higher. Check findings
+were measured by a tool, so they skip refutation. Record `pre_existing`,
+`not_run` and `untrusted` under `checks` in `run.json`; they are not posted.
+
+## 4b. Run it
+
+One run-it agent, in wave 1, on the wave-1 model (step 4), runs the
+changed code in a throwaway sandbox and compares what it does with what the
+docs promise. Reading did not find what running found on PR #238; one agent
+doing it once is cheaper than every slice setting up a sandbox.
+
+**Trigger.** Spawn it when the diff adds or changes runnable code beyond
+comments and whitespace. Runnable code means:
+
+- executable or shebang files
+- scripts under `scripts/`, `bin/` or `hooks/`
+- entries in `hooks.json` or a `package.json` `bin` or `scripts`
+- skills that ship scripts
+
+**Skip it** for documentation-only and frontend-only MRs (refuters cover the
+browser), when fewer than about 30 runnable lines changed and no runnable file
+was added (slice owners read that), under the Codex engine alone, and when
+the user passed `--no-checks`, saying why in one line.
+
+Give it the "Where you are" part of `references/agent-brief.md` with
+`RUN_TMP`, then `references/run-it-brief.md` with the list of runnable things
+filled in. Its report is `$SCRATCH/wave1-runit.txt`, with a "promises versus
+behaviour" table. Each mismatch is a measured finding (`runit-<n>`), and it
+still goes through refutation, since a stub can mislead.
+
 ## 5. Refute, then verify
 
 This step changes the output more than wave 2 does, so do not economise on it.
 
-Everything goes through this step, whichever engine produced it. A Codex finding
+Everything goes through this step, whichever engine produced it, except the
+check findings from step 4a. A Codex finding
 is no less likely than a Claude one to be a mechanism reasoned out of source
 without ever being measured, and the engine someone picked should not decide
 whether a claim is checked before it lands on a colleague's MR.
@@ -591,7 +861,23 @@ that owns those rules is the counterpart: its reviews worktree in full scope,
 the files API in contract scope.
 For each claim it states what would have to be true for the claim to be wrong,
 then goes and checks that. A claim it cannot break comes back with the evidence
-that survived.
+that survived. Refuters run on the refuter model and effort from step 4.
+
+Refuters get three more things:
+
+- **A sample of what was cleared.** Up to 3 entries from each slice report's
+  "checked and found sound" list, picked by you, claims that something is
+  refused, blocked or safe first. In benchmark run F two agents listed a real
+  bug there, and refuters that only get findings never see it. A sound claim
+  the refuter breaks becomes a finding and goes through grading.
+- **Derived claims to run.** A finding marked "settle by running X" is run by
+  the refuter in the same kind of throwaway sandbox as the run-it agent
+  (`references/run-it-brief.md`: `env -i`, a temp `HOME` under `RUN_TMP`,
+  stubs first on `PATH`, fake credentials).
+- **The `RUN_TMP` path**, with the same temp-folder and `Leftovers:` rules as
+  every other agent.
+
+Check findings from step 4a skip this step: a tool measured them.
 
 **Choosing the browser skill.** Use the skill the rules name. Without one,
 look in your list of available skills for one named `browser`, either bare or
@@ -658,6 +944,12 @@ genuine finding to keep the list short is worse. Grade by the consequence in the
 product, and grade after refutation rather than before - a finding often moves a
 step once somebody has measured it. The rules' product-consequence examples
 show what that means for this product.
+
+**Flag every finding a refuter lowered from high.** Both refuters in the
+benchmark's refuter test lowered a real high to medium. Re-check each flagged
+finding yourself against the code at head before you set its final grade, and
+list the flagged ones in the step 7 summary with the grade the refuter gave and
+the one you set.
 
 Keep every comment to roughly **two short paragraphs, ~600 characters**. A
 reviewer scans comments between other work; an essay gets skipped, so the long
@@ -810,6 +1102,11 @@ Writing the summaries:
 Write each summary from the mechanism and its consequence in the product,
 rephrased for a reader outside the code - not pasted out of the draft comment,
 which is written for a colleague with the diff already open.
+
+Below the entries, before the question, add a **Lowered by refutation** line
+when step 6 flagged any: each id with the refuter's grade and your final grade
+(`M3: high, lowered to medium by the refuter, medium after re-check`). Leave it out when
+none was flagged.
 
 ```markdown
 **4 findings and 1 thread action on !512**
@@ -1017,5 +1314,103 @@ A finding about the seam itself goes on the MR whose code has to change, and
 where either side could, on the one this run was started for, naming the other
 MR's line in the body.
 
-Finish by confirming what landed: one line per thread - posted, reopened,
-resolved, verified - and name anything you deliberately left unposted.
+Then run step 8. Finish by confirming what landed: one line per thread -
+posted, reopened, resolved, verified - and name anything you deliberately left
+unposted. The final line says which worktrees were removed and which stayed.
+
+## 8. Clean up
+
+Run this once the drafts are submitted, and also when the user stopped the
+run or it failed after step 1.
+
+**Sweep.** Touch only the run's own paths. Every command below uses the
+literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
+variable set in an earlier call, which is empty by now. Each command starts
+with a guard that refuses to run when its path is empty, so an empty value
+can never widen what it matches or deletes:
+
+1. Read the `Leftovers:` line of every report. Note each path it names.
+2. Stop any process still running with the run temp dir in its command line,
+   such as a browser an agent started. Never run `pgrep` or `pkill` with an
+   empty pattern: it matches every process.
+
+   ```bash
+   RT='<run_tmp from run.json>'
+   [ -n "$RT" ] && [ -d "$RT" ] || exit 1
+   for pid in $(pgrep -f -- "$RT"); do
+     [ "$pid" = "$$" ] || [ "$pid" = "$PPID" ] || kill "$pid"
+   done
+   ```
+
+3. Compare the status snapshots from step 1, for the primary checkout and the
+   review worktree, and list the untracked entries that are new. The list is
+   NUL-separated, so a name with a colour code or a newline in it is safe:
+
+   ```bash
+   RT='<run_tmp from run.json>'
+   [ -n "$RT" ] && [ -d "$RT" ] || exit 1
+   git -C <repo> status --porcelain=v1 -z -uall > "$RT/status-primary.after"
+   python3 - "$RT/status-primary.before" "$RT/status-primary.after" \
+     > '<scratchpad>/new-primary.json' <<'EOF'
+   import json, sys
+   def untracked(path):
+       raw = open(path, "rb").read().decode("utf-8", "surrogateescape")
+       return {e[3:] for e in raw.split("\0") if e.startswith("?? ")}
+   new = sorted(untracked(sys.argv[2]) - untracked(sys.argv[1]))
+   print(json.dumps(new))
+   EOF
+   ```
+
+   Do the same for the review worktree (`status-review.*`, `new-review.json`)
+   when it stays. When either list is not empty, ask once with
+   **AskUserQuestion** which entries to delete, every entry unticked by
+   default (nothing is deleted unless the user picks it), shown with `repr()`
+   so odd characters are visible, and primary-checkout entries labelled "may
+   be yours", since the user may have made a file there during the review.
+   Delete only the picked ones, by their index in the list, and report the
+   rest:
+
+   ```bash
+   python3 - '<scratchpad>/new-primary.json' <repo> <picked indexes> <<'EOF'
+   import json, os, shutil, sys
+   entries, root = json.load(open(sys.argv[1])), sys.argv[2]
+   for i in sys.argv[3:]:
+       path = os.path.join(root, entries[int(i)])
+       if os.path.isdir(path) and not os.path.islink(path):
+           shutil.rmtree(path)
+       else:
+           os.remove(path)
+       print("deleted", repr(entries[int(i)]))
+   EOF
+   ```
+
+   Never delete anything else outside `RUN_TMP` and the review worktree.
+4. Remove the throwaway base worktree of step 4a if it is still listed
+   (`git -C <repo> worktree list`). Take its path only from `base_worktree` in
+   `checks.json`, never by eye from the list, and only when its real path is
+   under `<run_tmp>/checks/`: `git -C <repo> worktree remove --force <path>`,
+   then `git -C <repo> worktree prune`.
+5. Delete `RUN_TMP` after checking that its real path is inside `$SCRATCH`:
+
+   ```bash
+   RT='<run_tmp from run.json>'; SP='<scratchpad>'
+   [ -n "$RT" ] && [ -n "$SP" ] && [ -d "$RT" ] || exit 1
+   real=$(realpath -- "$RT"); scratch=$(realpath -- "$SP")
+   if [[ "$real" == "$scratch"/review.* ]]; then rm -r -- "$real"
+   else echo "not deleting $real: it is not inside $scratch"; fi
+   ```
+
+   It parses under both bash and zsh, the Bash tool's shell on some hosts.
+
+   A leftover path an agent named outside `RUN_TMP` is reported to the user,
+   not deleted.
+6. Remove each review worktree in `worktrees_created` (the counterpart's
+   included) through its own path, `git -C <path> worktree remove <path>`, so
+   the counterpart's worktree is removed from its own repo, unless the user
+   passed `--keep-worktrees`. Never remove a worktree that existed before the
+   run. When `remove` refuses because the worktree has changes, leave it and
+   say so.
+
+The final line names what was removed and what stayed: "Removed
+`<base>/reviews` and the run temp dir; kept `<cp base>/reviews` (existed
+before the run)."

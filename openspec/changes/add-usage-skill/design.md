@@ -23,7 +23,7 @@ See proposal.md for why. Facts checked against local transcripts (Claude Code 2.
 
 **Goals:**
 
-- One scanner and one price module that every mode and `review-mr`'s `run_cost.py` share.
+- One scanner and one price module that every mode shares. No other skill prices requests.
 - A report that runs in seconds on a few thousand transcript files.
 
 **Non-Goals:**
@@ -48,9 +48,9 @@ plugins/base/skills/usage/
   tests/                unittest + synthetic fixtures
 ```
 
-`prices.py` is the single copy of the price logic. `scan.py` imports it and exports `summarize_agent(path)`: dedupe, token classes, prompt sizes and cost for one agent file. `review-mr/scripts/run_cost.py` calls `summarize_agent` and imports both modules by path (`${CLAUDE_PLUGIN_ROOT}/skills/usage/scripts`, or `../../usage/scripts` relative to its own file). The later `models` mode reuses `scan.py` and `prices.py` and adds its own script.
+`prices.py` is the single copy of the price logic. `scan.py` imports it and exports `summarize_agent(path)`: dedupe, token classes, prompt sizes and cost for one agent file. `report.py` uses `summarize_agent` for agents it prices from a `review-mr` `run.json` (decision 5a), so those numbers match the scan. The later `models` mode reuses `scan.py` and `prices.py` and adds its own script.
 
-Rejected: one big script (the models mode and `run_cost.py` would import the report code too), a separate plugin (the user chose `base`).
+Rejected: one big script (the models mode would import the report code too), pricing inside `review-mr` (two places to keep in step; `move-review-cost-to-usage` removed it), a separate plugin (the user chose `base`).
 
 ### 2. On-demand scan, no stored state
 
@@ -77,7 +77,15 @@ Rejected: whole session as one run (a session often runs several skills).
 
 ### 5. Per-agent details
 
-Role is `agentType` plus `description` from the meta file. Model is the most frequent `message.model` in the agent file (the actual model, not the alias). Effort is the most frequent `effort` value. Largest prompt and requests over 100k use the prompt rule below. `Unfinished:` lines are counted in the agent's last assistant text. The convention comes from `improve-review-mr`'s agent brief, which lands after this change, so it applies to `review-mr` only. For a skill whose agents never used it, the count is reported as n/a, not 0. The meta field `finished` is reported as a second signal when present. Duration is last minus first timestamp. Files left unread are not counted by the script: the model finds them in the deep read from the agent's ledger or reply.
+Role is `agentType` plus `description` from the meta file. Model is the most frequent `message.model` in the agent file (the actual model, not the alias). Effort is the most frequent `effort` value. Largest prompt and requests over 100k use the prompt rule below. `Unfinished:` lines are counted in the agent's last assistant text. The convention comes from `review-mr`'s agent brief, so it applies to `review-mr` only. For a skill whose agents never used it, the count is reported as n/a, not 0. The meta field `finished` is reported as a second signal when present. Duration is last minus first timestamp. Files left unread are not counted by the script: the model finds them in the deep read from the agent's ledger or reply.
+
+### 5a. Review runs from run.json
+
+`review-mr` writes `$SCRATCH/run.json`, where `$SCRATCH` is `~/.claude/projects/<project dir>/<session id>/scratchpad`. For each scanned session `report.py` reads that file when present and valid. It matches each entry of `agents` to a scanned agent by `agent_id` (`agent-<agent_id>.jsonl`) and uses its `role` and `slice` as the agent's label, keeping the requested `model` and `effort` next to the actual model from the transcript. A finding with `survived: true` counts as unique for the agent its `source` names (a slice name or a role) and as repeated for each entry in `duplicates`. Per role the report shows cost and unique surviving findings. A Codex agent (`"model": "codex"`) has no transcript and shows no cost. Without a `run.json`, or for agents it does not list, labels fall back to the meta file (decision 5).
+
+A session holds one `run.json`, the latest review run's; agents from an earlier run in the same session keep meta-file labels. The scratchpad can be swept before the transcripts are, so older runs may have no `run.json`.
+
+Rejected: `review-mr` pricing its own agents (two places that price), `review-mr` writing cost into `run.json` (stale once prices change).
 
 ### 6. Prices and tier
 

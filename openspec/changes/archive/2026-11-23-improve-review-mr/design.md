@@ -13,8 +13,13 @@ Evidence, all from `~/.claude/model-bench/` (one run per arm, no repeats; treat 
 | D | Haiku 5.5 max, 7 small slices + narrow cross-file + "does NOT set" lens | 13 / 13.5 | $5.08 | 71% |
 | E | Haiku 5.5 max, 3 component slices + lens, no cross-file | 9 / 9.5 | $4.25 | 87% |
 | F | Opus 5.5 medium, same slices and prompts as E | 9 / 9.5 | $6.99 | not applicable |
+| G | Haiku 5.5 max, first new brief (soft budget), D's 7 slices + run-it, Opus medium refuter | 10 / 11 | $5.55, $9.82 with refuter | not recorded here |
+| H | Opus 5.5 medium, D's exact prompts and 7 slices, no cross-file, no refuter | 10 / 11 | $10.37 | not applicable |
+| I | Haiku 5.5 max, new brief with D's lens and context wording restored, 7 slices + run-it, Opus medium refuter | 12 / 13 | $7.89, $11.59 with refuter | not recorded here |
 | #238 | one Haiku max agent | found the push-gate bypass | about $0.50 | not measured |
 | #238 | full review-mr, 11 Opus agents | missed it | $21.68 | not applicable |
+
+Runs G, H and I are the rerun of this change (`RESULTS.md`, section "Runs G, H and I"). Every run caught all 4 highs. The Haiku 7-slice runs D, G and I average 11.7 of 14 (range 10 to 13). Opus on run D's prompts (H) caught fewer for about twice the price, so `--fast` buys time, not recall. Refuters cost $3.70 to $4.27 per run.
 
 The #238 single-agent runs (Haiku max, Opus medium, Sonnet high) all ran the hook with test input. Only the Haiku run reported the multi-line and heredoc bypass of the push gate.
 
@@ -47,7 +52,7 @@ Why: run D beat run B by 7 key bugs at 80% of its cost, and the one Haiku agent 
 
 Engine question: **kept, not replaced, and its default stays `Claude (Recommended)`**. It chooses a vendor (Claude, Codex or both), which the model default does not touch. What changes is the label: "Claude" now means Haiku slice owners at max with Opus refuters. A per-run model question was rejected: the user decided the default, reviews rarely need speed, and a fourth question delays the first tool call. The model is carried by the role table and the `--fast` flag.
 
-Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.md`) and have no lens tasks.
+Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.txt`) and have no lens tasks.
 
 Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through the models mode, `add-usage-models-mode`); Haiku for refuters (refutation errors are the expensive kind).
 
@@ -55,7 +60,7 @@ Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not
 
 `--fast` puts every wave-1 and wave-2 agent on Opus at the base effort (`medium` by default) instead of Haiku max. Slice sizes and the brief do not change. It is for the cases where the user waits on the review: measured from transcript timestamps, the slowest agent (the run's wall time) took 8.9 min in run B (Opus medium, 4 agents), 23.1 min in run C (Haiku max, 4 agents) and 23.7 min in run D (Haiku max, 8 agents), so Haiku runs are about 2.5x slower and smaller slices do not shorten them. The rerun records durations too. Refuters and validation are unaffected. With the Codex engine the flag has no effect and the skill says so in one line.
 
-Run F measured Opus medium with the lens on 3 component slices: 9 of 14 key bugs (same count as Haiku run E, different misses), $6.99, slowest agent 9.2 min against 32.9 for E, $0.78 per caught bug against run D's $0.39. So `--fast` is faster, not better. Not measured yet: Opus on run D's 7 small slices; the rerun's `--fast` arm uses them.
+Run F measured Opus medium with the lens on 3 component slices: 9 of 14 key bugs (same count as Haiku run E, different misses), $6.99, slowest agent 9.2 min against 32.9 for E, $0.78 per caught bug against run D's $0.39. So `--fast` is faster, not better. Run H then put Opus medium on run D's exact prompts and 7 slices: 10 of 14, all 4 highs, $10.37, slowest agent 14.6 min against 26.9 for Haiku run I (12 of 14). The flag stays for when the user waits on the review; it buys time, not recall.
 
 ### 3. Slicing: small contract-sized slices (decided by run E)
 
@@ -93,7 +98,7 @@ Evidence on the cross-file agent (narrow scope in run D, broader in B and C):
 - Run D: $0.82 (16% of the run), no unique key bug, three duplicates (S2, S4, S5); its one unique extra was a medium non-key finding (DX4, a doc tells Claude to re-register a server and drops `--secrets`).
 - Run E: no cross-file agent by design.
 
-Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B, D or E, and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo. With full counterpart scope, the counterpart's changed files are cut into slices of their own by the same rule, and the contract agent still runs once.
+Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B or D (run E had none), and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo. With full counterpart scope, the counterpart's changed files are cut into slices of their own by the same rule, and the contract agent still runs once.
 
 Seams between slices: the owner of a slice that changes an export greps every consumer of it, not only one. Today's brief asks for one traced consumer per export; the new brief widens that.
 
@@ -101,30 +106,25 @@ Drop test for the remaining agents: `run.json` records which agent produced each
 
 ### 5. The "does NOT set" lens becomes standing brief text
 
-`references/agent-brief.md` gets the run-D addendum as a standing section, applied to every file in the slice:
-
-- For every external tool the code runs or configures, list the options it passes, then ask which important ones it does not pass and what the tool's default is: security (sandboxing, permissions), output locations (logs, caches, snapshots written into the caller's repo), network and proxy, auto-install and download, behaviour on error, what is persisted where.
-- Verify a claim about what a tool can or cannot do against the tool's own source or docs (its `--help`, local `node_modules`, web docs), never against this repo's docs. Never install the tool to check.
-- Look for swallowed errors (`|| true`, `2>/dev/null`, empty fallbacks) that turn a failure into "nothing there", and for checks that wrongly block legitimate input, not only for what slips through.
-- Report an unsafe or surprising inherited default as a finding with the default cited.
+`references/agent-brief.md` gets the run-D addendum's "Extra lens" section and its swallowed-errors and false-blocks paragraph as a standing section, applied to every file in the slice. The wording is run D's, verbatim, except that the list of this snapshot's tools becomes "every external tool this code runs or configures". The brief has no other wording of this lens.
 
 Run D evidence: this lens found the Chromium sandbox off (S6) and the `.playwright-cli` output dir (S7), which B and C missed, and sent s7 to the CLI source where it found the secrets-file route (S1). It is general on purpose: the addendum named Playwright, git and npm; the brief names classes of settings and gives those as examples.
 
 ### 6. Context and cost measures in the brief
 
-Cost is requests times context, and each Haiku request over 100k pays 5x on every token class. Every Haiku agent in run C and D crossed the line. Slice size alone did not prevent it (max prompt 161k to 309k in D), so the brief adds tool-output rules:
+Cost is requests times context, and each Haiku request over 100k pays 5x on every token class. Every Haiku agent in run C and D crossed the line. The first new brief added tool-output rules (counts first, `head`/`tail` about 40 lines, long output to a file, a soft budget of about 40 tool calls or 150 KB after which the agent stopped and listed the rest as `Unfinished:`).
 
-- Counts before content: `wc -l`, `grep -c`, `ls | wc -l` first; open a file whole only when the slice's own files need it (the brief already requires that for changed files), and read anything else by `grep -n` and `sed -n 'a,bp'`.
-- Every command pipes through `head` or `tail` (about 40 lines). Never `cat` a file over about 200 lines that is not in the slice.
-- A command whose output may be long writes to a file in the agent's temp folder; the agent then `grep`s or `head`s that file. Test and stub runs follow this: `cmd > out.txt 2>&1; tail -20 out.txt`.
-- Several independent commands go in one Bash call. Fewer round trips means fewer requests, each paying for the full context.
-- Never re-read a file already read; note line numbers in the report as you go.
-- Append each finding to the report file when found, not at the end, so an early stop loses nothing.
-- Soft budget: after about 40 tool calls, or about 150 KB of tool output read, stop opening new ground, finish the ledger with every unopened file marked `not examined`, put an `Unfinished:` line at the top of the report and reply with the path.
+Run G, the first rerun with that brief, caught 10 of 14 key bugs; run D caught 13. The drop traces to the brief: the 40-call budget cut slice 4 short (S3 missed) and a "sound" claim tested on one path hid H3. This change restores run D's lens and context wording and tightens the rest; run I, with that brief, caught 12 of 14 and recovered both:
 
-The main session treats `Unfinished:` like any dark ground: wave 2 starts a fresh agent on exactly those files. That is the "split a slice that nears the limit" mechanism, and it reuses wave 2. The numbers (40, 150 KB) are first guesses: an agent cannot read its own token count, and in run D slice s1 crossed 100k at about its sixth request, so the base prompt may be large. The rerun records the first-request prompt size and the request index at which each agent crosses 100k; the budget is recalibrated from that. Target for the rerun: under 50% of requests over 100k, down from 71%.
+- The "Keep your context small" section is run D's text, verbatim: own a small slice, read the slice's files whole, read other files only by `grep -n` or `sed -n` ranges, do not re-read a file, keep tool output short.
+- No soft budget. An agent stops only when every file in its slice is examined. A file it still could not read (a tool failed, a guard blocked it) goes on the `Unfinished:` line, and wave 2 starts a fresh agent on exactly those files.
+- A claim goes on the "checked and found sound" list only when it was tested or read against every rule or code path it covers; a claim tested on one path names that path.
+- Reports are `.txt` files (`wave<n>-<slice>.txt`), and the brief says writing that one file is required and allowed, so a read-only agent does not skip it. Some subagents are still refused the write by their Write tool (seen in G and I) and reply with the report text; the main session then saves that reply as the agent's report and does not ask the agent again.
+- All scratch work, downloaded docs and packages included, goes in the agent's one temp folder, and the folder is deleted by its literal path, not through a shell variable, so a permission allow rule can match the command.
 
-Rejected: forbidding stub runs in slices (they measure real behaviour; they move to the run-it agent instead, see 8); a hard token cap (cannot be enforced from outside a running agent).
+The rerun still records the share of requests over 100k; cost is weighed against recall, and recall comes first.
+
+Rejected: forbidding stub runs in slices (they measure real behaviour; they move to the run-it agent instead, see 8); a hard token cap (cannot be enforced from outside a running agent); a soft budget (run G).
 
 ### 7. Deterministic checks (no LLM)
 
@@ -149,7 +149,7 @@ Decision: one separate run-it agent, not a duty in every slice brief.
 
 Trigger: the diff adds or changes runnable code beyond comments and whitespace: executable or shebang files, scripts under `scripts/`, `bin/` or `hooks/`, entries referenced from `hooks.json` or a `package.json` `bin`/`scripts`, and skills that ship scripts. Skipped for documentation-only and frontend-only MRs (refuters cover the browser) and when fewer than about 30 runnable lines changed and no runnable file was added, since slice owners can read that. Cost per Haiku agent in run D was $0.30 to $1.12, so it is worth it when behaviour is what the docs promise.
 
-Environment: a throwaway root under the run's temp dir with `HOME`, `XDG_*`, `TMPDIR` and the browser profile pointing into it; `env -i` plus a short `PATH` so the real environment does not leak; fake credentials with obviously fake values; stub `git`, `gh`, `glab`, `curl`, `npx` and similar first on `PATH` that log their arguments and return canned output; no real push, token, network call or installed package. It writes a "promises versus behaviour" table: each claim from the docs, `--help` and the MR description about the runnable thing, the command run, what happened, match or mismatch. Its findings are measured and go through refutation like the rest, since a stub can mislead. Slices still mark derived claims "settle by running X"; refuters run those in the same kind of sandbox.
+Environment: a throwaway root under the run's temp dir with `HOME`, `XDG_*`, `TMPDIR` and the browser profile pointing into it; `env -i` plus a short `PATH` so the real environment does not leak; fake credentials with obviously fake values; stub `git`, `gh`, `glab`, `curl`, `npx` and similar first on `PATH` that log their arguments and return canned output; no real push, token, network call or installed package. The code under test runs with the network cut off, `unshare -rn <command>`, so a tool the stubs missed fails instead of reaching a server; where `unshare` is not available, the agent builds a `PATH` without `/usr/bin` and `/bin` that links in only plain tools and no network tools (`gh`, `glab`, `curl`, `wget`, `git`, `npm`, `npx`). Added after a run-it test in the rerun reached the network by mistake (no credential was involved). It writes a "promises versus behaviour" table: each claim from the docs, `--help` and the MR description about the runnable thing, the command run, what happened, match or mismatch. Its findings are measured and go through refutation like the rest, since a stub can mislead. Slices still mark derived claims "settle by running X"; refuters run those in the same kind of sandbox.
 
 Under the Codex engine (read-only, no writes) the agent is skipped with a note.
 
@@ -161,7 +161,7 @@ Violations are graded by consequence like any finding; a rule the file itself ca
 
 ### 10. Real cost per agent in `run.json`
 
-New `scripts/run_cost.py`, run by the main session at the end. For each agent entry in `run.json` (which now stores `agent_id`, `model`, `effort`, `role`, `slice`) it calls `summarize_agent(path)` from the `usage` skill's scanner (`plugins/base/skills/usage/scripts/scan.py`) on that agent's transcript and writes `cost: {requests, tokens by class, requests_over_100k, max_prompt, first_prompt, duration_s, usd, price_table_version}` back. `summarize_agent` does the dedupe by `message.id`, the token classes, the prompt sizes and the per-request price on its tier, using the seed `prices.json` with the user override in `~/.claude/usage/prices.json` merged over it. `run_cost.py` has no dedupe, token parsing or price table of its own, so its numbers match the `usage` report. When the scanner cannot be imported, each `cost` is null with the reason "usage scanner not found". `run.json` also gets a total, so a later run can compare cost against findings per role.
+New `scripts/run_cost.py`, run by the main session at the end. For each agent entry in `run.json` (which now stores `agent_id`, `model`, `effort`, `role`, `slice`) it calls `summarize_agent(path)` from the `usage` skill's scanner (`plugins/base/skills/usage/scripts/scan.py`) on that agent's transcript and writes `cost: {requests, tokens by class, requests_over_100k, max_prompt, duration_s, usd, price_table_version}` back. `summarize_agent` does the dedupe by `message.id`, the token classes, the prompt sizes and the per-request price on its tier, using the seed `prices.json` with the user override in `~/.claude/usage/prices.json` merged over it. `run_cost.py` has no dedupe, token parsing or price table of its own, so its numbers match the `usage` report. When the scanner cannot be imported, each `cost` is null with the reason "usage scanner not found". `run.json` also gets a total, so a later run can compare cost against findings per role.
 
 Transcript path: `run.json` records the session id and the transcript dir (`~/.claude/projects/<project-dir>/<session-id>/subagents/`), and the script opens `agent-<agent_id>.jsonl` there. It also writes the resolved `message.model` per agent. Codex agents have no Claude transcript, so their `cost` is null with a reason.
 
@@ -174,9 +174,9 @@ Alternative: run the `usage` scanner over the whole session. Rejected: it report
 ### 11. Cleanup
 
 - At the start the main session creates the run's temp dir, `RUN_TMP`, with `RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX)`, and records the `git status --porcelain=v1 -z` of the primary checkout and the review worktree.
-- Every agent brief carries `RUN_TMP`. The agent makes its folder with `mktemp -d -p "$RUN_TMP" <agent>.XXXXXX`, sets `TMPDIR` and `HOME` for anything it runs to point inside it, uses absolute paths only (never a path typed from `ls` output, which can carry colour codes; use `command ls`), deletes the folder before replying and ends its report with `Leftovers: none` or each leftover path and why.
+- Every agent brief carries `RUN_TMP`. The agent makes one folder with `mktemp -d -p "$RUN_TMP" <agent>.XXXXXX` and keeps all its scratch work there, downloads included, sets `TMPDIR` and `HOME` for anything it runs to point inside it, uses absolute paths only (never a path typed from `ls` output, which can carry colour codes; use `command ls`), deletes the folder by its literal path before replying and ends its report with `Leftovers: none` or each leftover path and why.
 - At the end the main session: checks each report's `Leftovers` line; stops any process whose command line contains `RUN_TMP`; deletes `RUN_TMP` after confirming its real path is inside `$SCRATCH`; compares the two `git status` snapshots and lists untracked entries that are new (using the NUL-separated list, so odd names are safe), asks once with AskUserQuestion which to delete (all ticked by default, so a file the user made during the review can be kept), deletes only the ticked ones and reports the rest; removes the throwaway base worktree from the checks step.
-- Review worktrees the run created (recorded in `run.json` as `worktrees_created`, the counterpart's included) are removed with `git worktree remove` once drafts are submitted or the user stopped, unless `--keep-worktrees` was passed. A worktree that already existed (an earlier reviews worktree) is never removed. The final line names what was removed and what stayed.
+- Review worktrees the run created (recorded in `run.json` as `worktrees_created`, the counterpart's included) are removed through their own path (`git -C <path> worktree remove <path>`, so the counterpart's worktree leaves its own repo) once drafts are submitted or the user stopped, unless `--keep-worktrees` was passed. A worktree that already existed (an earlier reviews worktree) is never removed. The final line names what was removed and what stayed.
 
 Why `RUN_TMP` under the scratchpad: run D's agents wrote to `/tmp` and the repo; one root the main session owns makes the sweep a single delete. `add-cleanup` switches agents to `mktemp -d -p <session scratchpad>`; this change uses the same form one level down, so a run dir left by a stopped run has the `mktemp` shape that `add-cleanup`'s own-session scan lists. Tools that write to `/tmp` on their own (Playwright artifact dirs) follow `TMPDIR`.
 
@@ -184,11 +184,11 @@ Why `RUN_TMP` under the scratchpad: run D's agents wrote to `/tmp` and the repo;
 
 ### 12. Waves
 
-Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Thread validation, finish mode and posting are unchanged. Refutation gains two checks. Refuters also get up to 3 entries from each slice report's "checked and found sound" list, picked by the main session with claims that something is refused, blocked or safe first: in run F two agents listed a real bug there. Grading (prose in SKILL.md step 6, there is no grading table) flags every finding a refuter lowered from high, the main session re-checks it before the final grade, and the step 7 summary lists the flagged ones (both refuters in the test lowered a key high).
+Wave 2 stays, aimed at dark ground, with fresh agents. It now also takes every slice's `Unfinished:` list and runs only when the merged ledgers leave dark ground, so a one-slice MR with a complete ledger finishes in one wave. Thread validation, finish mode and posting are unchanged. Refuters check findings of every severity, not only highs: the user chose this knowing it costs $3.70 to $4.27 per run (G and I), because medium and low findings are where wrong claims hide. Refutation gains two checks. Refuters also get up to 3 entries from each slice report's "checked and found sound" list, picked by the main session with claims that something is refused, blocked or safe first: in run F two agents listed a real bug there. Grading (prose in SKILL.md step 6, there is no grading table) flags every finding a refuter lowered from high, the main session re-checks it before the final grade, and the step 7 summary lists the flagged ones (both refuters in the test lowered a key high).
 
 ## Risks / Trade-offs
 
-- One run per arm: the 13-of-14 result may be partly luck. The rerun repeats the Haiku arm twice and adds a `--fast` arm; the claim in the specs is the process, not a recall number.
+- Few runs per arm: run D's 13 of 14 was partly luck. The rerun (G, H, I) puts the Haiku 7-slice mean at 11.7 of 14 with all highs every run; the claim in the specs is the process, not a recall number.
 - Haiku's lower recall on subtle logic is unmeasured: the hooks and browser case is shell and config heavy, which suits the "does NOT set" lens. A frontend or business-logic MR may need Opus. The `--fast` flag is not the answer to that; the models mode (`add-usage-models-mode`) is.
 - Option A puts more agents on a small MR than one owner would need: bounded by one slice per contract; `--max-parallel` limits how many run at once, not how many exist. Option B risks long contexts that pay the 5x tier.
 - Seams between slices have no owner now that the cross-file agent is dropped; the benchmark rerun checks whether anything is lost.
@@ -203,7 +203,7 @@ Slicing and the cross-file agent are decided (run E, design 3 and 4). Everything
 
 1. One-slice MRs get a single slice owner and no lens agents (design 3, settled part). Alternative: keep the three lens agents below the size where slicing starts. Chosen for simplicity and because of #238.
 2. `--fast` uses base effort (`medium` by default) rather than a fixed `medium`; with a `High` answer it is Opus high. The user said "Opus (medium)".
-3. Run-it threshold (about 30 runnable changed lines or a new runnable file) and the soft budget numbers (40 tool calls, 150 KB) are guesses to calibrate from the rerun.
+3. Run-it threshold (about 30 runnable changed lines or a new runnable file) is still a guess. In the rerun the run-it agent had a unique key catch in G (H4) and none in I, so it stays until the drop test over five real reviews (task 11.3). The soft budget is gone (design 6).
 4. `--no-checks` and `--keep-worktrees` are new flags. `--keep-worktrees` follows from "unless the user keeps them". `--no-checks` is an addition for untrusted authors; drop it if unwanted.
 5. The exact import path of the `usage` scanner. `add-usage-skill` requires `summarize_agent` and the pricing functions to be importable; `run_cost.py` adds `../../usage/scripts` relative to its own file to the import path.
 6. Wave 2 skipping on a one-slice MR with a complete ledger is new; the old text ran it regardless of tier.

@@ -6,6 +6,7 @@ disable-model-invocation: true
 dependencies:
   - writing-style-guide
   - humanizer
+  - review-mr
 ---
 
 # Resolve the review on your own MR

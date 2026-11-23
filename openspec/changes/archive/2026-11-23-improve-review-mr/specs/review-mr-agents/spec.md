@@ -22,7 +22,7 @@ The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it 
 - **THEN** `run.json` shows the resolved model id per agent
 
 ### Requirement: Engine question kept
-The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.md` and pass the effort answer as `--effort`.
+The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.txt` and pass the effort answer as `--effort`.
 
 #### Scenario: First tool call
 - **WHEN** a review starts
@@ -44,15 +44,22 @@ The skill SHALL accept `--fast`. With it, wave-1 and wave-2 agents SHALL run on 
 - **THEN** the skill says in one line that `--fast` does not apply and runs as a Codex review
 
 ### Requirement: Slices sized by reading load
-The skill SHALL cut the changed files into slices by reading load, the line count of whole changed files with lockfiles, generated files and the rules' size excludes left out, not by changed lines. The size tiers S, M, L and XL SHALL NOT be used.
+The skill SHALL cut the changed files into slices by reading load, the line count of whole changed files with lockfiles, generated files and the rules' size excludes left out, not by changed lines. Default pathspecs SHALL leave out lockfiles, minified, generated, build output and locale files even when there are no rules. The size tiers S, M, L and XL SHALL NOT be used.
 
 #### Scenario: Small change in a large file
 - **WHEN** an MR changes 5 lines in a 900-line script
 - **THEN** that file counts as 900 lines of reading load and its owner reads it whole
 
 #### Scenario: Excluded files
-- **WHEN** an MR changes a lockfile and a generated file
-- **THEN** neither counts toward any slice's reading load
+- **WHEN** an MR changes a lockfile, a generated file and a locale file, and the repo has no rules
+- **THEN** none of them counts toward any slice's reading load
+
+### Requirement: Excluded files still covered
+The size excludes SHALL apply to the line count only. Every excluded file SHALL still go to a slice owner as a lightweight file, or be listed as not reviewed, and SHALL never be dropped silently.
+
+#### Scenario: Excluded locale file
+- **WHEN** an MR changes a locale file that the size excludes leave out
+- **THEN** it is given to the owner of the slice that uses it, or listed under "Not reviewed"
 
 ### Requirement: Slices follow one contract
 Files SHALL be grouped so that a slice holds one tool contract or component: a script with its tests and the doc section describing it, a hook with its `hooks.json` entry, a component with its composable and spec.
@@ -135,7 +142,7 @@ With full counterpart scope, the skill SHALL cut the counterpart's changed files
 - **THEN** `run.json` names the first reporting agent and any duplicates
 
 ### Requirement: Standing lens for what the code does not set
-The agent brief SHALL tell every agent: for each external tool the code runs or configures, list the options it passes, then name the important ones it does not pass and the tool's default for each (sandboxing and permissions, output and log locations, network and proxy, auto-install, behaviour on error, what is persisted where). An unsafe or surprising inherited default SHALL be reported with the default cited.
+The agent brief SHALL carry run D's addendum lens text verbatim, naming no specific tools, and tell every agent: for each external tool the code runs or configures, list the options it passes, then name the important ones it does not pass and the tool's default for each (sandboxing and permissions, output and log locations, network and proxy, auto-install, behaviour on error, what is persisted where). An unsafe or surprising inherited default SHALL be reported with the default cited.
 
 #### Scenario: Launcher without a sandbox setting
 - **WHEN** a slice launches a browser and passes no sandbox option
@@ -161,7 +168,7 @@ The brief SHALL tell agents to verify a claim about what a tool can or cannot do
 - **THEN** the owner reports a check that blocks legitimate input
 
 ### Requirement: Repo conventions lookup
-`scripts/find_conventions.py` SHALL list, for each changed path, the repo's instruction files that apply: `CLAUDE.md` and `AGENTS.md` at each directory level up to the root, the root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, matching `.github/instructions/*.instructions.md`, matching or always-on `.cursor/rules/*.mdc`, `.cursorrules` and `.editorconfig`, each with its line count.
+`scripts/find_conventions.py` SHALL list, for each changed path, the repo's instruction files that apply: `CLAUDE.md`, `.claude/CLAUDE.md` and `AGENTS.md` at each directory level up to the root, the root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, matching `.github/instructions/*.instructions.md`, matching or always-on `.cursor/rules/*.mdc`, `.cursorrules` and `.editorconfig`, each with its line count.
 
 #### Scenario: Nested rules
 - **WHEN** a changed file is `app/api/orders.ts` and both the root `CLAUDE.md` and `app/api/AGENTS.md` exist
@@ -186,30 +193,44 @@ The main session SHALL put the lookup entries for a slice's files into that slic
 - **WHEN** `~/.claude/review-rules/<repo>.md` exists
 - **THEN** it is read as before and the conventions come in addition to it
 
-### Requirement: Tool-output discipline
-The brief SHALL tell agents to print counts before content, pipe every command through `head` or `tail` (about 40 lines), write commands with long output to a file in the agent's temp folder and `grep` or `head` that file, put independent commands in one Bash call, read files outside the slice by line range, not re-read a file, and append each finding to the report as it is found.
-
-#### Scenario: Long command output
-- **WHEN** a test run may print hundreds of lines
-- **THEN** the agent redirects it to a file in its temp folder and reads the tail
+### Requirement: Context discipline
+The brief SHALL carry run D's context wording: the agent owns a small slice, reads its slice's files whole, reads other files only by `grep -n` or `sed -n` line ranges, does not re-read a file and keeps tool output short.
 
 #### Scenario: File outside the slice
 - **WHEN** an agent follows an edge into an unchanged 800-line file
 - **THEN** it reads the lines it needs by range and not the whole file
 
-### Requirement: Soft budget and unfinished slices
-The brief SHALL set a soft budget of about 40 tool calls or about 150 KB of tool output. Past it, the agent SHALL stop opening new ground, mark every unopened file `not examined` in its ledger, put an `Unfinished:` line at the top of its report and reply with the path. Wave 2 SHALL start a fresh agent on exactly the files an `Unfinished:` line lists.
+### Requirement: Stop only when the slice is examined
+The brief SHALL NOT set a budget of tool calls or tool output. An agent SHALL stop only when every file in its slice is examined. A file it still could not read SHALL be marked `not examined` and listed on an `Unfinished:` line at the top of its report. Wave 2 SHALL start a fresh agent on exactly the files an `Unfinished:` line lists.
 
-#### Scenario: Agent nears the budget
-- **WHEN** a slice owner reaches the budget with files unopened
-- **THEN** its report starts with `Unfinished:` listing those files and its ledger marks them `not examined`
+#### Scenario: Many tool calls, files left
+- **WHEN** a slice owner has made 40 tool calls and two slice files are still unopened
+- **THEN** it keeps reading until both files have a verdict
 
 #### Scenario: Unfinished slice
 - **WHEN** a wave-1 report has an `Unfinished:` line
 - **THEN** wave 2 starts a fresh agent on exactly those files
 
+### Requirement: Report file written as text
+Agent reports SHALL be named `wave<n>-<slice>.txt` in the session scratch dir. The brief SHALL say that writing this one report file is required and allowed, so a read-only agent does not skip it. When an agent's Write is refused and it replies with the report text, the main session SHALL save that reply as the agent's report and SHALL NOT ask the agent again.
+
+#### Scenario: Read-only agent writes its report
+- **WHEN** a read-only slice owner finishes
+- **THEN** it writes `wave1-<slice>.txt` and replies with that path
+
+#### Scenario: Write refused
+- **WHEN** a slice owner's Write tool refuses the report file and the agent replies with the report text
+- **THEN** the main session saves the reply as `wave1-<slice>.txt` and goes on
+
+### Requirement: Sound claims cover what was tested
+The brief SHALL let an agent list a claim as checked and found sound only when it tested or read the claim against every rule or code path the claim covers. A claim tested on one path SHALL name that path.
+
+#### Scenario: Tested on one gate
+- **WHEN** an agent tests quoted-text handling on the push gate only
+- **THEN** its sound list says "quoted text: tested on the push gate only"
+
 ### Requirement: Waves and refutation
-Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledgers and `Unfinished:` lines, and SHALL be skipped when there is one slice and its ledger leaves no dark ground. Every finding that will be posted SHALL be refuted by an Opus agent, whichever engine produced it, except findings measured by deterministic checks.
+Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledgers and `Unfinished:` lines, and SHALL be skipped when there is one slice and its ledger leaves no dark ground. Every finding that will be posted, of every severity, SHALL be refuted by an Opus agent, whichever engine produced it, except findings measured by deterministic checks.
 
 #### Scenario: Complete ledger, one slice
 - **WHEN** a one-slice MR returns a ledger with every file examined
@@ -218,6 +239,10 @@ Wave 2 SHALL use fresh agents on the dark ground left by the merged wave-1 ledge
 #### Scenario: Dark ground
 - **WHEN** a wave-1 ledger marks a changed file `not examined`
 - **THEN** wave 2 spawns an agent for it
+
+#### Scenario: Low finding refuted
+- **WHEN** a slice owner reports a low finding that will go in the lows thread
+- **THEN** a refuter checks it like a high one
 
 ### Requirement: Refutation covers sound lists and lowered highs
 Refuters SHALL also get up to 3 entries from each slice report's "checked and found sound" list, claims that something is refused, blocked or safe first. Grading in step 6 SHALL flag every finding a refuter lowered from high, the main session SHALL re-check it before the final grade, and the step 7 summary SHALL list the flagged findings.
