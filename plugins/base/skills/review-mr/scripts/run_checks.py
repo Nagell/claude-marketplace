@@ -5,7 +5,8 @@ Two subcommands, stdlib only, no LLM.
 
 ``detect`` finds the commands for the files an MR changes. Manifests and
 config are read as they are at ``--base`` (``git show``), so an MR cannot
-change which commands run. A manifest that is new in the MR is listed under
+change which commands are chosen; the chosen commands still run head code with
+the head's config. A manifest that is new in the MR is listed under
 ``untrusted`` and never run. A package.json script runs by name, so the package
 manager reads its body at head: when the body of a detected script, or of any
 script it runs by name (pre/post hooks included), differs between base and
@@ -14,7 +15,9 @@ changed in this MR" and never run. A package whose package manager config
 (.npmrc, .yarnrc(.yml), .pnpmfile.cjs, pnpm-workspace.yaml) changes in the MR,
 or that has node_modules committed, is listed under ``untrusted`` with the
 reason and none of its commands runs. A script that reaches a fix flag through
-a script it runs by name is skipped. Prints a JSON plan:
+a script it runs by name is skipped. A script that runs workspace scripts
+(``-r``, ``--filter``, turbo, nx) is untrusted when any other package.json
+changed. Prints a JSON plan:
 
   {"commands": [{"id", "kind", "cwd", "argv", "files", "source", "needs"}],
    "untrusted": [{"manifest", "commands", "reason"?}],
@@ -31,18 +34,22 @@ offline settings) and, where ``unshare -rn`` works, with the network cut; the
 JSON says ``"network": "cut"`` or ``"not cut"``. A command whose dependencies
 are missing is skipped with "dependencies not installed"; a pytest or mypy
 run that fails on an import error with no project venv is "not run: missing
-dependencies". A timeout is "not run", never a
-failure. A failing command is re-run at ``--base`` in a throwaway worktree
+dependencies". pytest, mypy and ruff come from the project's ``.venv`` when
+it has one. A timeout is "not run", never a failure, and a command that
+cannot start is "not run: could not start". A failing command is re-run at ``--base`` in a throwaway worktree
 under ``--tmp`` (removed afterwards), and only messages that are not also
 present there become findings. A failing test is re-run once at head first,
 to rule out a flaky test. Head runs stop a quarter of the total limit early
 (at most one per-command limit), so a base re-run always gets time. When the
 base re-run times out or errors, or the base worktree cannot be made, the
-command is "base run failed" with the reason and makes no finding. Prints:
+command is "base run failed" with the reason and makes no finding. The base
+re-run uses the head's node_modules and .venv; its result then says
+``"deps": "head"``. Prints:
 
   {"results": [...], "findings": [{"id": "check-1", "severity", "command",
    "messages"}], "pre_existing": [...], "not_run": [...],
-   "base_worktree": <path or null>, "network": "cut" | "not cut",
+   "base_worktree": <path or null>, "base_worktree_removed": <bool, when made>,
+   "network": "cut" | "not cut",
    "error": <only when git worktree add failed>}
 
 Messages are compared as counts after dropping paths, line and column
@@ -82,7 +89,9 @@ PRETTIER_CONFIGS = (".prettierrc", ".prettierrc.json", ".prettierrc.yml",
                     ".prettierrc.mjs", "prettier.config.js", "prettier.config.cjs",
                     "prettier.config.mjs")
 JS_EXT = (".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".vue", ".svelte")
-FIX_FLAGS = {"--fix": None, "--write": "--check", "-w": None}
+FIX_FLAGS = {"--fix": None, "--write": "--check", "-w": "--check"}
+# a body that runs the same script in other workspace packages
+RECURSIVE = re.compile(r"(^|\s)(-r|--recursive|--filter|--workspaces|-ws)(\s|=|$)|\b(turbo|nx|lerna)\b")
 SHELL_OPS = re.compile(r"&&|\|\||[|;<>`$]")
 # package manager config that changes what a script runs (script-shell, hooks, ...)
 PM_CONFIGS = (".npmrc", ".yarnrc", ".yarnrc.yml", ".pnpmfile.cjs", "pnpm-workspace.yaml")
@@ -96,7 +105,8 @@ BASE_RESERVE = 0.25  # share of TOTAL kept back from head runs for base re-runs
 # ---------------------------------------------------------------- git helpers
 
 def git(repo: Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True)
+    return subprocess.run(["git", "-C", str(repo), "-c", "core.quotePath=off", *args],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
 class Snapshot:
@@ -149,6 +159,8 @@ def strip_fix(script: str) -> tuple[list[str] | None, str]:
     if SHELL_OPS.search(script):
         return None, "script uses a fix flag inside a compound command; skipped"
     tokens = shlex.split(script)
+    if "-w" in tokens and PurePosixPath(tokens[0]).name != "prettier":
+        return None, "-w is a fix flag only for prettier; skipped"
     out = []
     for t in tokens:
         flag = t.split("=", 1)[0]  # "--fix" and "--fix=true" alike
@@ -219,8 +231,8 @@ def exec_argv(pm: str, argv: list[str]) -> list[str]:
     return [pm, "exec", *argv]
 
 
-def list_changed_script(plan: dict, manifest: str, name: str) -> None:
-    reason = "script body changed in this MR"
+def list_changed_script(plan: dict, manifest: str, name: str,
+                        reason: str = "script body changed in this MR") -> None:
     entry = next((u for u in plan["untrusted"]
                   if u["manifest"] == manifest and u.get("reason") == reason), None)
     if entry is None:
@@ -234,13 +246,14 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
     for f in files:
         root = nearest(base, f, "package.json")
         head_root = nearest(head, f, "package.json")
-        if head_root is not None and head_root != root:
+        if (head_root is not None and head_root != root
+                and not base.has(join(head_root, "package.json"))):
             # a manifest the MR adds: list it, never run it
             manifest = join(head_root, "package.json")
             if not any(u["manifest"] == manifest for u in plan["untrusted"]):
                 try:
-                    scripts = json.loads(head.read(manifest)).get("scripts", {})
-                except ValueError:
+                    scripts = json.loads(head.read(manifest)).get("scripts") or {}
+                except (ValueError, AttributeError):
                     scripts = {}
                 plan["untrusted"].append({
                     "manifest": manifest,
@@ -248,6 +261,15 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
             continue
         if root is not None:
             roots.setdefault(root, []).append(f)
+    manifests = {f for f in base.files | head.files if PurePosixPath(f).name == "package.json"}
+    others_changed: dict[str, bool] = {}
+
+    def other_manifest_changed(manifest: str) -> bool:
+        if manifest not in others_changed:
+            others_changed[manifest] = any(
+                base.read(m) != head.read(m) for m in sorted(manifests - {manifest}))
+        return others_changed[manifest]
+
     for root, rfiles in sorted(roots.items()):
         manifest = join(root, "package.json")
         try:
@@ -273,6 +295,13 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
             if changed_scripts(name, scripts, head_scripts):
                 # the package manager runs the head body, so a changed one never runs
                 list_changed_script(plan, manifest, name)
+                continue
+            if (any(RECURSIVE.search(str(scripts.get(n, "")))
+                    for n in scripts_reached(name, scripts))
+                    and other_manifest_changed(manifest)):
+                # pnpm -r, turbo and the like run the head body of every workspace package
+                list_changed_script(plan, manifest, name,
+                                    "runs workspace scripts, and a package.json changed in this MR")
                 continue
             body = str(scripts[name])
             source = f"{manifest} scripts.{name}"
@@ -319,7 +348,8 @@ def list_untrusted(base: Snapshot, head: Snapshot, f: str, name: str, plan: dict
                    commands) -> bool:
     """List a manifest the MR adds next to ``f``; True when one was found."""
     head_root = nearest(head, f, name)
-    if head_root is None or head_root == nearest(base, f, name):
+    if (head_root is None or head_root == nearest(base, f, name)
+            or base.has(join(head_root, name))):
         return False
     manifest = join(head_root, name)
     if not any(u["manifest"] == manifest for u in plan["untrusted"]):
@@ -491,7 +521,8 @@ def execute(argv: list[str], cwd: Path, timeout: float, env: dict) -> dict:
         # own session, so a timeout kills the whole process group, test-runner children too
         proc = subprocess.Popen(argv, cwd=cwd, stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-                                env=env, start_new_session=True)
+                                encoding="utf-8", errors="replace", env=env,
+                                start_new_session=True)
     except OSError as e:
         return {"status": "error", "exit": None, "output": str(e), "seconds": 0.0}
     try:
@@ -545,13 +576,27 @@ def make_base_worktree(repo: Path, base: str, tmp: Path) -> Path:
     return wt
 
 
-def link_deps(head_tree: Path, base_tree: Path, cwd: str) -> None:
-    """Share installed dependencies with the base worktree, read-only use."""
+def link_deps(head_tree: Path, base_tree: Path, cwd: str) -> bool:
+    """Share installed dependencies with the base worktree, read-only use.
+    True when the base tree uses the head's dependencies."""
+    linked = False
     for d in {".", cwd}:
         for name in ("node_modules", ".venv"):
             src, dst = head_tree / d / name, base_tree / d / name
             if src.is_dir() and not dst.exists() and dst.parent.is_dir():
                 dst.symlink_to(src, target_is_directory=True)
+            linked = linked or (dst.is_symlink() and dst.resolve() == src.resolve())
+    return linked
+
+
+def venv_argv(argv: list[str], tree: Path, cwd: str) -> list[str]:
+    """Use the project's own .venv tool before one on PATH."""
+    if argv and argv[0] in (*PY_TOOLS, "ruff"):
+        for d in (cwd, "."):
+            tool = tree / d / ".venv" / "bin" / argv[0]
+            if tool.is_file():
+                return [str(tool), *argv[1:]]
+    return argv
 
 
 def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
@@ -575,7 +620,14 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
         budget = min(per_command, left() - keep)
         if budget <= 0:
             return {"status": "timeout", "seconds": 0.0, "reason": "total time limit"}
-        return execute([*net, *(wrap or []), *cmd["argv"]], tree / cmd["cwd"], budget, env)
+        argv = venv_argv(cmd["argv"], tree, cmd["cwd"])
+        prog = argv[0] if argv else ""
+        found = ((tree / cmd["cwd"] / prog).is_file() if "/" in prog
+                 else shutil.which(prog, path=env["PATH"]) is not None)
+        if not found and not wrap:  # checked here, since unshare would hide the start error
+            return {"status": "error", "exit": None, "seconds": 0.0,
+                    "output": f"{prog}: not found"}
+        return execute([*net, *(wrap or []), *argv], tree / cmd["cwd"], budget, env)
 
     def base_failed(res: dict, cmd: dict, why: str) -> None:
         reason = f"base run failed: {why}"
@@ -593,9 +645,13 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 report["not_run"].append({"id": cmd["id"], "reason": missing})
                 continue
             head = go(cmd, repo, reserve)
-            if head["status"] == "timeout":
-                res.update(status="not_run", reason="not run: timed out")
-                report["not_run"].append({"id": cmd["id"], "reason": "not run: timed out"})
+            if head["status"] in ("timeout", "error"):
+                reason = ("not run: could not start" if head["status"] == "error"
+                          else f"not run: {head.get('reason', 'timed out')}")
+                res.update(status="not_run", reason=reason)
+                if head["status"] == "error":
+                    res["head"] = {"output_tail": tail(head.get("output", ""))}
+                report["not_run"].append({"id": cmd["id"], "reason": reason})
                 continue
             res["head"] = {"exit": head.get("exit"), "output_tail": tail(head.get("output", ""))}
             if head["status"] == "pass":
@@ -622,7 +678,7 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
             if base_wt is None:
                 base_failed(res, cmd, base_error or "no base worktree")
                 continue
-            link_deps(repo, base_wt, cmd["cwd"])
+            head_deps = link_deps(repo, base_wt, cmd["cwd"])
             base_cmd = dict(cmd, argv=[a for a in cmd["argv"]
                                        if a not in cmd["files"]
                                        or (base_wt / cmd["cwd"] / a).exists()])
@@ -633,6 +689,8 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 base = go(base_cmd, base_wt)
             res["base"] = {"exit": base.get("exit"), "status": base["status"],
                            "output_tail": tail(base.get("output", ""))}
+            if head_deps:
+                res["base"]["deps"] = "head"
             if base["status"] == "timeout":
                 base_failed(res, cmd, base.get("reason", "timed out"))
                 continue

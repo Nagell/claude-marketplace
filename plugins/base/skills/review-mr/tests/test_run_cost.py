@@ -29,7 +29,6 @@ def summarize_agent(path):
         reqs.append((prompt, u.get("output_tokens", 0)))
     usd = sum((p + o) * 1e-6 * (5 if p > 100_000 else 1) for p, o in reqs)
     return {"requests": len(reqs), "requests_over_100k": sum(p > 100_000 for p, _ in reqs),
-            "first_prompt": reqs[0][0] if reqs else 0,
             "max_prompt": max((p for p, _ in reqs), default=0),
             "usd": round(usd, 6), "price_table_version": "stub"}
 '''
@@ -135,3 +134,41 @@ def test_cli_without_scanner(run_file, tmp_path):
                            "--scanner-dir", str(tmp_path / "none")],
                           capture_output=True, text=True, check=True)
     assert "usage scanner not found" in proc.stdout
+
+
+def test_broken_scanner_reads_as_missing(tmp_path):
+    d = tmp_path / "broken"
+    d.mkdir()
+    (d / "scan.py").write_text("def summarize_agent(:\n", encoding="utf-8")
+    assert run_cost.load_scanner(d) is None
+
+
+def test_scanner_with_dataclass_loads(tmp_path):
+    d = tmp_path / "dc"
+    d.mkdir()
+    (d / "scan.py").write_text(
+        "from __future__ import annotations\nfrom dataclasses import dataclass\n"
+        "@dataclass\nclass R:\n    n: int\n"
+        "def summarize_agent(path):\n    return {'requests': R(1).n}\n", encoding="utf-8")
+    assert run_cost.load_scanner(d)("x") == {"requests": 1}
+
+
+def test_scanner_error_on_one_agent(run_file):
+    def summarize(path):
+        if path.endswith("agent-a1.jsonl"):
+            raise ValueError("bad line")
+        return {"requests": 1, "requests_over_100k": 0, "usd": 0.5}
+
+    out = run_cost.fill(json.loads(run_file.read_text()), summarize)
+    a1, r1, _ = out["agents"]
+    assert a1["cost"] is None and a1["cost_reason"] == "usage scanner failed: bad line"
+    assert r1["cost"]["requests"] == 1
+    assert out["cost_total"]["agents_priced"] == 1 and "reason" not in out["cost_total"]
+
+
+def test_nothing_priced_gives_a_reason(tmp_path, scanner_dir):
+    run = {"transcript_dir": str(tmp_path / "wrong"), "agents": [
+        {"agent_id": "a", "model": "haiku"}, {"agent_id": "b", "model": "opus"}]}
+    out = run_cost.fill(run, run_cost.load_scanner(scanner_dir))
+    assert out["cost_total"]["agents_priced"] == 0
+    assert out["cost_total"]["reason"] == "transcript not found"

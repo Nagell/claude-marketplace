@@ -16,11 +16,14 @@ USD. Null reasons:
   - "usage scanner not found": the scanner cannot be imported
   - "no Claude transcript": a Codex task
   - "transcript not found": no file at the expected path
+  - "usage scanner failed: <error>": the scanner raised on this transcript
+When no agent is priced, ``cost_total.reason`` is the most common of these.
 """
 
 from __future__ import annotations
 
 import argparse
+import collections
 import importlib.util
 import json
 import sys
@@ -40,19 +43,21 @@ def load_scanner(folder: Path) -> Summarize | None:
     if spec is None or spec.loader is None:
         return None
     module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(folder))
+    # registered and left on sys.path, so dataclasses and later imports in the scanner work
+    sys.modules[spec.name] = module
+    if str(folder) not in sys.path:
+        sys.path.insert(0, str(folder))
     try:
         spec.loader.exec_module(module)
     except Exception:  # a broken scanner is the same as a missing one here
+        sys.modules.pop(spec.name, None)
         return None
-    finally:
-        sys.path.remove(str(folder))
     return getattr(module, "summarize_agent", None)
 
 
 def resolved_model(path: Path) -> str | None:
     """The first ``message.model`` in the transcript, so alias drift shows up."""
-    with path.open(encoding="utf-8") as fh:
+    with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             try:
                 model = (json.loads(line).get("message") or {}).get("model")
@@ -80,7 +85,11 @@ def fill(run: dict, summarize: Summarize | None) -> dict:
         if summarize is None:
             agent["cost_reason"] = "usage scanner not found"
             continue
-        cost = summarize(str(path))
+        try:
+            cost = summarize(str(path))
+        except Exception as e:  # one bad transcript must not stop the others
+            agent["cost_reason"] = f"usage scanner failed: {e}"
+            continue
         agent["cost"] = cost
         total["agents_priced"] += 1
         total["requests"] += int(cost.get("requests") or 0)
@@ -89,8 +98,12 @@ def fill(run: dict, summarize: Summarize | None) -> dict:
     total["usd"] = round(total["usd"], 4)
     total["over_100k_share"] = (round(total["requests_over_100k"] / total["requests"], 3)
                                 if total["requests"] else None)
+    reasons = collections.Counter(a["cost_reason"] for a in run.get("agents", [])
+                                  if a.get("cost_reason"))
     if summarize is None:
         total["reason"] = "usage scanner not found"
+    elif total["agents_priced"] == 0 and reasons:
+        total["reason"] = reasons.most_common(1)[0][0]
     run["cost_total"] = total
     return run
 

@@ -16,7 +16,8 @@ def write(root: Path, rel: str, text: str = "rule\n") -> None:
 
 
 def git(root: Path, *args: str) -> str:
-    return subprocess.run(["git", "-C", str(root), *args], check=True,
+    return subprocess.run(["git", "-C", str(root), "-c", "commit.gpgsign=false", *args],
+                          check=True,
                           capture_output=True, text=True).stdout.strip()
 
 
@@ -132,3 +133,15 @@ def test_non_ascii_paths_at_ref(tmp_path):
     sha = commit(tmp_path, "init")
     r = fc.lookup(["zürich/a.py"], tmp_path, sha)
     assert paths_of(r, "zürich/a.py") == ["zürich/CLAUDE.md"]
+
+
+def test_symlinked_instruction_file_at_ref(tmp_path):
+    init_repo(tmp_path)
+    write(tmp_path, "docs/RULES.md", "rule one\nrule two\n")
+    (tmp_path / "CLAUDE.md").symlink_to("docs/RULES.md")
+    write(tmp_path, "src/a.ts")
+    sha = commit(tmp_path, "base")
+    tree = fc.Tree(tmp_path, sha)
+    assert tree.read("CLAUDE.md") == "rule one\nrule two\n"
+    out = fc.lookup(["src/a.ts"], tmp_path, sha)
+    assert {"path": "CLAUDE.md", "lines": 2, "changed": False} in out["paths"]["src/a.ts"]

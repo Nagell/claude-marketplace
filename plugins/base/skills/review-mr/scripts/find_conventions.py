@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import posixpath
 import re
 import subprocess
 import sys
@@ -42,15 +43,22 @@ class Tree:
     def __init__(self, root: Path, ref: str | None):
         self.root = root
         self.ref = ref
+        self.links: set[str] = set()
         if ref:
+            # --full-tree: paths from the repo root, as `git show ref:path` reads them
             out = subprocess.run(
-                ["git", "-C", str(root), "ls-tree", "-r", "-z", "--name-only", ref],
+                ["git", "-C", str(root), "ls-tree", "-r", "-z", "--full-tree", ref],
                 capture_output=True, text=True,
             )
             if out.returncode != 0:
                 sys.exit(f"git ls-tree {ref} failed: {out.stderr.strip()}")
             # -z: names come raw, not quoted, so non-ASCII paths match.
-            self.files = set(filter(None, out.stdout.split("\0")))
+            self.files = set()
+            for item in filter(None, out.stdout.split("\0")):
+                meta, _, name = item.partition("\t")
+                self.files.add(name)
+                if meta.startswith("120000"):
+                    self.links.add(name)
         else:
             self.files = {
                 p.relative_to(root).as_posix()
@@ -67,7 +75,15 @@ class Tree:
                 ["git", "-C", str(self.root), "show", f"{self.ref}:{rel}"],
                 capture_output=True,
             )
-            return out.stdout.decode("utf-8", "replace")
+            if out.returncode != 0:
+                sys.exit(f"git show {self.ref}:{rel} failed: "
+                         f"{out.stderr.decode('utf-8', 'replace').strip()}")
+            text = out.stdout.decode("utf-8", "replace")
+            if rel in self.links:  # a symlink blob holds the target name: read the target
+                target = posixpath.normpath(posixpath.join(posixpath.dirname(rel), text.strip()))
+                if target in self.files and target not in self.links:
+                    return self.read(target)
+            return text
         return (self.root / rel).read_text(encoding="utf-8", errors="replace")
 
     def lines(self, rel: str) -> int:
