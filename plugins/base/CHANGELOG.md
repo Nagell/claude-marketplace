@@ -1,5 +1,48 @@
 # Changelog
 
+## [2.3.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.2.0...base-v2.3.0) (2026-11-23)
+
+
+### Features
+
+* **base:** add cleanup scan and remove script ([67bdbe5](https://github.com/Nagell/claude-marketplace/commit/67bdbe5d24bab879d5b3ee9cc48ba3ab6f80323b))
+* **base:** add cleanup skill ([db8ffb3](https://github.com/Nagell/claude-marketplace/commit/db8ffb3ff5dc0cb6c576ea5d3e3f0bc6401c941f))
+* **base:** add deterministic checks script to review-mr ([7bbb763](https://github.com/Nagell/claude-marketplace/commit/7bbb7637df11e0c1def3c024c22ff1ece7ac206a))
+* **base:** add standing lenses, context rules and run-it brief to review-mr ([bd5ea6c](https://github.com/Nagell/claude-marketplace/commit/bd5ea6c2f6c7b4f6fdad8886072c3d04d50f826f))
+* **base:** add the cleanup skill ([2b508a2](https://github.com/Nagell/claude-marketplace/commit/2b508a2db5794e05cfe5bcf739d442fa75c1501f))
+* **base:** Haiku slices, a defaults lens and Opus refuters for review-mr ([edc3765](https://github.com/Nagell/claude-marketplace/commit/edc37656827ea1767bd5ac307c74148c773e850e))
+* **base:** look up repo instruction files for review-mr slices ([51b1f8a](https://github.com/Nagell/claude-marketplace/commit/51b1f8a9e0f3d866011321f76476ba75181a4dbf))
+* **base:** record review-mr cost per agent from transcripts ([6ecd2d9](https://github.com/Nagell/claude-marketplace/commit/6ecd2d976a92d90960993e59a38174df492ed3de))
+* **base:** review-mr reads models from CLAUDE.md ([27608ca](https://github.com/Nagell/claude-marketplace/commit/27608ca49f05701a795d2d401c140bbd9645c07d))
+* **base:** slice review-mr by contract on haiku with checks, run-it and sweep ([c323f05](https://github.com/Nagell/claude-marketplace/commit/c323f054efd9a6005b9e61ea62e1a545986eb274))
+
+
+### Bug Fixes
+
+* **base:** exclude generated and locale files from reading load by default ([79fd606](https://github.com/Nagell/claude-marketplace/commit/79fd6063c1d5c58c80c8dbe81f3fa7c30524de63))
+* **base:** list new Python, Go and Rust manifests as untrusted ([c58aa0c](https://github.com/Nagell/claude-marketplace/commit/c58aa0c7b660b215f939869e8f196c666724a239))
+* **base:** make the rm and .env guards check what they claim ([10fdc5b](https://github.com/Nagell/claude-marketplace/commit/10fdc5b7a2ca0b8960b60d79ff148af0db9d63ee))
+* **base:** Make the rm and .env guards check what they claim ([1e1dfa9](https://github.com/Nagell/claude-marketplace/commit/1e1dfa9c0e39b5fe67d3e99e9668699aff3de1b2))
+* **base:** name lost commits, force approved dirty worktrees, log remote deletes ([1284d72](https://github.com/Nagell/claude-marketplace/commit/1284d72c78a3f92b4c5c5cce7079d3a9d565ac9f))
+* **base:** report failed base re-runs in run_checks, not as findings ([d054faa](https://github.com/Nagell/claude-marketplace/commit/d054faa0a5c4d4360d04208e447bbecf7cf4eb03))
+* **base:** restore run D lens and context wording in review-mr brief ([c3f54be](https://github.com/Nagell/claude-marketplace/commit/c3f54be1b8d6e405313944bfdc587874357a8911))
+* **base:** review-mr doc low findings ([f8ce2b0](https://github.com/Nagell/claude-marketplace/commit/f8ce2b0a217f19432886b379cdfe81936794d2aa))
+* **base:** review-mr review findings ([38eebcc](https://github.com/Nagell/claude-marketplace/commit/38eebcce78643b70f03bec7ad9856f82752ee525))
+* **base:** review-mr script low findings ([6675df8](https://github.com/Nagell/claude-marketplace/commit/6675df8ea2d4c9aabbd9b25c038f42c75eaa13d9))
+* **base:** run_checks review findings ([a0a7b95](https://github.com/Nagell/claude-marketplace/commit/a0a7b951d694bc760303726d1742152b589c4d47))
+* **base:** save refused reports, cut run-it network, keep all scratch in one folder ([c7930ea](https://github.com/Nagell/claude-marketplace/commit/c7930eafb377e941eb2bf1307a27ea963a3e1591))
+* **base:** use one stub log name in the run-it brief ([0a185ce](https://github.com/Nagell/claude-marketplace/commit/0a185ceaa017da80d307ea0ca51104c67dd91cc0))
+* **base:** verify findings ([83bb08c](https://github.com/Nagell/claude-marketplace/commit/83bb08c5fda6a7df68b46a3c4fc5eaba95c4a83b))
+
+
+### Documentation
+
+* **base:** add Models section to CLAUDE.md ([c6948d4](https://github.com/Nagell/claude-marketplace/commit/c6948d482d44537c8ef19d1dafcbb16643419c95))
+* **base:** add simple helpers to Models ([cda49ca](https://github.com/Nagell/claude-marketplace/commit/cda49ca68570058c48ee17b021943ad0ef373299))
+* **base:** document new review-mr flags, model split and cleanup ([1227dd2](https://github.com/Nagell/claude-marketplace/commit/1227dd27483f3c41ec205eefb4aadddfd586d70e))
+* **base:** list the cleanup skill in the READMEs ([be79da9](https://github.com/Nagell/claude-marketplace/commit/be79da9b59e02dcc3aa61f69e73bec831439288e))
+* **base:** put throwaway work in the session scratchpad ([d16a936](https://github.com/Nagell/claude-marketplace/commit/d16a9363275560ca92835102eaa61adf0138198e))
+
 ## [2.2.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.1.2...base-v2.2.0) (2026-11-22)
 
 
