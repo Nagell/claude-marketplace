@@ -2,7 +2,7 @@ import datetime as dt
 import json
 import os
 
-from helpers import TempHome, agent_call, asst, human, usage
+from helpers import TempHome, agent_call, asst, human, skill_load, usage
 import report
 
 NOW = dt.datetime(2026, 11, 21, tzinfo=dt.timezone.utc)
@@ -23,7 +23,7 @@ class ReportBase(TempHome):
         for i in range(n):
             sec = start + i * 10
             inp = (cost_tokens or [1000] * n)[i]
-            entries += [human(sec), asst(f"{sid}-{skill}-{i}", sec + 1, skill=skill, u=usage(inp=inp, out=0))]
+            entries += [human(sec), skill_load(sec), asst(f"{sid}-{skill}-{i}", sec + 1, skill=skill, u=usage(inp=inp, out=0))]
         return entries
 
 
@@ -123,10 +123,12 @@ class RunJson(ReportBase):
         self.assertEqual(out["review_run_json"], {"review_runs": 1, "with_run_json": 0})
 
     def test_codex_agent_has_no_cost(self):
-        _, run = self.build(extra_agents=[{"agent_id": "job-1", "role": "slice-owner", "slice": "slice-4", "model": "codex"}])
+        _, run = self.build(extra_agents=[{"agent_id": "job-1", "role": "slice-owner", "slice": "slice-4", "model": "codex"},
+                                          {"agent_id": "job-2", "model": "codex"}])
         codex = next(a for a in run["agents"] if a["model"] == "codex")
         self.assertIsNone(codex["cost"])
         self.assertEqual(run["role_costs"]["slice-owner"]["unpriced"], 1)
+        self.assertEqual(run["role_costs"]["codex"]["unpriced"], 1)
 
 
 class Retention(TempHome):
@@ -143,8 +145,30 @@ class Retention(TempHome):
         self.assertEqual((r["cleanupPeriodDays"], r["effective_days"], r["offer"]), (None, 30, True))
         self.assertGreater(r["estimate_bytes_at_180_days"], 0)
 
-    def test_zero_means_no_sweep(self):
-        self.assertFalse(report.retention(self.settings({"cleanupPeriodDays": 0}), self.projects)["offer"])
+    def test_zero_is_invalid_and_offers(self):
+        # Claude Code rejects 0 (minimum 1), so the default of 30 applies
+        r = report.retention(self.settings({"cleanupPeriodDays": 0}), self.projects)
+        self.assertEqual((r["effective_days"], r["offer"]), (30, True))
+        self.assertIn("not a valid value", r["note"])
+
+    def test_malformed_settings_reported(self):
+        path = os.path.join(self.tmp, "settings.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write('{"a": 1,}')
+        r = report.retention(path, self.projects)
+        self.assertFalse(r["offer"])
+        self.assertIn("unreadable", r["error"])
+        with self.assertRaises(ValueError):
+            report.set_retention(180, path)
+
+    def test_write_keeps_symlink(self):
+        real = self.settings({"model": "opus"})
+        link = os.path.join(self.tmp, "link.json")
+        os.symlink(real, link)
+        report.set_retention(180, link)
+        self.assertTrue(os.path.islink(link))
+        with open(real, encoding="utf-8") as fh:
+            self.assertEqual(json.load(fh), {"model": "opus", "cleanupPeriodDays": 180})
 
     def test_under_180_offers(self):
         self.assertTrue(report.retention(self.settings({"cleanupPeriodDays": 90}), self.projects)["offer"])

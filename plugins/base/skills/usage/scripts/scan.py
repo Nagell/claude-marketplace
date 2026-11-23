@@ -141,7 +141,7 @@ class Counters:
         self.unpriced = collections.Counter()
 
 
-def collect_requests(entries, seen, table, counters):
+def collect_requests(entries, seen, table, counters, key=""):
     """Deduped requests of one file, in order: {id: request}. Ids in `seen` (earlier files) are dropped.
 
     Each request keeps the largest value per usage field over its lines.
@@ -171,7 +171,7 @@ def collect_requests(entries, seen, table, counters):
         mid = msg.get("id")
         if not mid:
             anon += 1
-            mid = f"__line{idx}_{anon}"
+            mid = f"__{key}#line{idx}_{anon}"
         if mid in seen:
             continue
         tokens = prices.token_classes(usage)
@@ -292,7 +292,7 @@ def summarize_agent(path, table=None, seen=None, counters=None, since=None):
     counters = counters or Counters()
     entries, skipped = read_jsonl(path)
     counters.skipped_lines += skipped
-    reqs = collect_requests(entries, set() if seen is None else seen, table, counters)
+    reqs = collect_requests(entries, set() if seen is None else seen, table, counters, path)
     out = _summarize(path, entries, reqs, read_meta(path), since)
     out["skipped_lines"] = skipped
     return out, entries
@@ -301,46 +301,76 @@ def summarize_agent(path, table=None, seen=None, counters=None, since=None):
 # ---------- runs ----------
 
 def detect_runs(entries, reqs, session_key):
-    """Runs of one session file and the run of each request id and each Agent tool_use id."""
+    """Runs of one session file and the run of each request id and each Agent tool_use id.
+
+    A skill loaded inside an open run (openspec-grill loading grilling) stays in that run, listed under
+    `nested`. After a typed prompt, an attributed line of the same skill reopens the last run unless the
+    skill was invoked again (a skill command, a skill-load line or a Skill tool_use).
+    """
     has_attr = any(e.get("type") == "assistant" and e.get("attributionSkill") for e in entries)
     runs, req_run, tool_run = [], {}, {}
-    cur = None
+    cur = last = None
+    invoked = False
     line_req = {r["line"]: mid for mid, r in reqs.items()}
     pending_cmd = None
 
     def start(skill, t):
         nonlocal cur
-        cur = {"run_id": f"{session_key}#{len(runs) + 1}", "skill": skill, "start": t, "end": t}
+        cur = {"run_id": f"{session_key}#{len(runs) + 1}", "skill": skill, "start": t, "end": t, "nested": []}
         runs.append(cur)
+
+    def enter(skill, t):
+        nonlocal cur
+        if cur is None:
+            if last is not None and last["skill"] == skill and not invoked:
+                cur = last
+            else:
+                start(skill, t)
+        elif cur["skill"] != skill and skill not in cur["nested"]:
+            cur["nested"].append(skill)
 
     for idx, e in enumerate(entries):
         t = parse_ts(e.get("timestamp"))
         if is_typed_prompt(e):
             if cur:
                 cur["end"] = t or cur["end"]
+                last = cur
             cur = None
+            invoked = False
             name = command_name(e)
+            is_skill_cmd = bool(name) and (":" in name or name not in BUILTIN_COMMANDS)
+            invoked = is_skill_cmd
             pending_cmd = name if (name and not has_attr) else None
-            if pending_cmd and (":" in pending_cmd or pending_cmd not in BUILTIN_COMMANDS):
+            if pending_cmd and is_skill_cmd:
                 start(pending_cmd, t)
                 pending_cmd = None
             continue
-        if pending_cmd and is_skill_load(e):
-            start(pending_cmd, t)
-            pending_cmd = None
+        if is_skill_load(e):
+            invoked = True
+            if pending_cmd:
+                start(pending_cmd, t)
+                pending_cmd = None
         if e.get("type") != "assistant":
             continue
+        skill_calls = []
+        for b in tool_uses(e):
+            if b.get("name") == "Skill":
+                inp = b.get("input") if isinstance(b.get("input"), dict) else {}
+                name = inp.get("skill") or inp.get("command") or inp.get("name")
+                if name:
+                    skill_calls.append(str(name).lstrip("/"))
         if has_attr:
             skill = e.get("attributionSkill")
-            if skill and (cur is None or cur["skill"] != skill):
-                start(skill, t)
+            if skill:
+                enter(skill, t)
+            if skill_calls:
+                invoked = True
         else:
-            for b in tool_uses(e):
-                if b.get("name") == "Skill":
-                    inp = b.get("input") if isinstance(b.get("input"), dict) else {}
-                    name = inp.get("skill") or inp.get("command") or inp.get("name")
-                    if name:
-                        start(str(name).lstrip("/"), t)
+            for name in skill_calls:
+                if cur is None:
+                    start(name, t)
+                elif cur["skill"] != name and name not in cur["nested"]:
+                    cur["nested"].append(name)
         if cur and t:
             cur["end"] = t
         run = cur["run_id"] if cur else None
@@ -380,16 +410,17 @@ def scan(days=30, projects_dir=PROJECTS_DIR, table=None, now=None):
     for path, agents in find_sessions(projects_dir, since.timestamp()):
         entries, skipped = read_jsonl(path)
         counters.skipped_lines += skipped
-        loaded.append((first_ts(entries) or now, path, entries, agents))
-    loaded.sort(key=lambda x: (x[0], x[1]))
+        loaded.append((first_ts(entries) or now, len(entries), path, entries, agents))
+    # a resumed session copies its parent's history, so on equal first timestamps the shorter file is the parent
+    loaded.sort(key=lambda x: (x[0], x[1], x[2]))
 
     runs_out, no_skill = [], empty_totals()
     files_read = 0
-    for _, path, entries, agent_paths in loaded:
+    for _, _, path, entries, agent_paths in loaded:
         files_read += 1
         project = os.path.basename(os.path.dirname(path))
         session = os.path.basename(path)[: -len(".jsonl")]
-        reqs = collect_requests(entries, seen, table, counters)
+        reqs = collect_requests(entries, seen, table, counters, path)
         runs, req_run, tool_run = detect_runs(entries, reqs, session)
         by_id = {r["run_id"]: dict(r, project=project, session=session, own=empty_totals(), agents=[])
                  for r in runs}
@@ -436,7 +467,7 @@ def scan(days=30, projects_dir=PROJECTS_DIR, table=None, now=None):
             runs_out.append({
                 "run_id": run["run_id"], "skill": run["skill"], "skill_display": skill_display(run["skill"]),
                 "project": run["project"], "session": run["session"],
-                "start": iso(run["start"]), "end": iso(run["end"]),
+                "start": iso(run["start"]), "end": iso(run["end"]), "nested_skills": run["nested"],
                 "total": total, "own": run["own"], "agents": run["agents"],
             })
 
@@ -475,9 +506,11 @@ def _run_by_time(runs, s):
         for r in candidates:
             if r["skill"] == attr:
                 return r["run_id"]
-        for r in runs:
-            if r["skill"] == attr:
-                return r["run_id"]
+        same = [r for r in runs if r["skill"] == attr and r["start"]]
+        if same and start:
+            before = [r for r in same if r["start"] <= start]
+            pick = max(before, key=lambda r: r["start"]) if before else min(same, key=lambda r: r["start"])
+            return pick["run_id"]
     return candidates[-1]["run_id"] if candidates else None
 
 

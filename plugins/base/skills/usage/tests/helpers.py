@@ -53,6 +53,12 @@ def human(sec, text="do it", origin=True):
     return e
 
 
+def skill_load(sec, name="x"):
+    """The meta line Claude Code writes when a skill is invoked."""
+    return {"type": "user", "timestamp": ts(sec), "isMeta": True,
+            "message": {"role": "user", "content": [{"type": "text", "text": f"Base directory for this skill: /s/{name}"}]}}
+
+
 def notification(sec):
     return {"type": "user", "timestamp": ts(sec), "origin": {"kind": "task-notification"},
             "message": {"role": "user", "content": "<task-notification>done</task-notification>"}}

@@ -47,15 +47,23 @@ The scanner SHALL keep input, 5-minute cache write, 1-hour cache write, cache re
 - **THEN** the output shows each token class on its own
 
 ### Requirement: Skill runs and their agents
-The scanner SHALL group requests into skill runs. A run is a stretch of one session that works for one skill, from its invocation until the next typed prompt. An assistant line without `attributionSkill` inside an open run SHALL stay in that run. Each agent started inside a run SHALL belong to that run. A nested agent SHALL belong to its parent agent's run through `parentAgentId`. Requests outside any skill SHALL be grouped as "no skill".
+The scanner SHALL group requests into skill runs. A run is a stretch of one session that works for one skill, from its invocation until the next typed prompt. An assistant line without `attributionSkill` inside an open run SHALL stay in that run. A skill loaded inside an open run SHALL stay in that run. Each agent started inside a run SHALL belong to that run. A nested agent SHALL belong to its parent agent's run through `parentAgentId`. Requests outside any skill SHALL be grouped as "no skill".
 
 #### Scenario: Skill with agents
 - **WHEN** a session invokes `review-mr` and the run starts nine agents
 - **THEN** the scanner reports one `review-mr` run with nine agents and their requests
 
 #### Scenario: Same skill twice
-- **WHEN** one session runs `review-mr`, the user types a new prompt, and `review-mr` runs again
+- **WHEN** one session runs `review-mr`, the user types a new prompt, and `review-mr` is invoked again
 - **THEN** the scanner reports two runs
+
+#### Scenario: Reply typed during a run
+- **WHEN** the user answers a question of an interactive skill and the same skill continues without a new invocation
+- **THEN** the scanner reports one run
+
+#### Scenario: Nested skill
+- **WHEN** a `review-mr` run loads `writing-style-guide` and then continues as `review-mr`
+- **THEN** the scanner reports one `review-mr` run that lists `writing-style-guide` as nested
 
 #### Scenario: Gaps in attribution
 - **WHEN** a run has attributed assistant lines with unattributed ones between them and no typed prompt

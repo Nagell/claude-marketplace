@@ -66,8 +66,8 @@ def apply_run_json(run, data):
     for entry in data.get("agents", []):
         if isinstance(entry, dict) and entry.get("model") == "codex" and str(entry.get("agent_id")) not in matched:
             run["agents"].append({
-                "agent_id": entry.get("agent_id"), "role": entry.get("role"), "slice": entry.get("slice"),
-                "label": " ".join(x for x in (entry.get("role"), entry.get("slice")) if x),
+                "agent_id": entry.get("agent_id"), "role": entry.get("role") or "codex", "slice": entry.get("slice"),
+                "label": " ".join(x for x in (entry.get("role") or "codex", entry.get("slice")) if x),
                 "requested_model": "codex", "requested_effort": entry.get("effort"), "model": "codex",
                 "cost": None, "requests": 0, "source": "run.json", "note": "Codex task: no Claude transcript",
             })
@@ -245,8 +245,12 @@ def read_settings(path):
 
 
 def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR):
-    value = read_settings(settings_path).get("cleanupPeriodDays")
-    effective = DEFAULT_RETENTION if value is None else value
+    try:
+        value = read_settings(settings_path).get("cleanupPeriodDays")
+    except (OSError, ValueError) as exc:
+        return {"error": f"{settings_path} is unreadable: {exc}", "offer": False}
+    valid = isinstance(value, int) and not isinstance(value, bool) and value >= 1
+    effective = value if valid else DEFAULT_RETENTION
     per_day = collections.Counter()
     total = 0
     for path in glob.glob(os.path.join(projects_dir, "**", "*.jsonl"), recursive=True):
@@ -257,25 +261,30 @@ def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR):
         per_day[dt.date.fromtimestamp(st.st_mtime).isoformat()] += st.st_size
         total += st.st_size
     avg = total / len(per_day) if per_day else 0
-    offer = isinstance(effective, int) and 1 <= effective < TARGET_RETENTION
+    if value is None:
+        note = "unset: Claude Code's default of 30 days applies"
+    elif not valid:
+        note = f"{value!r} is not a valid value (whole number, minimum 1; Claude Code rejects 0), so the default of 30 applies"
+    else:
+        note = None
     return {
         "cleanupPeriodDays": value,
         "effective_days": effective,
-        "note": ("unset: Claude Code's default of 30 days applies" if value is None
-                 else "0: no sweep" if value == 0 else None),
+        "note": note,
         "bytes_on_disk": total,
         "active_days": len(per_day),
         "avg_bytes_per_active_day": int(avg),
         "estimate_bytes_at_180_days": int(avg * TARGET_RETENTION),
-        "offer": offer,
+        "offer": effective < TARGET_RETENTION,
     }
 
 
 def set_retention(days, settings_path=SETTINGS_PATH):
     """Set cleanupPeriodDays, keeping every other key; atomic replace."""
+    settings_path = os.path.realpath(settings_path)  # write through a symlink, keep the link
     data = read_settings(settings_path)
     data["cleanupPeriodDays"] = days
-    folder = os.path.dirname(os.path.abspath(settings_path))
+    folder = os.path.dirname(settings_path)
     os.makedirs(folder, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=folder, prefix=".settings.", suffix=".tmp")
     try:

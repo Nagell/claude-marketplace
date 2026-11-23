@@ -14,7 +14,7 @@ See proposal.md for why. Facts checked against local transcripts (Claude Code 2.
 - Assistant lines carry `attributionSkill` (for example `base:review-mr`) in both session and agent transcripts in recent versions. Older lines lack it. Slash commands appear as a user line with `<command-name>`. Model-invoked skills appear as a `Skill` tool_use.
 - `effort` is per assistant line and can change inside a session.
 - Cache reads dominate raw token sums.
-- `cleanupPeriodDays` is unset on this machine. Claude Code documents a default of 30 and a minimum of 1, and treats 0 as no sweep. The sweep did not delete files older than 30 days here: the oldest transcript was 85 days old.
+- `cleanupPeriodDays` is unset on this machine. Claude Code documents a default of 30 and a minimum of 1; setting 0 fails validation (rechecked 2026-11-23). The sweep did not delete files older than 30 days here: the oldest transcript was 85 days old.
 - The transcript format is undocumented and fields come and go between versions.
 - Skill scripts live in `scripts/*.py` with tests in `tests/test_*.py`. This change follows the `setup-zsh` and `add-cleanup` layout with stdlib `unittest`; `review-mr` uses pytest.
 - Prior art: `~/.claude/model-bench/review-hooks-browser/cost.py` already prices requests per model, with 5-minute and 1-hour writes, the Haiku tier above 100k and a fallback to `cache_creation_input_tokens` when the `cache_creation` dict is missing. `improve-review-mr` quotes its run D costs.
@@ -60,7 +60,7 @@ Rejected: the ledger and daily dataset from `add-usage-collection` (hook, backgr
 
 ### 3. Dedupe
 
-Keep one set of `message.id` per scan, across all files. Files are read in order of their first timestamp, so a resumed session's copied history counts in the parent file. For each id, take the largest value of each usage field over its lines, because an old first line can hold partial usage. Lines without an id are counted as their own request. Lines whose model is `<synthetic>` are not priced and not listed as unpriced; their count is reported as API errors. When a line has no `cache_creation` dict, `cache_creation_input_tokens` counts as 5-minute writes, as in `cost.py`.
+Keep one set of `message.id` per scan, across all files. Files are read in order of their first timestamp, then by line count, so a resumed session's copied history counts in the parent file even when both start at the same time. For each id, take the largest value of each usage field over its lines, because an old first line can hold partial usage. Lines without an id are counted as their own request, under an id that includes the file path. Lines whose model is `<synthetic>` are not priced and not listed as unpriced; their count is reported as API errors. When a line has no `cache_creation` dict, `cache_creation_input_tokens` counts as 5-minute writes, as in `cost.py`.
 
 ### 4. Run detection
 
@@ -68,7 +68,7 @@ A run is keyed by session and skill. Rule, in order:
 
 A typed prompt is a user line with `origin.kind` `human`. When `origin` is missing, a typed prompt is a user line with string content that is not `isMeta`, not a tool result and does not start with `<task-notification>`, `<local-command` or `<bash-`. Task notifications and peer messages never end a run.
 
-1. If assistant lines carry `attributionSkill`, a run starts at the first line with a value and ends at the next typed prompt. An assistant line without `attributionSkill` inside an open run stays in that run. A line with a different value starts a new run.
+1. If assistant lines carry `attributionSkill`, a run starts at the first line with a value and ends at the next typed prompt. An assistant line without `attributionSkill` inside an open run stays in that run. A different skill inside an open run (one skill loading another) stays in the open run and is listed as nested. After a typed prompt, a line of the same skill reopens the last run, unless the skill was invoked again: a skill `<command-name>`, a skill-load meta line or a `Skill` tool_use.
 2. Otherwise the run starts at a `Skill` tool_use, or at a `<command-name>` user line for a skill command, and ends at the next typed prompt. A `<command-name>` is a skill command when the name contains `:`, is not a built-in command, or the following lines carry `attributionSkill` or the skill-load meta line. `/clear`, `/compact`, `/plugin` and other built-ins never start a run.
 
 An agent belongs to the run that holds the `Agent` tool_use whose id matches the meta file's `toolUseId`. A nested agent (`spawnDepth` 2) matches a tool_use in its parent agent's file; it belongs to the parent agent's run through `parentAgentId`. When `toolUseId` is missing, the agent's own `attributionSkill` or its start time inside a run decides. Skill names are normalized by dropping the plugin prefix for display (`base:review-mr` shows as `review-mr`) and kept in full in the JSON.
@@ -97,7 +97,7 @@ Rejected: `review-mr` pricing its own agents (two places that price), `review-mr
 
 ### 8. Retention check
 
-`report.py --retention` reads `cleanupPeriodDays` (unset means the Claude Code default of 30; 0 means no sweep, so no offer is made). When from 1 to 179 it sums transcript bytes per day over the files present, takes the average per active day and prints the estimate at 180 days. The skill shows it and asks with AskUserQuestion. On yes it writes the setting with a JSON load, update and atomic replace that keeps every other key. The check runs on every invocation, before the mode question's result is used, and costs one stat pass.
+`report.py --retention` reads `cleanupPeriodDays` (unset or invalid, 0 included, means the Claude Code default of 30). An unreadable settings file is reported and no offer is made. When the effective value is from 1 to 179 it sums transcript bytes per day over the files present, takes the average per active day and prints the estimate at 180 days. The skill shows it and asks with AskUserQuestion. On yes it writes the setting with a JSON load, update and atomic replace that keeps every other key, through a symlinked settings file to its target. The check runs on every invocation, before the mode question's result is used, and costs one stat pass.
 
 ### 9. Tests
 

@@ -27,7 +27,7 @@ Estimated API-equivalent cost of your skill runs, from the transcripts Claude Co
 python3 $SKILL_DIR/scripts/report.py --retention
 ```
 
-When `offer` is false, say nothing about it (0 means no sweep; 180 or more is long enough). When `offer` is true, the history is cut at `effective_days`: show `cleanupPeriodDays` (or that it is unset, so 30 applies), the average size per active day and `estimate_bytes_at_180_days`, in MB or GB. Ask in the same AskUserQuestion call as step 2:
+When `error` is set, show it in one line and skip the offer. When `offer` is false, say nothing about it (180 or more is long enough). When `offer` is true, the history is cut at `effective_days`: show `cleanupPeriodDays` and the `note` (unset or invalid, such as 0, means the default of 30 applies), the average size per active day and `estimate_bytes_at_180_days`, in MB or GB. Ask in the same AskUserQuestion call as step 2:
 
 - `Keep 180 days (Recommended)` - writes `cleanupPeriodDays: 180`, every other key kept.
 - `Leave it` - nothing changes.

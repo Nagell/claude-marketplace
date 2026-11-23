@@ -4,7 +4,7 @@ import os
 import subprocess
 import sys
 
-from helpers import SKILL_DIR, TempHome, agent_call, asst, command, human, notification, skill_call, ts, usage
+from helpers import SKILL_DIR, TempHome, agent_call, asst, command, human, notification, skill_call, skill_load, usage
 import scan
 
 NOW = dt.datetime(2026, 11, 21, tzinfo=dt.timezone.utc)
@@ -83,8 +83,41 @@ class Runs(ScanBase):
         self.assertEqual(runs[0]["total"]["requests"], 1 + 9 + 9)
 
     def test_same_skill_twice(self):
-        self.session("s1", [human(0), asst("m1", 1, skill=RM), human(10), asst("m2", 11, skill=RM)])
+        self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill=RM),
+                            human(10), skill_load(10), asst("m2", 11, skill=RM)])
         self.assertEqual(len(self.runs(self.scan())), 2)
+
+    def test_reply_typed_during_run_keeps_one_run(self):
+        # an interactive skill: the user answers, the same skill carries on without a new invocation
+        self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill=RM), human(10, "yes"), asst("m2", 11, skill=RM)])
+        runs = self.runs(self.scan())
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["total"]["requests"], 2)
+
+    def test_nested_skill_stays_in_parent_run(self):
+        self.session("s1", [human(0), asst("m1", 1, skill=RM), asst("m2", 2, skill="base:writing-style-guide"),
+                            agent_call("m3", 3, "tu1", skill="base:writing-style-guide"), asst("m4", 4, skill=RM)])
+        self.agent("s1", "a1", [asst("am", 5)], {"toolUseId": "tu1", "spawnDepth": 1})
+        data = self.scan()
+        self.assertEqual([r["skill"] for r in data["runs"]], [RM])
+        run = data["runs"][0]
+        self.assertEqual(run["nested_skills"], ["base:writing-style-guide"])
+        self.assertEqual((run["total"]["requests"], len(run["agents"])), (5, 1))
+
+    def test_resumed_session_with_same_first_timestamp(self):
+        parent = [human(0), asst("m1", 1, skill=RM)]
+        self.session("z-parent", parent)
+        self.session("a-child", parent + [human(20), asst("m2", 21)])
+        data = self.scan()
+        self.assertEqual([(r["session"], r["total"]["requests"]) for r in data["runs"]], [("z-parent", 1)])
+        self.assertEqual(data["no_skill"]["requests"], 1)
+
+    def test_id_less_requests_in_two_files_both_count(self):
+        for sid in ("s1", "s2"):
+            line = asst(None, 1)
+            del line["message"]["id"]
+            self.session(sid, [human(0), line])
+        self.assertEqual(self.scan()["no_skill"]["requests"], 2)
 
     def test_gaps_in_attribution_stay_in_run(self):
         self.session("s1", [human(0), asst("m1", 1, skill=RM), asst("m2", 2), asst("m3", 3, skill=RM)])

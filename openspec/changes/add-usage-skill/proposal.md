@@ -11,7 +11,7 @@ Model and effort choices for skills and their agents are made on anecdotes. Clau
 - A seed price table ships with the plugin. A user file at `~/.claude/usage/prices.json` merges over it per model id. No network.
 - `report` picks the top skills by spend in a window (default 5) and shows script-built trends for them. The model then reads the per-agent details of recent runs and outliers and names agents to drop or to strengthen. Recommendations are output only.
 - `report` is the only place that prices `review-mr` runs. When a session's scratchpad (under `/tmp/claude-<uid>`, not `~/.claude`) still holds `review-mr`'s `run.json`, the report labels that run's agents by role and slice and shows cost and unique surviving findings per role.
-- Every run checks transcript retention (`cleanupPeriodDays`) and offers to set 180 days when it is from 1 to 179 or unset. 0 means no sweep, so no offer. Nothing changes without the user's yes.
+- Every run checks transcript retention (`cleanupPeriodDays`) and offers to set 180 days when it is from 1 to 179, unset or invalid. Claude Code rejects 0 (the minimum is 1), so 0 counts as invalid and the default of 30 applies. Nothing changes without the user's yes.
 - Removed from the earlier plan: hooks, background job, ledger, daily Markdown files, session error notes, re-runs and parse-failure thresholds.
 
 ## Capabilities
