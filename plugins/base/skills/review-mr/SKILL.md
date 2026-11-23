@@ -345,10 +345,16 @@ many slice owners step 4 spawns. Reading load is the line count of the whole
 changed files at head, not the changed lines: a 5-line change in a 900-line
 file still needs the whole file read (brief step 1), so it counts 900. Leave
 out lockfiles, locale files and generated files, which nobody reviews line by
-line, and add the rules' size excludes to the pathspecs:
+line. The default pathspecs below cover lockfiles, minified files,
+`*.generated.*`, `dist/` and `build/` output, `locales/`, JSON under `i18n/`
+and `*.po` files at any depth, even when there are no rules; add the rules'
+size excludes after them:
 
 ```bash
 EXCL=(':(exclude)*.lock' ':(exclude)*-lock.*' ':(exclude)pnpm-lock.yaml'
+  ':(exclude)*.min.js' ':(exclude)*.min.css' ':(exclude)*.generated.*'
+  ':(exclude)*.po' ':(exclude,glob)**/dist/**' ':(exclude,glob)**/build/**'
+  ':(exclude,glob)**/locales/**' ':(exclude,glob)**/i18n/**/*.json'
   <the rules' size excludes>)
 git -C <worktree> diff --name-only <base_sha> <head_sha> -- . "${EXCL[@]}" \
   > "$RUN_TMP/changed.txt"

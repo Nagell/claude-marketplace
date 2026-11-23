@@ -44,15 +44,15 @@ The skill SHALL accept `--fast`. With it, wave-1 and wave-2 agents SHALL run on 
 - **THEN** the skill says in one line that `--fast` does not apply and runs as a Codex review
 
 ### Requirement: Slices sized by reading load
-The skill SHALL cut the changed files into slices by reading load, the line count of whole changed files with lockfiles, generated files and the rules' size excludes left out, not by changed lines. The size tiers S, M, L and XL SHALL NOT be used.
+The skill SHALL cut the changed files into slices by reading load, the line count of whole changed files with lockfiles, generated files and the rules' size excludes left out, not by changed lines. Default pathspecs SHALL leave out lockfiles, minified, generated, build output and locale files even when there are no rules. The size tiers S, M, L and XL SHALL NOT be used.
 
 #### Scenario: Small change in a large file
 - **WHEN** an MR changes 5 lines in a 900-line script
 - **THEN** that file counts as 900 lines of reading load and its owner reads it whole
 
 #### Scenario: Excluded files
-- **WHEN** an MR changes a lockfile and a generated file
-- **THEN** neither counts toward any slice's reading load
+- **WHEN** an MR changes a lockfile, a generated file and a locale file, and the repo has no rules
+- **THEN** none of them counts toward any slice's reading load
 
 ### Requirement: Slices follow one contract
 Files SHALL be grouped so that a slice holds one tool contract or component: a script with its tests and the doc section describing it, a hook with its `hooks.json` entry, a component with its composable and spec.
