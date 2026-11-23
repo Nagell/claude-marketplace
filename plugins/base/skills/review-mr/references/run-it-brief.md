@@ -35,7 +35,7 @@ mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
 - **Stubs first on `PATH`.** Put stub `git`, `gh`, `glab`, `curl`, `npx`,
   `npm`, `pnpm`, `wget` and any other tool that would touch the network or a
   remote into `$R/stubs`. Each stub appends its arguments to
-  `$R/out/<tool>.log` and prints canned output that fits the case you test:
+  `$R/out/calls.log` and prints canned output that fits the case you test:
 
   ```bash
   printf '#!/bin/sh\necho "$0 $*" >> %s/out/calls.log\necho "{}"\n' "$R" \
