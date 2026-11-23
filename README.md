@@ -109,7 +109,7 @@ The marketplace ships core plugin, `base`, which carries safety guardrails, auto
 
 | Plugin                                            | Description                                                                        |
 | ------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [base](plugins/base/)                             | Safety guardrails, auto-formatting, MCP servers, CLAUDE.md, MR/PR review, OpenSpec grill and plan check, cleanup |
+| [base](plugins/base/)                             | Safety guardrails, auto-formatting, MCP servers, CLAUDE.md, MR/PR review, OpenSpec grill and plan check, cleanup, usage report |
 | [coding-tutor](plugins/coding-tutor/)             | Codebase-driven tutorials, spaced-repetition quizzes, plus a commit-time nudge     |
 | [extras](plugins/extras/)                         | Optional extras: skill-creator, PR/MR descriptions kept current by a push hook, isolated browser sessions |
 

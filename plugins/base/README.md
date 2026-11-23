@@ -95,6 +95,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:review-mr`      | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs))                                                                                                                                                                                                   |
 | `/base:resolve-review` | Answer the review on your own MR or PR: check each open thread against the current code, plan fixes and replies, post and resolve only what you approve ([details](#answering-a-review))                                                                                                                             |
 | `/base:cleanup`        | Find merged branches, worktrees of merged work and scratch folders of stopped sessions, then remove only what you approve, with a log, including forced removal of approved dirty worktrees and remote branch deletes                                                                                                |
+| `/base:usage`          | Estimated cost of your most used skills and their agents from local transcripts, trends, and roles to drop or strengthen ([details](#usage-report))                                                                                                                                                                  |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 
@@ -200,6 +201,26 @@ cd plugins/base/skills/review-mr && uvx pytest tests
 ### Answering a review
 
 `/base:resolve-review` is the counterpart: run it on your own branch once reviewers have commented. It finds the MR or PR for the branch, checks every unresolved thread against the code at the branch head (already addressed, needs a fix, disagree or a question to answer), and shows a plan with every draft reply in full. After you approve, it makes the fixes without committing, posts the replies in your voice, and resolves threads only if you choose to. It uses the same scripts and project rules as `review-mr`.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- USAGE REPORT -->
+
+## Usage report
+
+`/base:usage` reads the transcripts Claude Code already keeps in `~/.claude/projects/` and prices them, on demand: no hook, no background job, nothing stored. It groups requests into skill runs and their agents, counts each API response once (one response is written as several lines, and a resumed session copies its parent's history) and applies Haiku 5.5's higher tier above 100k prompt tokens. The `report` mode ranks skills by spend over the last 30 days (top 5), shows trends per run, role, model and effort, reads the last 5 runs and the outliers, and names agent roles to drop or to strengthen. It changes nothing: a recommendation is applied through an OpenSpec change and a benchmark. A `models` mode is planned.
+
+Costs are **estimates** at API prices, not your plan usage. Side calls and compaction summaries are not in the transcripts, so totals run up to about 12% low.
+
+- **Review runs:** for `review-mr`, the report labels agents by role and slice and counts surviving findings per role from the run's `run.json` in the session scratchpad (`/tmp/claude-<uid>/...`). A reboot clears `/tmp`, so older runs keep the generic labels.
+- **Prices:** a seed table ships in `skills/usage/prices.json`. A file at `~/.claude/usage/prices.json` with the same shape merges over it per model id, so it may list only the models you want to change. An invalid file is reported and the seed is used.
+- **Retention:** Claude Code deletes transcripts after `cleanupPeriodDays` (30 when unset). Each run shows the disk use per day and offers to set 180 days; it writes `~/.claude/settings.json` only after you agree, keeping every other key.
+
+Tests, stdlib only:
+
+```bash
+cd plugins/base/skills/usage && python3 -m unittest discover -s tests
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -309,6 +330,7 @@ The included [CLAUDE.md](CLAUDE.md) sets opinionated defaults: plain language (w
 - Node.js (for the npx-run formatters)
 - `jq`, for the status line that `/base:plugin-setup` offers
 - Python 3 and an authenticated `glab` (GitLab) or `gh` (GitHub), for `/base:review-mr` and `/base:resolve-review`
+- Python 3.9 or newer, for `/base:usage`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
