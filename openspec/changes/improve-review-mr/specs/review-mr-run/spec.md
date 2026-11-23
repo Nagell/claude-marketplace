@@ -70,6 +70,21 @@ A failing command SHALL be re-run at `base_sha` in a throwaway worktree under th
 - **WHEN** a test fails once at head and passes on the re-run
 - **THEN** no finding is made
 
+### Requirement: Base run failures
+Head runs SHALL stop early enough to leave part of the total time limit for base re-runs. When a base re-run times out or errors, or `git worktree add` fails, the command SHALL be reported as "base run failed" with the reason and SHALL NOT become a finding. A failed `git worktree add` SHALL still print the JSON result, with an `error` field.
+
+#### Scenario: Base re-run times out
+- **WHEN** a command fails at head and its base re-run times out
+- **THEN** it is listed as "base run failed: timed out" and no `check-` finding is made
+
+#### Scenario: Slow head run
+- **WHEN** a failing head run uses all the time it is given
+- **THEN** the base re-run still gets the reserved part of the total time limit
+
+#### Scenario: Worktree add fails
+- **WHEN** `git worktree add` for the base fails
+- **THEN** the step prints JSON with an `error` field and the command as "base run failed"
+
 ### Requirement: Check findings
 Findings from checks SHALL carry the id prefix `check-` and the command that produced them. The default severity SHALL be medium for a failing test or type error and low for a lint or format failure, and the main session MAY regrade by consequence. They SHALL skip refutation because a tool measured them.
 

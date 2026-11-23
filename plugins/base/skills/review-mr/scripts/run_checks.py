@@ -20,11 +20,14 @@ skipped with "dependencies not installed". A timeout is "not run", never a
 failure. A failing command is re-run at ``--base`` in a throwaway worktree
 under ``--tmp`` (removed afterwards), and only messages that are not also
 present there become findings. A failing test is re-run once at head first,
-to rule out a flaky test. Prints:
+to rule out a flaky test. Head runs stop a quarter of the total limit early
+(at most one per-command limit), so a base re-run always gets time. When the
+base re-run times out or errors, or the base worktree cannot be made, the
+command is "base run failed" with the reason and makes no finding. Prints:
 
   {"results": [...], "findings": [{"id": "check-1", "severity", "command",
    "messages"}], "pre_existing": [...], "not_run": [...],
-   "base_worktree": <path or null>}
+   "base_worktree": <path or null>, "error": <only when git worktree add failed>}
 """
 
 from __future__ import annotations
@@ -61,6 +64,7 @@ FIX_FLAGS = {"--fix": None, "--write": "--check", "-w": None}
 SHELL_OPS = re.compile(r"&&|\|\||[|;<>`$]")
 PER_COMMAND = 120
 TOTAL = 300
+BASE_RESERVE = 0.25  # share of TOTAL kept back from head runs for base re-runs
 
 
 # ---------------------------------------------------------------- git helpers
@@ -395,18 +399,26 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
     tmp.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ, TMPDIR=str(tmp), CI="1")
     deadline = time.monotonic() + total
+    # head runs stop this much before the deadline, so a base re-run always has time
+    reserve = min(per_command, total * BASE_RESERVE)
     report: dict = {"results": [], "findings": [], "pre_existing": [], "not_run": [],
                     "base_worktree": None}
     base_wt: Path | None = None
+    base_error: str | None = None
 
     def left() -> float:
         return deadline - time.monotonic()
 
-    def go(cmd: dict, tree: Path) -> dict:
-        budget = min(per_command, left())
+    def go(cmd: dict, tree: Path, keep: float = 0.0) -> dict:
+        budget = min(per_command, left() - keep)
         if budget <= 0:
             return {"status": "timeout", "seconds": 0.0, "reason": "total time limit"}
         return execute([*(wrap or []), *cmd["argv"]], tree / cmd["cwd"], budget, env)
+
+    def base_failed(res: dict, cmd: dict, why: str) -> None:
+        reason = f"base run failed: {why}"
+        res.update(status="base_run_failed", reason=reason)
+        report["not_run"].append({"id": cmd["id"], "reason": reason})
 
     try:
         for cmd in plan["commands"]:
@@ -418,7 +430,7 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 res.update(status="skipped", reason=missing)
                 report["not_run"].append({"id": cmd["id"], "reason": missing})
                 continue
-            head = go(cmd, repo)
+            head = go(cmd, repo, reserve)
             if head["status"] == "timeout":
                 res.update(status="not_run", reason="not run: timed out")
                 report["not_run"].append({"id": cmd["id"], "reason": "not run: timed out"})
@@ -428,13 +440,20 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 res["status"] = "pass"
                 continue
             if cmd["kind"] == "test":
-                again = go(cmd, repo)
+                again = go(cmd, repo, reserve)
                 if again["status"] == "pass":
                     res.update(status="flaky", reason="failed once, passed on re-run")
                     continue
+            if base_wt is None and base_error is None:
+                try:
+                    base_wt = make_base_worktree(repo, plan["base"], tmp)
+                    report["base_worktree"] = str(base_wt)
+                except RuntimeError as e:
+                    base_error = str(e)
+                    report["error"] = base_error
             if base_wt is None:
-                base_wt = make_base_worktree(repo, plan["base"], tmp)
-                report["base_worktree"] = str(base_wt)
+                base_failed(res, cmd, base_error or "no base worktree")
+                continue
             link_deps(repo, base_wt, cmd["cwd"])
             base_cmd = dict(cmd, argv=[a for a in cmd["argv"]
                                        if a not in cmd["files"]
@@ -446,6 +465,12 @@ def run(plan: dict, repo: Path, tmp: Path, per_command: float = PER_COMMAND,
                 base = go(base_cmd, base_wt)
             res["base"] = {"exit": base.get("exit"), "status": base["status"],
                            "output_tail": tail(base.get("output", ""))}
+            if base["status"] == "timeout":
+                base_failed(res, cmd, base.get("reason", "timed out"))
+                continue
+            if base["status"] == "error":
+                base_failed(res, cmd, base.get("output", "error"))
+                continue
             roots = [repo, base_wt, tmp]
             head_msgs = normalise(head.get("output", ""), roots)
             base_msgs = normalise(base.get("output", ""), roots) if base["status"] == "fail" else set()

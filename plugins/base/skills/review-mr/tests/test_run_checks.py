@@ -220,6 +220,45 @@ def test_total_limit_stops_later_commands(repo, tmp_path):
     assert {n["id"] for n in out["not_run"]} == {"cmd-1", "cmd-2"}
 
 
+def test_base_timeout_is_base_run_failed(repo, tmp_path):
+    slow_at_base = ("import os, sys, time\n"
+                    "if 'checks-base' in os.getcwd(): time.sleep(5)\n"
+                    "print('a.txt:1:1: E1 broken'); sys.exit(1)\n")
+    base, _ = base_and_head(repo, {"check.py": slow_at_base}, {"a.txt": "x"})
+    out = rc.run(plan_for(base, [sys.executable, "check.py"]), repo, tmp_path / "run",
+                 per_command=1)
+    assert out["findings"] == []
+    assert out["results"][0]["status"] == "base_run_failed"
+    assert out["not_run"] == [{"id": "cmd-1", "reason": "base run failed: timed out"}]
+
+
+def test_base_run_keeps_time_from_total(repo, tmp_path, monkeypatch):
+    clock = [0.0]
+    budgets = []
+
+    def fake_execute(argv, cwd, timeout, env):
+        budgets.append(("base" if "checks-base" in str(cwd) else "head", timeout))
+        clock[0] += timeout  # the head run uses all the time it is given
+        return {"status": "fail", "exit": 1, "output": "same error", "seconds": timeout}
+
+    monkeypatch.setattr(rc, "execute", fake_execute)
+    monkeypatch.setattr(rc.time, "monotonic", lambda: clock[0])
+    base, _ = base_and_head(repo, {"a": "1"}, {"a": "2"})
+    out = rc.run(plan_for(base, ["lint"]), repo, tmp_path / "run", per_command=120, total=100)
+    assert budgets == [("head", 75), ("base", 25)]
+    assert out["pre_existing"] == [{"id": "cmd-1", "argv": ["lint"]}]
+
+
+def test_failed_worktree_add_reports_error(repo, tmp_path):
+    _, _ = base_and_head(repo, {"check.py": CHECK, "a.txt": "fine"}, {"a.txt": "BAD"})
+    plan = plan_for("0" * 40, [sys.executable, "check.py", "a.txt"], files=["a.txt"])
+    out = rc.run(plan, repo, tmp_path / "run")
+    assert "git worktree add failed" in out["error"]
+    assert out["findings"] == []
+    assert out["results"][0]["status"] == "base_run_failed"
+    json.dumps(out)
+
+
 def test_missing_node_modules_skips(repo, tmp_path):
     pkg = json.dumps({"scripts": {"lint": "eslint ."}})
     base, head = base_and_head(repo, {"package.json": pkg, "a.ts": "1"}, {"a.ts": "2"})

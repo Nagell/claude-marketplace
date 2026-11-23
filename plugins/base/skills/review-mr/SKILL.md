@@ -741,7 +741,10 @@ python3 $SKILL_DIR/scripts/run_checks.py run --plan "$RUN_TMP/checks-plan.json" 
 - A failing command is re-run at `base_sha` in a throwaway worktree under
   `$RUN_TMP/checks` (removed afterwards), on the same files. Only messages
   that are not also there become findings. A failing test is re-run once at
-  head first, to rule out a flaky one.
+  head first, to rule out a flaky one. Head runs leave a quarter of the 300 s
+  for base re-runs. When a base re-run times out or errors, or the base
+  worktree cannot be made (`error` in the output), the command goes under
+  `not_run` as "base run failed" with the reason and makes no finding.
 
 When nothing is detected, say so in one line and go on. Each entry of
 `findings` is a finding with its `check-<n>` id and the command that produced
