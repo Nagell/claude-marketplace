@@ -94,6 +94,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:setup-zsh`      | Configure Zsh with zinit, Powerlevel10k, syntax highlighting, Nerd Fonts, Windows-style keybindings; optional Ghostty (macOS), herdr, mdv and LazyVim editor                                                                                                                                                         |
 | `/base:review-mr`      | Review an MR or PR and post the accepted findings as one review with a verdict ([details](#reviewing-mrs-and-prs))                                                                                                                                                                                                   |
 | `/base:resolve-review` | Answer the review on your own MR or PR: check each open thread against the current code, plan fixes and replies, post and resolve only what you approve ([details](#answering-a-review))                                                                                                                             |
+| `/base:cleanup`        | Find merged branches, worktrees of merged work and scratch folders of stopped sessions, then remove only what you approve, with a log                                                                                                                                                                                |
 
 These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
 

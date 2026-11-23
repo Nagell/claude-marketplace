@@ -9,6 +9,10 @@ Defines which leftovers the cleanup skill reports (merged branches, worktrees an
 ### Requirement: Scan reads known locations only
 The scan SHALL inspect only the current repository (branches, remotes, worktrees), the folders `<repo>.worktrees/` and `<repo>-*` next to the primary checkout, and the Claude scratch root `/tmp/claude-<uid>/`. It MUST NOT search `/tmp`, `$HOME` or other paths.
 
+#### Scenario: Scratchpad path outside the scratch root
+- **WHEN** the scratchpad path given to the scan does not resolve under `/tmp/claude-<uid>/`
+- **THEN** the scan ignores it for the scratch root and uses `/tmp/claude-<uid>/`
+
 #### Scenario: Unrelated files in /tmp
 - **WHEN** `/tmp` holds folders that are not under `/tmp/claude-<uid>/`
 - **THEN** the scan does not list, read or count them
@@ -203,4 +207,4 @@ The scan SHALL print one table of at most about 40 lines for typical use, groupe
 
 #### Scenario: Large state
 - **WHEN** more than 40 items would be printed
-- **THEN** the table shows the oldest or largest first, the rest are counted in a summary line and all of them stay in the scan result file
+- **THEN** the table shows the oldest and largest items of all groups first, still grouped, the rest are counted in a summary line and all of them stay in the scan result file

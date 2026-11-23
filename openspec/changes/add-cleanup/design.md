@@ -51,7 +51,7 @@ Alternative rejected: `git branch --merged main`. It uses the stale local `main`
 
 ### 3. Worktrees: merged, clean, pushed, not in use
 
-From `git worktree list --porcelain`. Safe means: branch merged (or detached commit contained in `origin/<default>`), `git status --porcelain --untracked-files=all` empty, no commits outside the merged head, not locked, not the primary checkout, not the current worktree, not the `cwd` of a running session. An ignored file makes the worktree risky only when the primary checkout has no identical file at the same path; files under `node_modules`, `dist`, `.nuxt`, `.output`, `build`, `coverage` and `__pycache__` never count. Removal uses `git worktree remove` without `--force`, so git is a second safety check. A worktree whose folder is gone is "dangling" and is pruned with `git worktree prune`.
+From `git worktree list --porcelain`. Safe means: branch merged (or detached commit contained in `origin/<default>`), `git status --porcelain --untracked-files=all` empty, no commits outside the merged head, not locked, not the primary checkout, not the current worktree, not the `cwd` of a running session. An ignored file makes the worktree risky only when the primary checkout has no identical file at the same path; files under `node_modules`, `dist`, `.nuxt`, `.output`, `build`, `coverage` and `__pycache__` never count. Removal uses `git worktree remove` without `--force`, so git is a second safety check. The one exception is a risky worktree with changed files that the user approved on its own: the question lists the changed files and the commits that would be lost, the script checks that nothing changed since the scan, then runs `git worktree remove --force`. The safe group and items without their own yes are never forced. Commits after a merged PR are named by subject (first 5, then "and N more"), not only counted. A worktree whose folder is gone is "dangling" and is pruned with `git worktree prune`.
 
 Orphan folders (`<repo>.worktrees/*`, `<repo>-*`) are reported only when `.git` is a file pointing at a missing `.git/worktrees/<name>`. A sibling with a `.git` directory is another repository (for example `claude-marketplace-template` next to this repo) and is never touched. Orphans are always risky: with the admin data gone, uncommitted work cannot be checked.
 
@@ -59,7 +59,7 @@ Orphan folders (`<repo>.worktrees/*`, `<repo>-*`) are reported only when `.git` 
 
 The unit is the whole session folder `/tmp/claude-<uid>/<project>/<session>/`. Removal deletes all of it, including `scratchpad/`, `tasks/`, `images/` and `started`.
 
-Not running = no file in `~/.claude/sessions/` names the session with a live process whose `procStart` matches. On Linux the match uses `/proc/<pid>/stat` field 22, compared as a string. A session file without `procStart` counts as running when its pid exists (fail safe). Non-JSON files and files that do not parse are skipped. On macOS there is no `/proc`, so an existing pid counts as running (fail safe, keeps the folder). Age = newest mtime of anything inside the folder, default 7 days (`--days`). The walk uses `lstat` and never follows symlinks; removal uses `shutil.rmtree`, which removes links without following them. Paths must resolve under `/tmp/claude-<uid>/`.
+Not running = no file in `~/.claude/sessions/` names the session with a live process whose `procStart` matches. On Linux the match uses `/proc/<pid>/stat` field 22, compared as a string. A session file without `procStart` counts as running when its pid exists (fail safe). Non-JSON files and files that do not parse are skipped. On macOS there is no `/proc`, so an existing pid counts as running (fail safe, keeps the folder). Age = newest mtime of anything inside the folder, default 7 days (`--days`). The walk uses `lstat` and never follows symlinks; removal uses `shutil.rmtree`, which removes links without following them. Paths must resolve under `/tmp/claude-<uid>/`. A scratch root derived from `--own` is used only when it resolves under `/tmp/claude-<uid>/`; otherwise the scan falls back to `/tmp/claude-<uid>/`.
 
 Empty means no regular file anywhere inside the session folder except the `started` marker. Empty folders (subfolders included) are safe and grouped into one entry with a count, because most are empty (189 here) and one line each would cost tokens. A stale folder that holds any other file, even a zero-byte one, is risky: task output, an image or a scratch file. It is listed with size and newest files and needs its own yes.
 
@@ -79,13 +79,13 @@ Today the rule in `plugins/base/CLAUDE.md` and in the review-mr agent brief says
 2. One AskUserQuestion: delete all safe items (recommended), delete all except some (user types ids through the free-text answer), cancel. AskUserQuestion cannot list 40 options, so the table carries the ids and the dialog carries only the choice. Remote branches are a separate question in the same dialog, worded as a push.
 3. Risky items: one AskUserQuestion per item (up to four per call), naming the files or commits that would be lost. A "no" keeps the item.
 4. Run `cleanup.py remove --ids ... --apply`. Print counts and the log path.
-5. Remote branches, if approved: `touch <primary root>/.claude-push-token` in its own Bash call, then `git -C <primary root> push origin --delete a b c` in the next call. One push, one token. The primary root is used so the hook resolves the same repo root from `git -C`.
+5. Remote branches, if approved: `cleanup.py log-remote --ids r1,r2` logs each branch with its tip and prints the push command (decision 7). Then `touch <primary root>/.claude-push-token` in its own Bash call, then `git -C <primary root> push origin --delete a b c` in the next call. One push, one token. The primary root is used so the hook resolves the same repo root from `git -C`.
 
 The script never runs `git push`. The hook reads the command text, so a push hidden in a script would skip the gate the user relies on, and a gate that needs the script to ask for a token cannot work. Alternatives rejected: `gh api -X DELETE .../git/refs/heads/<b>` (deletes remote refs without the hook seeing a `git push`, which defeats the gate); asking once for a permanent token (the hook and the user's rule require a token per push).
 
 ### 7. Log and recovery
 
-JSON lines in `${XDG_STATE_HOME:-~/.local/state}/claude-cleanup/cleanup.log`. Branch entries keep the tip commit id, so `git branch <name> <sha>` restores a branch. Worktree and session folder deletions cannot be undone, which is why clean and not-running checks are strict.
+JSON lines in `${XDG_STATE_HOME:-~/.local/state}/claude-cleanup/cleanup.log`. Branch entries keep the tip commit id, so `git branch <name> <sha>` restores a branch. Remote branches are logged by `log-remote` before the push, one entry per branch with its tip, so `git push origin <sha>:refs/heads/<name>` restores one. Worktree and session folder deletions cannot be undone, which is why clean and not-running checks are strict.
 
 ### 8. Skill shape
 
@@ -119,6 +119,8 @@ Reported as unknown, never deleted: `claude-marketplace-template` (sibling with 
 - [`gh` rate limits or no auth] → fall back to checks 1 and 3 and print which check was skipped.
 - [Session file missing for a live session] → age limit (7 days) bounds the risk; an active session touches its folder.
 - [Ignored files lost with a worktree, for example a local `.env`] → risky when the primary checkout has no identical copy, so it needs its own yes.
+- [Forced removal of an approved dirty worktree deletes its changes for good] → only after its own yes, with the changed files and lost commits named in the question, and only when the worktree is unchanged since the scan.
+- [Large state cut at 40 rows] → the oldest and largest items fill the table; younger items are counted in the summary line and stay in the scan file.
 - [macOS liveness is weaker] → fail safe: keep the folder when a pid exists.
 - [Many risky session folders] → 21 here means about six dialogs of four questions. Accepted: task output and images may be wanted.
 - [Remote delete partially fails] → report git's message, no automatic retry, no second token without asking.

@@ -59,9 +59,11 @@ The base plugin's safety-guards hook enforces this, deliberately strictly.
 
 ## Scratch Work & Cleanup
 
-- Experiments, test files, stubs and installs go in one folder you create with `mktemp -d`; delete it before you finish, also when you stop early.
+- All throwaway work (stubs, installs, test repos, throwaway clones, anything bigger than a single file) goes in one folder you create with `mktemp -d -p <session scratchpad>`, or plain `mktemp -d` when no scratchpad is named; delete it before you finish, also when you stop early.
+- Real worktrees stay in `<repo>.worktrees/`, not in the scratchpad.
 - Remove worktrees and branches you created once they're merged or no longer needed.
 - Report anything you leave behind on purpose, with its path.
+- `/base:cleanup` is the safety net: it finds merged branches, worktrees and stale scratch folders that were left behind.
 
 ## Code Style
 

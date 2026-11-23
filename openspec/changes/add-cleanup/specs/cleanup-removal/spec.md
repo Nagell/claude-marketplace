@@ -33,11 +33,15 @@ The skill SHALL show the candidate list once and ask once with AskUserQuestion. 
 - **THEN** the skill shows the numbered table in text and uses the dialog for the choice, with ids to keep entered as free text
 
 ### Requirement: Risky items need their own yes
-A worktree with uncommitted changes, untracked files or unpushed commits, a branch with commits outside the merged head, an orphan worktree folder, a worktree with an ignored file that differs from the primary checkout and a stale session folder holding any regular file other than `started` SHALL be removed only after a separate explicit yes for that item. The question MUST name what would be lost (file list or commit subjects, capped).
+A worktree with uncommitted changes, untracked files or unpushed commits, a branch with commits outside the merged head, an orphan worktree folder, a worktree with an ignored file that differs from the primary checkout and a stale session folder holding any regular file other than `started` SHALL be removed only after a separate explicit yes for that item. The question MUST name what would be lost (changed files and commit subjects, capped).
 
 #### Scenario: Dirty worktree
 - **WHEN** a worktree of a merged branch has 3 changed files
 - **THEN** the skill asks about that worktree alone, lists the files and removes it only on yes
+
+#### Scenario: Commits after the merged PR
+- **WHEN** a branch has 7 commits after its merged PR
+- **THEN** the question names the first 5 commit subjects and "and 2 more"
 
 #### Scenario: Stale session folder with files
 - **WHEN** the user approves all safe items and a stale session folder holds 65 KB of files in `scratchpad/` or `tasks/`
@@ -63,11 +67,19 @@ The script MUST NOT delete the primary checkout, the default branch, the branch 
 - **THEN** the branch is not deleted
 
 ### Requirement: Safe removal commands
-Worktrees SHALL be removed with `git worktree remove` without force. A worktree and its merged branch SHALL be removed together, worktree first. Local branches SHALL be deleted only after the merged check, with the tip commit written to the log. A session folder SHALL be removed as the whole `<session>/` folder without following symlinks.
+Worktrees SHALL be removed with `git worktree remove`, forced only for a risky worktree that got its own yes and is unchanged since the scan. Safe items and items without their own yes MUST NOT be forced. A worktree and its merged branch SHALL be removed together, worktree first. Local branches SHALL be deleted only after the merged check, with the tip commit written to the log. A session folder SHALL be removed as the whole `<session>/` folder without following symlinks.
 
 #### Scenario: Git refuses the removal
-- **WHEN** `git worktree remove` fails because git sees changes
+- **WHEN** `git worktree remove` fails for a safe worktree
 - **THEN** the item is reported as skipped with git's message and nothing is forced
+
+#### Scenario: Approved dirty worktree
+- **WHEN** the user says yes to a dirty worktree of merged work and it is unchanged since the scan
+- **THEN** it is removed with `git worktree remove --force`
+
+#### Scenario: Approved dirty worktree changed again
+- **WHEN** a dirty worktree got its yes but has new changes since the scan
+- **THEN** it is skipped as changed and nothing is forced
 
 #### Scenario: Worktree plus branch
 - **WHEN** a clean merged worktree is approved
@@ -93,11 +105,15 @@ The script SHALL never push. Approved remote branch deletions SHALL be run by th
 - **THEN** the skill reports git's message and does not retry with a second token without asking
 
 ### Requirement: Removal log
-Every removal and every skipped item SHALL be appended as one JSON line to `${XDG_STATE_HOME:-~/.local/state}/claude-cleanup/cleanup.log` with time, kind, target and result. Branch entries MUST include the tip commit id so the branch can be recreated.
+Every removal and every skipped item SHALL be appended as one JSON line to `${XDG_STATE_HOME:-~/.local/state}/claude-cleanup/cleanup.log` with time, kind, target and result. Branch entries MUST include the tip commit id so the branch can be recreated. Approved remote branches MUST be logged with their tips before the push runs.
 
 #### Scenario: Branch deleted
 - **WHEN** a local branch is deleted
 - **THEN** the log line holds the branch name and its tip commit id
+
+#### Scenario: Remote branches approved
+- **WHEN** the user approves 2 remote branches
+- **THEN** the script writes one log line per branch with its tip before the skill runs the push
 
 #### Scenario: Log summary
 - **WHEN** a removal run ends
