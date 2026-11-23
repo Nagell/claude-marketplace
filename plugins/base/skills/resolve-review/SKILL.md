@@ -1,8 +1,7 @@
 ---
 name: resolve-review
-description: The author's side of a code review. Run it on your own branch after reviewers have commented on its GitLab merge request or GitHub pull request. It finds the MR for the branch, reads the unresolved threads, checks each one against the code at the branch head (already addressed, needs a fix, disagree, or a question to answer), and shows a resolution plan with every draft reply in full. Only after you approve does it make the fixes (committing nothing unless asked), post the replies in your voice and resolve the threads you chose. Invoke only via /base:resolve-review.
+description: The author's side of a code review. Run it on your own branch after reviewers have commented on its GitLab merge request or GitHub pull request. It finds the MR for the branch, reads the unresolved threads, checks each one against the code at the branch head (already addressed, needs a fix, disagree, or a question to answer), and shows a resolution plan with every draft reply in full. Only after you approve does it make the fixes (committing nothing unless asked), post the replies in your voice and resolve the threads you chose. Use when the user asks to answer, address or resolve the review comments on their own MR or PR, or runs /base:resolve-review.
 argument-hint: "[<mr-or-pr-url | !iid | #number>]"
-disable-model-invocation: true
 dependencies:
   - writing-style-guide
   - humanizer
