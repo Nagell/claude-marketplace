@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.4.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.3.0...base-v2.4.0) (2026-11-23)
+
+
+### Features
+
+* **base:** let Claude start resolve-review when asked ([71424df](https://github.com/Nagell/claude-marketplace/commit/71424df9c234aecdef7e6788747ffa73755bdcbc))
+* **base:** let Claude start review-mr when asked ([47984a7](https://github.com/Nagell/claude-marketplace/commit/47984a72a31d80db1e768f91c2e0bc3001ae0843))
+
+
+### Bug Fixes
+
+* **base:** run safety guards under macOS bash 3.2 ([be490d7](https://github.com/Nagell/claude-marketplace/commit/be490d7e106fc04fd49663e505d8e562051754df))
+* **base:** run safety guards under macOS bash 3.2 ([d381b46](https://github.com/Nagell/claude-marketplace/commit/d381b468d1fa476ed77ea0dbb388544c78514dd4))
+
 ## [2.3.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.2.0...base-v2.3.0) (2026-11-23)
 
 
