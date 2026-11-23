@@ -14,7 +14,7 @@ Evidence, all from `~/.claude/model-bench/` (one run per arm, no repeats; treat 
 | E | Haiku 5.5 max, 3 component slices + lens, no cross-file | 9 / 9.5 | $4.25 | 87% |
 | F | Opus 5.5 medium, same slices and prompts as E | 9 / 9.5 | $6.99 | not applicable |
 | G | Haiku 5.5 max, first new brief (soft budget), D's 7 slices + run-it, Opus medium refuter | 10 / 11 | $5.55, $9.82 with refuter | not recorded here |
-| H | Opus 5.5 medium, D's exact prompts and 7 slices, no cross-file | 10 / 11 | $10.37 | not applicable |
+| H | Opus 5.5 medium, D's exact prompts and 7 slices, no cross-file, no refuter | 10 / 11 | $10.37 | not applicable |
 | I | Haiku 5.5 max, new brief with D's lens and context wording restored, 7 slices + run-it, Opus medium refuter | 12 / 13 | $7.89, $11.59 with refuter | not recorded here |
 | #238 | one Haiku max agent | found the push-gate bypass | about $0.50 | not measured |
 | #238 | full review-mr, 11 Opus agents | missed it | $21.68 | not applicable |
@@ -98,7 +98,7 @@ Evidence on the cross-file agent (narrow scope in run D, broader in B and C):
 - Run D: $0.82 (16% of the run), no unique key bug, three duplicates (S2, S4, S5); its one unique extra was a medium non-key finding (DX4, a doc tells Claude to re-register a server and drops `--secrets`).
 - Run E: no cross-file agent by design.
 
-Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B, D or E, and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo. With full counterpart scope, the counterpart's changed files are cut into slices of their own by the same rule, and the contract agent still runs once.
+Decision: the skill spawns no cross-file agent by default. It added no unique key bug in runs B or D (run E had none), and the one catch in run C came from a coarse slice that option A no longer produces. The only exception is the contract owner: when a counterpart MR exists, one agent checks the Contract lens against the other repo. With full counterpart scope, the counterpart's changed files are cut into slices of their own by the same rule, and the contract agent still runs once.
 
 Seams between slices: the owner of a slice that changes an export greps every consumer of it, not only one. Today's brief asks for one traced consumer per export; the new brief widens that.
 

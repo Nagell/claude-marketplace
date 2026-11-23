@@ -5,8 +5,8 @@
 Three benchmark runs on the hooks and browser snapshot (2,905 lines, 14 known bugs) and a single-agent run on PR #238 show that the current `review-mr` spends its agents on the wrong things.
 
 - Eleven Opus agents (about $21.68, 1,743 lines) missed the push-gate bypass on #238 that one Haiku 5.5 max-effort agent found for about $0.50.
-- With the same slices, adding a standing "what the code does NOT set" lens moved Haiku from 7 to 13 of 14 key bugs (run C to run D) and found every high-severity bug. The lens, not the model, closed the gap.
-- The cross-file agent was the most expensive agent in run B ($2.21) and added nothing unique in B, D and E.
+- Smaller slices plus a standing "what the code does NOT set" lens moved Haiku from 7 to 13 of 14 key bugs (run C to run D) and found every high-severity bug. The lens, not the model, closed the gap.
+- The cross-file agent was the most expensive agent in run B ($2.21) and added nothing unique in B and D.
 - Small slices raised recall but 70% of Haiku requests still crossed the 100k-token mark, where Haiku charges 5x. Tool output and stub runs grow context.
 - Run D left 27 temp directories, one inside the real repo (a leaked `ls` colour code).
 
