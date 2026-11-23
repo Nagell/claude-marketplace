@@ -96,7 +96,7 @@ Some skills you invoke by name; others Claude reaches for on its own.
 | `/base:resolve-review` | Answer the review on your own MR or PR: check each open thread against the current code, plan fixes and replies, post and resolve only what you approve ([details](#answering-a-review))                                                                                                                             |
 | `/base:cleanup`        | Find merged branches, worktrees of merged work and scratch folders of stopped sessions, then remove only what you approve, with a log, including forced removal of approved dirty worktrees and remote branch deletes                                                                                                |
 
-These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative.
+These set `disable-model-invocation: true`, so they run only when you call them, never on Claude's initiative. The exceptions are `/base:review-mr` and `/base:resolve-review`: Claude can also start them when you ask for a review or for answers to one, and they still post nothing until you accept the drafts.
 
 On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybindings need the Spaces hotkeys moved off Ctrl+arrows. On Linux and WSL, `setup-zsh` is all you need.
 
