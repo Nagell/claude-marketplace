@@ -29,7 +29,7 @@ Prerequisite: `add-usage-skill` is implemented and merged, so `plugins/base/skil
 ## 4. Ranking and output
 
 - [ ] 4.1 Add ranking inputs to `models.py`: local cost per caught key bug and slowest-agent wall time within one setup; for pairs without a local result, AA cost per index point and time per task in a separate group; token price as a column. Verify: a test where the cheaper-token model has a higher cost per caught key bug ranks lower; a test that the AA column is labelled "cost per index point"; a test that rows of two setups are not ranked against each other.
-- [ ] 4.2 Add the `## Models` list and the diff step to SKILL.md: one line per task with evidence, one diff, one AskUserQuestion, the same section in `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, replacing an existing section. Verify: a run on temp copies of both files gives identical sections and no other change; declining changes neither file; a fixture with a cheaper GPT reference row gives no GPT line.
+- [ ] 4.2 Add the `## Models` list and the diff step to SKILL.md: one line per task with evidence, one diff, one AskUserQuestion, the same section in `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, replacing an existing section, and in the same diff the rows of review-mr's fallback role table (`plugins/base/skills/review-mr/SKILL.md`, step 4) that the `- Review` lines cover. Verify: a run on temp copies of the three files gives identical `## Models` sections, a role table that matches the `- Review` lines, and no other change; declining changes none of them; a fixture with a cheaper GPT reference row gives no GPT line.
 
 ## 5. Docs and release
 

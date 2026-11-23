@@ -155,13 +155,20 @@ The models mode SHALL end in a short `## Models` list with one line per task, in
 - **WHEN** the mode finishes
 - **THEN** it shows lines such as `- Coding: Opus 5.5 medium` and `- Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)`, and no report file is written
 
-### Requirement: Approved diff to both CLAUDE.md files
-The mode SHALL propose the `## Models` list as a diff to `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`. Both files SHALL get the same section. It SHALL apply the diff only after the user's yes, and replace an existing `## Models` section instead of adding a second one.
+### Requirement: Approved diff to the CLAUDE.md files and the review-mr table
+The mode SHALL propose its result as one diff to two places: the `## Models` section in `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, kept identical, and the fallback role table in `plugins/base/skills/review-mr/SKILL.md`. It SHALL apply the diff only after the user's yes, and replace an existing `## Models` section instead of adding a second one.
 
 #### Scenario: User approves
 - **WHEN** the user says yes to the diff
-- **THEN** both files have the same `## Models` section and nothing else in them changed
+- **THEN** both CLAUDE.md files have the same `## Models` section, the role table matches its `- Review` lines, and nothing else in the three files changed
 
 #### Scenario: User declines
 - **WHEN** the user says no
-- **THEN** neither file changes
+- **THEN** none of the three files changes
+
+### Requirement: Role table kept as the fallback
+The mode SHALL keep the review-mr role table in line with the `- Review slices:`, `- Review refuters:` and `- Review with --fast:` lines. review-mr reads those lines when they are present and uses the table only for a role with no line.
+
+#### Scenario: Review slices line changes
+- **WHEN** the proposed `- Review slices:` line names a new model or effort
+- **THEN** the same diff changes the slice rows of the role table to that model and effort

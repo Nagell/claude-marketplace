@@ -23,7 +23,7 @@ See proposal.md for why. This change builds on `add-usage-skill` and reuses the 
 - `improve-review-mr` task 11.1 reruns this case with a new brief and slicing rule. Its rows go to the same case under a new setup.
 - The repo is public. Cases and keys stay under `~/.claude/model-bench/`.
 - The user is on a subscription with a 5-hour window. Benchmark runs use it.
-- Neither `~/.claude/CLAUDE.md` nor `plugins/base/CLAUDE.md` has a models section today.
+- Both `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md` have a `## Models` section. review-mr reads its `- Review slices:`, `- Review refuters:` and `- Review with --fast:` lines when present, and falls back to the role table in its SKILL.md step 4.
 
 ## Goals / Non-Goals
 
@@ -143,10 +143,11 @@ The mode prints a `## Models` list, one line per task, for example:
 
 - Coding: Opus 5.5 medium
 - Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)
-- Refuters and checkers: Opus 5.5 medium
+- Review refuters: Opus 5.5 medium (every severity)
+- Review with --fast: Opus 5.5 medium slices (faster, finds less)
 ```
 
-Only tasks with evidence get a line; others keep their current line. It shows one diff and asks once. On yes it writes the same section into `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, replacing an existing `## Models` section, else appending one. Rejected: different content per file (the user keeps them identical), a report or table (the user wants usable data only).
+Only tasks with evidence get a line; others keep their current line. It shows one diff over two places and asks once. On yes it writes the same section into `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, replacing an existing `## Models` section, else appending one, and updates the rows of review-mr's fallback role table (`plugins/base/skills/review-mr/SKILL.md`, step 4) that the `- Review` lines cover. review-mr reads those lines when present, so the table only matters for a machine without them; keeping it in line stops the two from drifting. Rejected: different content per file (the user keeps them identical), a report or table as output (the user wants usable data only), leaving the role table alone (it would go stale after the first model change).
 
 ## Risks / Trade-offs
 
