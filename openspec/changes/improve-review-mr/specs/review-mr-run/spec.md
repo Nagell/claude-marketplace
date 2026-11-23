@@ -174,7 +174,11 @@ The main session SHALL create the run's temp dir with `mktemp -d -p "$SCRATCH"`,
 - **THEN** its temp dir sits in the session scratchpad with a `mktemp` name
 
 ### Requirement: Agent temp folders
-Each agent SHALL make its own folder in the run's temp dir with `mktemp -d -p <run temp dir>`, keep everything it creates there, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early.
+Each agent SHALL make its own folder in the run's temp dir with `mktemp -d -p <run temp dir>`, keep everything it creates there, point `TMPDIR` and `HOME` for what it runs at it, use absolute paths only and never a path typed from `ls` output, and delete the folder before replying, also when it stops early. The delete SHALL name the folder by its literal path, not a shell variable, so a permission allow rule can match it.
+
+#### Scenario: Delete by literal path
+- **WHEN** an agent deletes its temp folder
+- **THEN** the command names the full path written out, not `$T` or `$R`
 
 #### Scenario: Colour code in output
 - **WHEN** `ls` output carries colour escape codes

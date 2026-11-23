@@ -47,7 +47,7 @@ Why: run D beat run B by 7 key bugs at 80% of its cost, and the one Haiku agent 
 
 Engine question: **kept, not replaced, and its default stays `Claude (Recommended)`**. It chooses a vendor (Claude, Codex or both), which the model default does not touch. What changes is the label: "Claude" now means Haiku slice owners at max with Opus refuters. A per-run model question was rejected: the user decided the default, reviews rarely need speed, and a fourth question delays the first tool call. The model is carried by the role table and the `--fast` flag.
 
-Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.md`) and have no lens tasks.
+Effort question: kept, but it now sets the Opus roles only (thread validation and refuters at base, and wave 1 under `--fast`). Haiku agents always run at max, whatever was answered. Codex tasks take the effort answer as their `--effort`, follow the slice model (one Codex task per slice, reports named `wave<n>-<slice>.txt`) and have no lens tasks.
 
 Rejected: all Opus (run B: fewer catches at higher cost); Sonnet for wave 1 (not benchmarked on the hooks case; one Sonnet-high run on #238 did not report the bypass; revisit through the models mode, `add-usage-models-mode`); Haiku for refuters (refutation errors are the expensive kind).
 
@@ -101,30 +101,25 @@ Drop test for the remaining agents: `run.json` records which agent produced each
 
 ### 5. The "does NOT set" lens becomes standing brief text
 
-`references/agent-brief.md` gets the run-D addendum as a standing section, applied to every file in the slice:
-
-- For every external tool the code runs or configures, list the options it passes, then ask which important ones it does not pass and what the tool's default is: security (sandboxing, permissions), output locations (logs, caches, snapshots written into the caller's repo), network and proxy, auto-install and download, behaviour on error, what is persisted where.
-- Verify a claim about what a tool can or cannot do against the tool's own source or docs (its `--help`, local `node_modules`, web docs), never against this repo's docs. Never install the tool to check.
-- Look for swallowed errors (`|| true`, `2>/dev/null`, empty fallbacks) that turn a failure into "nothing there", and for checks that wrongly block legitimate input, not only for what slips through.
-- Report an unsafe or surprising inherited default as a finding with the default cited.
+`references/agent-brief.md` gets the run-D addendum's "Extra lens" section and its swallowed-errors and false-blocks paragraph as a standing section, applied to every file in the slice. The wording is run D's, verbatim, except that the list of this snapshot's tools becomes "every external tool this code runs or configures". The brief has no other wording of this lens.
 
 Run D evidence: this lens found the Chromium sandbox off (S6) and the `.playwright-cli` output dir (S7), which B and C missed, and sent s7 to the CLI source where it found the secrets-file route (S1). It is general on purpose: the addendum named Playwright, git and npm; the brief names classes of settings and gives those as examples.
 
 ### 6. Context and cost measures in the brief
 
-Cost is requests times context, and each Haiku request over 100k pays 5x on every token class. Every Haiku agent in run C and D crossed the line. Slice size alone did not prevent it (max prompt 161k to 309k in D), so the brief adds tool-output rules:
+Cost is requests times context, and each Haiku request over 100k pays 5x on every token class. Every Haiku agent in run C and D crossed the line. The first new brief added tool-output rules (counts first, `head`/`tail` about 40 lines, long output to a file, a soft budget of about 40 tool calls or 150 KB after which the agent stopped and listed the rest as `Unfinished:`).
 
-- Counts before content: `wc -l`, `grep -c`, `ls | wc -l` first; open a file whole only when the slice's own files need it (the brief already requires that for changed files), and read anything else by `grep -n` and `sed -n 'a,bp'`.
-- Every command pipes through `head` or `tail` (about 40 lines). Never `cat` a file over about 200 lines that is not in the slice.
-- A command whose output may be long writes to a file in the agent's temp folder; the agent then `grep`s or `head`s that file. Test and stub runs follow this: `cmd > out.txt 2>&1; tail -20 out.txt`.
-- Several independent commands go in one Bash call. Fewer round trips means fewer requests, each paying for the full context.
-- Never re-read a file already read; note line numbers in the report as you go.
-- Append each finding to the report file when found, not at the end, so an early stop loses nothing.
-- Soft budget: after about 40 tool calls, or about 150 KB of tool output read, stop opening new ground, finish the ledger with every unopened file marked `not examined`, put an `Unfinished:` line at the top of the report and reply with the path.
+Run G, the first rerun with that brief, caught 10 of 14 key bugs; run D caught 13. The three misses trace to the brief, so this change restores run D's lens and context wording and tightens the rest:
 
-The main session treats `Unfinished:` like any dark ground: wave 2 starts a fresh agent on exactly those files. That is the "split a slice that nears the limit" mechanism, and it reuses wave 2. The numbers (40, 150 KB) are first guesses: an agent cannot read its own token count, and in run D slice s1 crossed 100k at about its sixth request, so the base prompt may be large. The rerun records the first-request prompt size and the request index at which each agent crosses 100k; the budget is recalibrated from that. Target for the rerun: under 50% of requests over 100k, down from 71%.
+- The "Keep your context small" section is run D's text, verbatim: own a small slice, read the slice's files whole, read other files only by `grep -n` or `sed -n` ranges, do not re-read a file, keep tool output short.
+- No soft budget. An agent stops only when every file in its slice is examined. A file it still could not read (a tool failed, a guard blocked it) goes on the `Unfinished:` line, and wave 2 starts a fresh agent on exactly those files.
+- A claim goes on the "checked and found sound" list only when it was tested or read against every rule or code path it covers; a claim tested on one path names that path.
+- Reports are `.txt` files (`wave<n>-<slice>.txt`), and the brief says writing that one file is required and allowed, so a read-only agent does not skip it.
+- Temp folders are deleted by their literal path, not through a shell variable, so a permission allow rule can match the command.
 
-Rejected: forbidding stub runs in slices (they measure real behaviour; they move to the run-it agent instead, see 8); a hard token cap (cannot be enforced from outside a running agent).
+The rerun still records the share of requests over 100k; cost is weighed against recall, and recall comes first.
+
+Rejected: forbidding stub runs in slices (they measure real behaviour; they move to the run-it agent instead, see 8); a hard token cap (cannot be enforced from outside a running agent); a soft budget (run G).
 
 ### 7. Deterministic checks (no LLM)
 
@@ -203,7 +198,7 @@ Slicing and the cross-file agent are decided (run E, design 3 and 4). Everything
 
 1. One-slice MRs get a single slice owner and no lens agents (design 3, settled part). Alternative: keep the three lens agents below the size where slicing starts. Chosen for simplicity and because of #238.
 2. `--fast` uses base effort (`medium` by default) rather than a fixed `medium`; with a `High` answer it is Opus high. The user said "Opus (medium)".
-3. Run-it threshold (about 30 runnable changed lines or a new runnable file) and the soft budget numbers (40 tool calls, 150 KB) are guesses to calibrate from the rerun.
+3. Run-it threshold (about 30 runnable changed lines or a new runnable file) is a guess to calibrate from the rerun. The soft budget is gone (design 6).
 4. `--no-checks` and `--keep-worktrees` are new flags. `--keep-worktrees` follows from "unless the user keeps them". `--no-checks` is an addition for untrusted authors; drop it if unwanted.
 5. The exact import path of the `usage` scanner. `add-usage-skill` requires `summarize_agent` and the pricing functions to be importable; `run_cost.py` adds `../../usage/scripts` relative to its own file to the import path.
 6. Wave 2 skipping on a one-slice MR with a complete ledger is new; the old text ran it regardless of tier.
