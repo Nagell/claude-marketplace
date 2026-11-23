@@ -121,14 +121,14 @@ On a Mac, run `/base:setup-macos` first, then `/base:setup-zsh`: the zsh keybind
 
 Pass an MR or PR URL, or `!iid` inside the repo.
 
-| Flag                       | Effect                                                         |
-| -------------------------- | -------------------------------------------------------------- |
-| `--both`, or a second URL  | Review a paired change in full                                 |
-| `--finish` / `--no-finish` | Force finish mode on or off                                    |
-| `--fast`                   | Wave 1 and 2 on Opus at the chosen effort instead of Haiku max |
-| `--no-checks`              | Skip the repo's lint, type and test commands                   |
-| `--keep-worktrees`         | Keep the review worktrees the run created                      |
-| `--max-parallel N`         | At most N review agents at once (default 12)                   |
+| Flag                       | Effect                                                                                  |
+| -------------------------- | --------------------------------------------------------------------------------------- |
+| `--both`, or a second URL  | Review a paired change in full                                                          |
+| `--finish` / `--no-finish` | Force finish mode on or off                                                             |
+| `--fast`                   | Wave 1 and 2 on Opus at the chosen effort instead of Haiku max                          |
+| `--no-checks`              | Run none of the MR's code: skip the lint, type and test commands and the run-it sandbox |
+| `--keep-worktrees`         | Keep the review worktrees the run created                                               |
+| `--max-parallel N`         | At most N review agents at once (default 12)                                            |
 
 ### What a run does
 
@@ -137,7 +137,7 @@ Pass an MR or PR URL, or `!iid` inside the repo.
 3. Reads the existing threads first, so a re-review checks earlier findings instead of repeating them.
 4. Cuts the changed files into slices of about 400 lines of whole files, one tool contract or component each. One slice owner per slice applies every lens, on Haiku at max effort (Opus with `--fast`). There are no whole-MR lens agents and no cross-file agent; a contract agent runs only when a paired MR exists. Each brief lists the repo's own instruction files (`CLAUDE.md`, `AGENTS.md`, Copilot and Cursor rules) that apply to the slice.
 5. Runs the repo's lint, typecheck, format and test commands on the changed files in the background, with no LLM. Only failures that are new at head become findings.
-6. Runs changed scripts, hooks and CLIs in a throwaway sandbox when enough runnable code changed, and compares what they do with what the docs promise.
+6. Runs changed scripts, hooks and CLIs in a throwaway sandbox when enough runnable code changed, and compares what they do with what the docs promise. A default run executes the MR's tests, lint configs and changed scripts on your machine; `--no-checks` skips both.
 7. Reviews in two waves. Every agent writes a coverage ledger, and the second wave works the ground the first one left unexamined.
 8. Sends an Opus refutation agent to break each finding, with a browser if one is available, before anything is drafted.
 9. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.

@@ -1,7 +1,7 @@
 # The brief for the run-it agent
 
 Paste this into the run-it agent's prompt after the "Where you are" part of
-`agent-brief.md` (paths, `RUN_TMP`, read-only rules). It replaces that brief's
+`agent-brief.md` (paths, the run temp dir, read-only rules). It replaces that brief's
 lens and slice parts. The run-it agent does not read for bugs. It runs the
 changed code and compares what happens with what the docs promise.
 
@@ -19,12 +19,39 @@ run it in a throwaway environment and record whether the behaviour matches.
 Everything lives under one root you create in the run's temp dir:
 
 ```bash
-R=$(mktemp -d -p "$RUN_TMP" runit.XXXXXX)
-mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
-  "$R/xdg/state" "$R/stubs" "$R/out"
+mktemp -d -p '<run temp dir>' runit.XXXXXX
 ```
 
-- **Clean environment.** Run every command under `env -i` with only what it
+The Bash tool keeps no shell variables between calls, so note the path it
+prints and write it literally in every later command. `$R` below stands for
+that path, not a variable you can set once:
+
+```bash
+cd '<R>' && mkdir -p home tmp xdg/config xdg/cache xdg/data xdg/state \
+  stubs out code
+```
+
+**Check the sandbox once.** Run `unshare -rmn true`. When it succeeds, run
+every command under test like this, so it has no network, sees an empty tmpfs
+in place of the real home (no `~/.ssh`, `~/.bashrc` or `~/.claude`), and the
+tmpfs and its writes vanish when it exits:
+
+```bash
+unshare -rmn sh -c 'mount -t tmpfs tmpfs "$1" && shift && cd "$1" && shift && exec "$@"' \
+  sh '<real HOME>' '<R>/code' env -i HOME='<R>/home' TMPDIR='<R>/tmp' \
+  XDG_CONFIG_HOME='<R>/xdg/config' XDG_CACHE_HOME='<R>/xdg/cache' \
+  XDG_DATA_HOME='<R>/xdg/data' XDG_STATE_HOME='<R>/xdg/state' \
+  PATH='<R>/stubs:/usr/bin:/bin' <command>
+```
+
+When `$R` is inside the real home, the tmpfs would hide it: drop the `mount`
+part and say in the report that the real home stayed visible. When
+`unshare -rmn true` fails, there is no network cut and no hidden home: use the
+`PATH`-only fallback under "Never", run only promises that need neither the
+network nor a write outside `$R`, and mark every network-dependent promise
+"not run: no network cut".
+
+- **Clean environment.** The `env -i` above passes only what a command
   needs: `HOME="$R/home"`, `TMPDIR="$R/tmp"`, `XDG_CONFIG_HOME`,
   `XDG_CACHE_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME` under `$R/xdg`, and a
   short `PATH="$R/stubs:/usr/bin:/bin"`. A browser profile, if the code starts
@@ -45,9 +72,10 @@ mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
   A stub that needs real local behaviour (`git` on a throwaway repo in `$R`)
   may call the real binary by absolute path, but never against a real remote
   or the review checkout.
-- **Copies, not the checkout.** Copy what you run into `$R` (or run it by
-  absolute path from the reviews worktree with `$R` as the working directory).
-  Never write into the reviews worktree or the primary checkout.
+- **Copies, not the checkout.** Copy the files a command needs (the script,
+  what it sources or imports, its fixtures) from the reviews worktree into
+  `$R/code`, and run it from there. Never run it from the reviews worktree,
+  and never write into that worktree or the primary checkout.
 
 ## Never
 
@@ -56,11 +84,13 @@ mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
   (such as `.claude-push-token`) outside `$R`
 - use a real credential, or read one from the real `HOME`
 - call a real network service: answer it with a stub and record the arguments.
-  Run the code under test with the network cut off, `unshare -rn <command>`,
-  so a tool the stubs missed fails instead of reaching a server. Where
+  Run the code under test with the network cut off, under `unshare -rmn` as
+  above, so a tool the stubs missed fails instead of reaching a server. Where
   `unshare` is not available, keep `/usr/bin` and `/bin` off that `PATH` and
   link in only the plain tools you need (`sh`, `cat`, `grep`, `sed` and the
-  like), never `gh`, `glab`, `curl`, `wget`, `git`, `npm` or `npx`.
+  like), never `gh`, `glab`, `curl`, `wget`, `git`, `npm` or `npx`. That does
+  not stop `python3` or `node` from opening a socket, so a promise that needs
+  the network is "not run: no network cut", never run without the cut.
 - install a package (`npm install`, `pip install`, `npx --yes` and the like)
 - write outside `$R`, except the one report file below
 - leave a process running

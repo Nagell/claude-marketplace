@@ -27,8 +27,8 @@ paired repo, or `--both`, asks for a full review of both halves of the change
 
 - `--fast` - wave 1 and wave 2 on Opus at the base effort instead of Haiku at
   max (step 4). Faster, not better.
-- `--no-checks` - skip the deterministic checks (step 4a), for an author
-  whose code you do not want to run.
+- `--no-checks` - skip the deterministic checks (step 4a) and the run-it
+  agent (step 4b), for an author whose code you do not want to run.
 - `--keep-worktrees` - keep the review worktrees this run created (step 8).
 - `--max-parallel N` - at most N wave-1 and wave-2 agents at once, default 12
   (step 4).
@@ -70,6 +70,10 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
 `--project` (GitLab: numeric id or URL-encoded path; GitHub: `owner/repo`) and
 `--iid` (the MR iid or PR number), and offer the same subcommands, so every
 command below reads the same on both platforms.
+
+These names, and `$RUN_TMP` (step 1), are placeholders, not shell variables:
+the Bash tool keeps no variables between calls, so write the literal absolute
+path into every command.
 
 ## 0. Choose the review engine, the counterpart scope and the effort
 
@@ -260,12 +264,14 @@ primary checkout and the review worktree now, so step 8 can tell which
 untracked files the run left behind:
 
 ```bash
-RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX)
+RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX) && echo "$RUN_TMP"
 git -C <repo> status --porcelain=v1 -z > "$RUN_TMP/status-primary.before"
 git -C <base>/reviews status --porcelain=v1 -z > "$RUN_TMP/status-review.before"
 ```
 
-Give the absolute `RUN_TMP` path in every agent brief. A stopped run leaves a
+Note the printed path: it is `run_tmp` in `run.json` and the literal value
+of `$RUN_TMP` in every later command. Give that absolute path in every agent
+brief. A stopped run leaves a
 `review.XXXXXX` dir in the scratchpad, which `/base:cleanup` lists.
 
 ## 1a. Find the counterpart MR
@@ -356,13 +362,23 @@ EXCL=(':(exclude)*.lock' ':(exclude)*-lock.*' ':(exclude)pnpm-lock.yaml'
   ':(exclude)*.po' ':(exclude,glob)**/dist/**' ':(exclude,glob)**/build/**'
   ':(exclude,glob)**/locales/**' ':(exclude,glob)**/i18n/**/*.json'
   <the rules' size excludes>)
-git -C <worktree> diff --name-only <base_sha> <head_sha> -- . "${EXCL[@]}" \
-  > "$RUN_TMP/changed.txt"
+GD=(git -C <worktree> -c core.quotePath=false diff --name-only <base_sha> <head_sha>)
+"${GD[@]}" > "$RUN_TMP/changed.txt"
+"${GD[@]}" -- . "${EXCL[@]}" > "$RUN_TMP/counted.txt"
+grep -vxFf "$RUN_TMP/counted.txt" "$RUN_TMP/changed.txt" > "$RUN_TMP/excluded.txt"
 while IFS= read -r f; do
   printf '%s\t%s\n' "$(git -C <worktree> show "<head_sha>:$f" 2>/dev/null | wc -l)" "$f"
-done < "$RUN_TMP/changed.txt" > "$RUN_TMP/load.tsv"
+done < "$RUN_TMP/counted.txt" > "$RUN_TMP/load.tsv"
 awk -F'\t' '{ n += $1 } END { print n+0, NR }' "$RUN_TMP/load.tsv"
 ```
+
+The excludes apply to the line count only. `changed.txt` keeps every changed
+file, and no file in `excluded.txt` is silently dropped: give each one to the
+owner of the slice that changed its source (a lockfile to the slice with its
+manifest, a locale file to the slice with the component that uses the key),
+as a lightweight file that adds 0 lines of load and gets a "check it matches
+its source" read, not a line-by-line one. List any excluded file that no slice
+fits under "Not reviewed" in the step-7 summary.
 
 A deleted file counts 0 (`git show` finds nothing at head). Also keep the old
 changed-line count as `reviewed_lines`, so this run compares with earlier
@@ -783,8 +799,8 @@ comments and whitespace. Runnable code means:
 
 **Skip it** for documentation-only and frontend-only MRs (refuters cover the
 browser), when fewer than about 30 runnable lines changed and no runnable file
-was added (slice owners read that), and under the Codex engine alone, saying
-why in one line.
+was added (slice owners read that), under the Codex engine alone, and when
+the user passed `--no-checks`, saying why in one line.
 
 Give it the "Where you are" part of `references/agent-brief.md` with
 `RUN_TMP`, then `references/run-it-brief.md` with the list of runnable things
@@ -1287,14 +1303,21 @@ the reason "usage scanner not found". A Codex task has no Claude transcript,
 so its `cost` is null with the reason "no Claude transcript" and the total
 leaves it out. Print the total in one line: requests, share over 100k, USD.
 
-**Sweep.** Touch only the run's own paths:
+**Sweep.** Touch only the run's own paths. Every command below uses the
+literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
+variable set in an earlier call, which is empty by now. Each command starts
+with a guard that refuses to run when its path is empty, so an empty value
+can never widen what it matches or deletes:
 
 1. Read the `Leftovers:` line of every report. Note each path it names.
-2. Stop any process still running with `RUN_TMP` in its command line, such as
-   a browser an agent started:
+2. Stop any process still running with the run temp dir in its command line,
+   such as a browser an agent started. Never run `pgrep` or `pkill` with an
+   empty pattern: it matches every process.
 
    ```bash
-   for pid in $(pgrep -f -- "$RUN_TMP"); do
+   RT='<run_tmp from run.json>'
+   [ -n "$RT" ] && [ -d "$RT" ] || exit 1
+   for pid in $(pgrep -f -- "$RT"); do
      [ "$pid" = "$$" ] || [ "$pid" = "$PPID" ] || kill "$pid"
    done
    ```
@@ -1304,9 +1327,11 @@ leaves it out. Print the total in one line: requests, share over 100k, USD.
    NUL-separated, so a name with a colour code or a newline in it is safe:
 
    ```bash
-   git -C <repo> status --porcelain=v1 -z > "$RUN_TMP/status-primary.after"
-   python3 - "$RUN_TMP/status-primary.before" "$RUN_TMP/status-primary.after" \
-     > "$SCRATCH/new-primary.json" <<'EOF'
+   RT='<run_tmp from run.json>'
+   [ -n "$RT" ] && [ -d "$RT" ] || exit 1
+   git -C <repo> status --porcelain=v1 -z > "$RT/status-primary.after"
+   python3 - "$RT/status-primary.before" "$RT/status-primary.after" \
+     > '<scratchpad>/new-primary.json' <<'EOF'
    import json, sys
    def untracked(path):
        raw = open(path, "rb").read().decode("utf-8", "surrogateescape")
@@ -1318,13 +1343,15 @@ leaves it out. Print the total in one line: requests, share over 100k, USD.
 
    Do the same for the review worktree (`status-review.*`, `new-review.json`)
    when it stays. When either list is not empty, ask once with
-   **AskUserQuestion** which entries to delete, every entry ticked by default
-   and shown with `repr()` so odd characters are visible, since the user may
-   have made a file there during the review. Delete only the picked ones, by
-   their index in the list, and report the rest:
+   **AskUserQuestion** which entries to delete, every entry unticked by
+   default (nothing is deleted unless the user picks it), shown with `repr()`
+   so odd characters are visible, and primary-checkout entries labelled "may
+   be yours", since the user may have made a file there during the review.
+   Delete only the picked ones, by their index in the list, and report the
+   rest:
 
    ```bash
-   python3 - "$SCRATCH/new-primary.json" <repo> <picked indexes> <<'EOF'
+   python3 - '<scratchpad>/new-primary.json' <repo> <picked indexes> <<'EOF'
    import json, os, shutil, sys
    entries, root = json.load(open(sys.argv[1])), sys.argv[2]
    for i in sys.argv[3:]:
@@ -1344,12 +1371,14 @@ leaves it out. Print the total in one line: requests, share over 100k, USD.
 5. Delete `RUN_TMP` after checking that its real path is inside `$SCRATCH`:
 
    ```bash
-   real=$(realpath -- "$RUN_TMP"); scratch=$(realpath -- "$SCRATCH")
-   case "$real" in
-     "$scratch"/review.*) rm -r -- "$real" ;;
-     *) echo "not deleting $real: it is not inside $scratch" ;;
-   esac
+   RT='<run_tmp from run.json>'; SP='<scratchpad>'
+   [ -n "$RT" ] && [ -n "$SP" ] && [ -d "$RT" ] || exit 1
+   real=$(realpath -- "$RT"); scratch=$(realpath -- "$SP")
+   if [[ "$real" == "$scratch"/review.* ]]; then rm -r -- "$real"
+   else echo "not deleting $real: it is not inside $scratch"; fi
    ```
+
+   It parses under both bash and zsh, the Bash tool's shell on some hosts.
 
    A leftover path an agent named outside `RUN_TMP` is reported to the user,
    not deleted.

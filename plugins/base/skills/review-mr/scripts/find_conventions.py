@@ -2,8 +2,8 @@
 """List the repo's own instruction files that apply to each changed path.
 
 Looked for, per changed path:
-  - ``CLAUDE.md``, ``AGENTS.md`` and ``.editorconfig`` in the file's directory
-    and every parent up to the repo root
+  - ``CLAUDE.md``, ``.claude/CLAUDE.md``, ``AGENTS.md`` and ``.editorconfig``
+    in the file's directory and every parent up to the repo root
   - root ``CONTRIBUTING.md``, ``.github/copilot-instructions.md`` and
     ``.cursorrules``
   - ``.github/instructions/*.instructions.md`` whose ``applyTo`` glob matches
@@ -32,7 +32,7 @@ import subprocess
 import sys
 from pathlib import Path, PurePosixPath
 
-PER_DIR = ("CLAUDE.md", "AGENTS.md", ".editorconfig")
+PER_DIR = ("CLAUDE.md", ".claude/CLAUDE.md", "AGENTS.md", ".editorconfig")
 ROOT_ONLY = ("CONTRIBUTING.md", ".github/copilot-instructions.md", ".cursorrules")
 
 
@@ -44,12 +44,13 @@ class Tree:
         self.ref = ref
         if ref:
             out = subprocess.run(
-                ["git", "-C", str(root), "ls-tree", "-r", "--name-only", ref],
+                ["git", "-C", str(root), "ls-tree", "-r", "-z", "--name-only", ref],
                 capture_output=True, text=True,
             )
             if out.returncode != 0:
                 sys.exit(f"git ls-tree {ref} failed: {out.stderr.strip()}")
-            self.files = set(out.stdout.splitlines())
+            # -z: names come raw, not quoted, so non-ASCII paths match.
+            self.files = set(filter(None, out.stdout.split("\0")))
         else:
             self.files = {
                 p.relative_to(root).as_posix()
@@ -144,10 +145,23 @@ def frontmatter(text: str) -> dict[str, str]:
 
 
 def split_globs(value: str) -> list[str]:
+    """Split on commas outside ``{...}``, so ``*.{ts,tsx}`` stays one glob."""
     value = value.strip()
     if value.startswith("[") and value.endswith("]"):
         value = value[1:-1]
-    return [g.strip().strip("'\"") for g in value.split(",") if g.strip().strip("'\"")]
+    parts, cur, depth = [], "", 0
+    for c in value:
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth = max(depth - 1, 0)
+        if c == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+        else:
+            cur += c
+    parts.append(cur)
+    return [g.strip().strip("'\"") for g in parts if g.strip().strip("'\"")]
 
 
 def scoped_files(tree: Tree) -> list[tuple[str, list[str] | None]]:

@@ -107,3 +107,28 @@ def test_cli_reads_paths_file(tmp_path):
         [sys.executable, str(SCRIPTS / "find_conventions.py"), "--repo", str(tmp_path),
          "--paths-file", "-"], input="x/y.ts\n", capture_output=True, text=True, check=True)
     assert paths_of(json.loads(proc.stdout), "x/y.ts") == ["CLAUDE.md"]
+
+
+def test_dot_claude_claude_md(tmp_path):
+    write(tmp_path, ".claude/CLAUDE.md")
+    write(tmp_path, "app/.claude/CLAUDE.md")
+    r = fc.lookup(["app/x.ts"], tmp_path, None)
+    assert paths_of(r, "app/x.ts") == [".claude/CLAUDE.md", "app/.claude/CLAUDE.md"]
+
+
+def test_brace_glob_with_comma(tmp_path):
+    write(tmp_path, ".github/instructions/ts.instructions.md",
+          "---\napplyTo: \"**/*.{ts,tsx}, docs/**\"\n---\nrule\n")
+    r = fc.lookup(["src/a.tsx", "docs/b.md", "src/c.js"], tmp_path, None)
+    assert paths_of(r, "src/a.tsx") == [".github/instructions/ts.instructions.md"]
+    assert paths_of(r, "docs/b.md") == [".github/instructions/ts.instructions.md"]
+    assert paths_of(r, "src/c.js") == []
+
+
+def test_non_ascii_paths_at_ref(tmp_path):
+    init_repo(tmp_path)
+    write(tmp_path, "zürich/CLAUDE.md")
+    write(tmp_path, "zürich/a.py", "x\n")
+    sha = commit(tmp_path, "init")
+    r = fc.lookup(["zürich/a.py"], tmp_path, sha)
+    assert paths_of(r, "zürich/a.py") == ["zürich/CLAUDE.md"]

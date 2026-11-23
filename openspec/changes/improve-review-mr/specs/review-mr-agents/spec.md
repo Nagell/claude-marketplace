@@ -54,6 +54,13 @@ The skill SHALL cut the changed files into slices by reading load, the line coun
 - **WHEN** an MR changes a lockfile, a generated file and a locale file, and the repo has no rules
 - **THEN** none of them counts toward any slice's reading load
 
+### Requirement: Excluded files still covered
+The size excludes SHALL apply to the line count only. Every excluded file SHALL still go to a slice owner as a lightweight file, or be listed as not reviewed, and SHALL never be dropped silently.
+
+#### Scenario: Excluded locale file
+- **WHEN** an MR changes a locale file that the size excludes leave out
+- **THEN** it is given to the owner of the slice that uses it, or listed under "Not reviewed"
+
 ### Requirement: Slices follow one contract
 Files SHALL be grouped so that a slice holds one tool contract or component: a script with its tests and the doc section describing it, a hook with its `hooks.json` entry, a component with its composable and spec.
 
@@ -161,7 +168,7 @@ The brief SHALL tell agents to verify a claim about what a tool can or cannot do
 - **THEN** the owner reports a check that blocks legitimate input
 
 ### Requirement: Repo conventions lookup
-`scripts/find_conventions.py` SHALL list, for each changed path, the repo's instruction files that apply: `CLAUDE.md` and `AGENTS.md` at each directory level up to the root, the root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, matching `.github/instructions/*.instructions.md`, matching or always-on `.cursor/rules/*.mdc`, `.cursorrules` and `.editorconfig`, each with its line count.
+`scripts/find_conventions.py` SHALL list, for each changed path, the repo's instruction files that apply: `CLAUDE.md`, `.claude/CLAUDE.md` and `AGENTS.md` at each directory level up to the root, the root `CONTRIBUTING.md`, `.github/copilot-instructions.md`, matching `.github/instructions/*.instructions.md`, matching or always-on `.cursor/rules/*.mdc`, `.cursorrules` and `.editorconfig`, each with its line count.
 
 #### Scenario: Nested rules
 - **WHEN** a changed file is `app/api/orders.ts` and both the root `CLAUDE.md` and `app/api/AGENTS.md` exist

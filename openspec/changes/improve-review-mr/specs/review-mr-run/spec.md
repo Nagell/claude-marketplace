@@ -23,7 +23,7 @@ The skill SHALL run the repo's own lint, typecheck, format-check and test comman
 
 #### Scenario: Opt out
 - **WHEN** the user passes `--no-checks`
-- **THEN** no check command runs
+- **THEN** no check command runs and no run-it agent is spawned
 
 ### Requirement: Changed script bodies
 A detected `package.json` script runs by name, so the package manager reads its body at head. When its body, or the body of a script it runs by name, differs between `base_sha` and head, the script SHALL be listed under `untrusted` with the reason "script body changed in this MR" and SHALL NOT run.
@@ -133,7 +133,7 @@ When the diff adds or changes runnable code beyond comments and whitespace, the 
 - **THEN** no run-it agent is spawned and slice owners read the change
 
 ### Requirement: Run-it skip rules
-The skill SHALL NOT spawn the run-it agent for documentation-only or frontend-only MRs, when fewer than about 30 runnable lines changed and no runnable file was added, or under the Codex engine alone.
+The skill SHALL NOT spawn the run-it agent for documentation-only or frontend-only MRs, when fewer than about 30 runnable lines changed and no runnable file was added, under the Codex engine alone, or when the user passed `--no-checks`.
 
 #### Scenario: Codex only
 - **WHEN** the user picked only the Codex engine for an MR that changes a script
@@ -150,16 +150,30 @@ The run-it agent SHALL work in a throwaway environment under the run's temp dir:
 - **WHEN** the code under test calls `curl` to a remote service
 - **THEN** the agent answers it with a stub and records the arguments
 
+### Requirement: Run-it runs a copy
+The run-it agent SHALL run the code under test from a copy of the files it needs inside its throwaway environment, never from the reviews worktree.
+
+#### Scenario: Script under test
+- **WHEN** the run-it agent runs a changed script
+- **THEN** it runs the copy in its throwaway environment, and the reviews worktree is unchanged
+
 ### Requirement: Run-it network cut off
-The run-it agent SHALL run the code under test with the network cut off, `unshare -rn <command>`, so a tool the stubs missed fails instead of reaching a server. Where `unshare` is not available, it SHALL use a `PATH` without `/usr/bin` and `/bin` that links in only plain tools and no network tools (`gh`, `glab`, `curl`, `wget`, `git`, `npm`, `npx`).
+The run-it agent SHALL run the code under test under `unshare -rmn` with an empty tmpfs mounted over the real home, so it has no network and cannot read or write the real home, and a tool the stubs missed fails instead of reaching a server.
 
 #### Scenario: Unstubbed network call
 - **WHEN** the code under test calls a network tool that has no stub
-- **THEN** the call fails under `unshare -rn` and reaches no server
+- **THEN** the call fails under `unshare -rmn` and reaches no server
+
+#### Scenario: Script writes to the real home
+- **WHEN** the code under test writes `~/.bashrc`
+- **THEN** the write lands in the tmpfs and the real `~/.bashrc` is unchanged
+
+### Requirement: Run-it without unshare
+Where `unshare` is not available, the run-it agent SHALL use a `PATH` without `/usr/bin` and `/bin` that links in only plain tools and no network tools (`gh`, `glab`, `curl`, `wget`, `git`, `npm`, `npx`), and SHALL mark every promise that needs the network "not run: no network cut".
 
 #### Scenario: No unshare
 - **WHEN** `unshare` is not available
-- **THEN** the agent runs the code with a `PATH` that holds no network tools
+- **THEN** the agent runs the code with a `PATH` that holds no network tools, and a promise that needs the network is "not run: no network cut"
 
 ### Requirement: Run-it report
 The run-it agent SHALL report a table of each promise the docs, `--help` and the MR description make about the runnable thing, the command it ran, what happened and whether they match. Each mismatch SHALL be a measured finding and SHALL still go through refutation. A slice owner that cannot settle a claim by reading SHALL mark it derived and name the command that would settle it, and the refuter SHALL run it in a throwaway environment.
@@ -232,7 +246,11 @@ Each agent report SHALL end with a `Leftovers:` line that is `none` or lists eac
 - **THEN** the folder is listed under `Leftovers:`
 
 ### Requirement: Sweep at the end
-Before finishing, the main session SHALL read every `Leftovers:` line, stop processes whose command line contains the run's temp dir, delete that dir after confirming its real path is inside `$SCRATCH`, and remove the throwaway base worktree from the checks step.
+Before finishing, the main session SHALL read every `Leftovers:` line, stop processes whose command line contains the run's temp dir, delete that dir after confirming its real path is inside `$SCRATCH`, and remove the throwaway base worktree from the checks step. Every sweep command SHALL use the literal paths from `run.json`, since shell variables do not persist between Bash calls, and SHALL refuse to run when its path is empty; `pgrep` or `pkill` SHALL never run with an empty pattern.
+
+#### Scenario: Temp dir path lost
+- **WHEN** a sweep command's path is empty
+- **THEN** the command exits before it stops or deletes anything
 
 #### Scenario: Process left running
 - **WHEN** a Chrome started by an agent still runs with the run's temp dir in its command line
@@ -243,7 +261,7 @@ Before finishing, the main session SHALL read every `Leftovers:` line, stop proc
 - **THEN** the run's temp dir no longer exists
 
 ### Requirement: Stray files in the repo
-At the start the main session SHALL record `git status --porcelain=v1 -z` of the primary checkout and the review worktree, and at the end it SHALL compare. It SHALL list untracked entries that are new and ask the user once which of them to delete, SHALL delete only the ones the user picks, and SHALL remove nothing else outside the run's temp dir and the review worktree.
+At the start the main session SHALL record `git status --porcelain=v1 -z` of the primary checkout and the review worktree, and at the end it SHALL compare. It SHALL list untracked entries that are new and ask the user once which of them to delete, with every entry unticked by default, SHALL delete only the ones the user picks, and SHALL remove nothing else outside the run's temp dir and the review worktree.
 
 #### Scenario: Stray file in the real repo
 - **WHEN** an agent left an untracked directory in the primary checkout
