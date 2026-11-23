@@ -6,6 +6,9 @@
 #   block - exit 2 (command refused)
 #   deny  - exit 0 with permissionDecision "deny" (push without a token)
 #   allow - exit 0 without a deny
+# Any other exit code (a crash) fails the case.
+# The hook runs through its shebang, as Claude Code runs it, so on macOS this
+# covers /bin/bash 3.2.
 # Everything runs inside one temp folder with its own HOME and git repo; no real
 # command from the cases is ever executed.
 set -uo pipefail
@@ -21,9 +24,10 @@ check() {
   local want=$1 cmd=$2 out rc got
   out=$(printf '%s' "$cmd" |
     python3 -c 'import json,sys; print(json.dumps({"tool_name": "Bash", "tool_input": {"command": sys.stdin.read()}}))' |
-    HOME="$WORK" bash "$HOOK" 2>/dev/null)
+    HOME="$WORK" "$HOOK" 2>/dev/null)
   rc=$?
   if [ "$rc" = 2 ]; then got=block
+  elif [ "$rc" != 0 ]; then got="error (exit $rc)"
   elif [[ $out == *'"permissionDecision"'*'"deny"'* ]]; then got=deny
   else got=allow
   fi
@@ -61,6 +65,7 @@ check allow 'rm -r ~/x'
 check allow 'rm -f ~/x.log'
 check allow 'git commit -m "chore: stop using rm -rf ~/ in docs"'
 check allow 'grep -rn "rm -rf /" docs'
+check allow 'rm -rf'
 
 # .env: writes blocked, reads and example files allowed
 check block 'echo X=1 > .env'
@@ -84,6 +89,7 @@ check block 'export API_KEY=abcdefghijklmnop1234'
 check block 'git push --force origin main'
 check block 'git push origin +main'
 check deny 'git push origin main'
+check deny 'git push'
 check allow 'git commit -m "docs: explain git push"'
 
 printf '%d passed, %d failed\n' "$PASS" "$FAIL"
