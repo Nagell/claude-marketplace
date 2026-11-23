@@ -12,9 +12,6 @@ FIXTURES = os.path.join(SKILL_DIR, "tests", "fixtures")
 
 import prices  # noqa: E402
 
-T0 = "2026-11-20T10:00:{:02d}.000Z"
-
-
 def ts(sec):
     m, s = divmod(sec, 60)
     return f"2026-11-20T10:{m:02d}:{s:02d}.000Z"

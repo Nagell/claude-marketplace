@@ -3,6 +3,8 @@ name: usage
 description: Show what your most used skills and their agents cost on this machine, from Claude Code's local transcripts, read on demand. Ranks skills by estimated spend in a window, shows script-built trends per skill (cost per run, per agent role, per model and effort, share of prompts over 100k, per month), reads the recent and outlier runs, and names agent roles to drop or to strengthen. Labels review-mr agents by role and slice from its run.json. Checks transcript retention and offers 180 days. Prints only; changes nothing without your yes. Invoke only via /base:usage.
 argument-hint: "[--days N] [--top N] [--runs N]"
 disable-model-invocation: true
+dependencies:
+  - review-mr
 ---
 
 # Usage
@@ -32,7 +34,7 @@ When `error` is set, show it in one line and skip the offer. When `offer` is fal
 - `Keep 180 days (Recommended)` - writes `cleanupPeriodDays: 180`, every other key kept.
 - `Leave it` - nothing changes.
 
-On yes, run `python3 $SKILL_DIR/scripts/report.py --set-retention 180` and confirm in one line.
+On yes, run `python3 $SKILL_DIR/scripts/report.py --set-retention 180` and confirm in one line. When it prints an `error` (exit 1), show it: the file was not changed.
 
 ### 2. Mode
 
@@ -53,12 +55,12 @@ Defaults: `--days 30 --top 5 --runs 5`; take the user's values from the argument
 
 - `skills`: the top skills by spend, each with `trends` and `runs` (the last N runs plus outliers, each with `picked_because` and per-agent details, including `path`, the agent's transcript).
 - `skills_in_window`: when it is below `--top`, say only that many skills ran.
-- `review_run_json`: how many `review-mr` runs still had their `run.json` (labels by role and slice, `findings_by_role`). The scratchpad lives in `/tmp`, so older runs often have none; say how many.
-- `prices`, `unpriced_models`, `api_errors`, `skipped_lines`, `spend_no_skill`: mention each one that is not empty or zero, in one line.
+- `review_run_json`: `review_runs` and `with_run_json`, how many `review-mr` runs still had their `run.json` (labels by role and slice, `findings_by_role`). A session keeps only its latest review's file and `/tmp` is cleared on reboot, so older runs often have none; say how many, and show any entry in `errors` (a broken file).
+- `prices` (with `override_notes` or `override_error`), `unpriced_models`, `warnings`, `api_errors`, `skipped_lines`, `spend_no_skill`: mention each one that is not empty or zero, in one line. A skill's `notes` say when unpriced requests make its cost too low.
 
 ### 4. Deep read
 
-For each top skill, read the runs in `runs`. For each agent of those runs, read only the end of its transcript at `path` (its final reply: the last assistant text, with `tail` or `grep -n`, never the whole file) to see what it found, what it reported unfinished and which files it left unread. Do not read other agents or other runs.
+For each top skill, read the runs in `runs`. For each agent of those runs, read only the end of its transcript at `path` (its final reply: the last assistant text, with `tail` or `grep -n`, never the whole file; a `review-mr` agent replies with a report path, so read that report's ledger instead when it still exists) to see what it found, what it reported unfinished and which files it left unread. Do not read other agents or other runs.
 
 A skill's `notes` say when its agents do not use the `Unfinished:` convention (a `review-mr` rule); then there is no most-unfinished outlier, and say why.
 

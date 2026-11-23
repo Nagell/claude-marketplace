@@ -83,6 +83,7 @@ The marketplace ships core plugin, `base`, which carries safety guardrails, auto
 - Claude Code
 - Git
 - Node.js (for the auto-formatters and the browser skill)
+- Python 3.9 or newer (for the review and usage skills)
 
 ### Installation
 

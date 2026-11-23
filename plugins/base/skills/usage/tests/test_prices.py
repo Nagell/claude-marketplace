@@ -56,10 +56,36 @@ class OverrideTests(TempHome):
         over = self.write_override({"version": "user-1", "models": {"claude-haiku-5-5": {
             "input": 1.0, "output": 1.0, "cache_write_5m": 1.0, "cache_write_1h": 1.0, "cache_read": 1.0}}})
         t = prices.PriceTable(prices.SEED_PATH, over)
-        tk = prices.token_classes(usage(inp=1_000_000, out=0))
-        self.assertAlmostEqual(prices.request_cost(t, "claude-haiku-5-5", tk), 1.0)
-        self.assertAlmostEqual(prices.request_cost(t, "claude-opus-5-5", tk), 4.0)
-        self.assertEqual(t.versions(), {"seed": "2026-11-21", "override": "user-1"})
+        tk = prices.token_classes(usage(inp=50_000, out=0))
+        self.assertAlmostEqual(prices.request_cost(t, "claude-haiku-5-5", tk), 0.05)
+        self.assertAlmostEqual(prices.request_cost(t, "claude-opus-5-5", tk), 0.2)
+        v = t.versions()
+        self.assertEqual((v["seed"], v["override"]), ("2026-11-21", "user-1"))
+
+    def test_partial_override_keeps_seed_long_prompt_tier(self):
+        over = self.write_override({"models": {"claude-haiku-5-5": {
+            "input": 0.1, "output": 0.5, "cache_write_5m": 0.125, "cache_write_1h": 0.2, "cache_read": 0.01}}})
+        t = prices.PriceTable(prices.SEED_PATH, over)
+        tk = prices.token_classes(usage(inp=0, out=0, read=120_000))
+        self.assertAlmostEqual(prices.request_cost(t, "claude-haiku-5-5", tk), 120_000 * 0.05 / 1e6)
+        self.assertIn("kept the seed's tier", " ".join(t.versions()["override_notes"]))
+
+    def test_unknown_override_model_noted(self):
+        over = self.write_override({"models": {"claude-haiku-55": {
+            "input": 1, "output": 1, "cache_write_5m": 1, "cache_write_1h": 1, "cache_read": 1}}})
+        self.assertIn("not in the seed table", " ".join(prices.PriceTable(prices.SEED_PATH, over).versions()["override_notes"]))
+
+    def test_nan_and_negative_prices_rejected(self):
+        for bad in ("NaN", "-1"):
+            over = self.write_override('{"models": {"claude-opus-5-5": {"input": %s, "output": 1, "cache_write_5m": 1, '
+                                       '"cache_write_1h": 1, "cache_read": 1}}}' % bad)
+            self.assertIn("override_error", prices.PriceTable(prices.SEED_PATH, over).versions(), bad)
+
+    def test_tier_boundary(self):
+        at = prices.token_classes(usage(inp=0, out=0, read=100_000))
+        above = prices.token_classes(usage(inp=0, out=0, read=100_001))
+        self.assertAlmostEqual(prices.request_cost(self.table, "claude-haiku-5-5", at), 100_000 * 0.01 / 1e6)
+        self.assertAlmostEqual(prices.request_cost(self.table, "claude-haiku-5-5", above), 100_001 * 0.05 / 1e6)
 
     def test_invalid_override_reported_seed_used(self):
         t = prices.PriceTable(prices.SEED_PATH, self.write_override("{not json"))

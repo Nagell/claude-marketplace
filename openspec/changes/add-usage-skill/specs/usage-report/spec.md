@@ -98,7 +98,7 @@ The skill SHALL print the report in the session. It SHALL NOT write report or us
 - **THEN** no file in that working tree is created or changed
 
 ### Requirement: Retention check
-Every run SHALL read `cleanupPeriodDays` from `~/.claude/settings.json`. When it is unset, invalid or from 1 to 179, the skill SHALL measure the average transcript size per day, estimate the disk use at 180 days and offer to set 180. Claude Code rejects 0 (minimum 1), so 0 SHALL count as invalid, with the default of 30. It SHALL change the setting only after the user agrees.
+Every run SHALL read `cleanupPeriodDays` from `~/.claude/settings.json`. When it is unset, invalid or from 1 to 179, the skill SHALL measure the average transcript size per day, estimate the disk use at 180 days and offer to set 180. Claude Code reports 0 and other values below 1 as a settings error, so the skill SHALL call them invalid, count them as 30 and say so. It SHALL change the setting only after the user agrees.
 
 #### Scenario: Short retention
 - **WHEN** `cleanupPeriodDays` is unset
@@ -110,7 +110,7 @@ Every run SHALL read `cleanupPeriodDays` from `~/.claude/settings.json`. When it
 
 #### Scenario: Invalid value
 - **WHEN** `cleanupPeriodDays` is 0
-- **THEN** the skill says the value is invalid, so the default of 30 applies, and offers 180
+- **THEN** the skill says the value is invalid, counts it as 30 and offers 180
 
 #### Scenario: Retention already long
 - **WHEN** `cleanupPeriodDays` is 180 or more

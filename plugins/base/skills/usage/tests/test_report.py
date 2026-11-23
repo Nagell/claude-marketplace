@@ -108,7 +108,7 @@ class RunJson(ReportBase):
         self.assertEqual(run["role_costs"]["slice-owner"]["agents"], 3)
         self.assertGreater(run["role_costs"]["refuter"]["cost"], 0)
         self.assertEqual(run["findings_by_role"]["slice-owner"], {"unique": 2, "repeated": 0})
-        self.assertEqual(out["review_run_json"], {"review_runs": 1, "with_run_json": 1})
+        self.assertEqual((out["review_run_json"]["review_runs"], out["review_run_json"]["with_run_json"]), (1, 1))
         a = next(a for a in run["agents"] if a["label"] == "refuter")
         self.assertEqual((a["requested_model"], a["model"]), ("haiku", "claude-haiku-5-5"))
 
@@ -120,7 +120,39 @@ class RunJson(ReportBase):
         out, run = self.build(run_json=False)
         self.assertEqual({a["label"] for a in run["agents"]}, {"general-purpose"})
         self.assertGreater(run["cost"], 0)
-        self.assertEqual(out["review_run_json"], {"review_runs": 1, "with_run_json": 0})
+        self.assertEqual((out["review_run_json"]["review_runs"], out["review_run_json"]["with_run_json"]), (1, 0))
+
+    def write_run_json(self, data, sid="s1"):
+        path = os.path.join(self.scratch, "-home-u-proj", sid, "scratchpad", "run.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(data if isinstance(data, str) else json.dumps(data))
+
+    def test_malformed_entries_skipped_not_fatal(self):
+        self.write_run_json({"agents": [{"agent_id": "a1", "slice": "slice-1"}, {"agent_id": "a2", "role": "x", "slice": 3},
+                                        "junk", {"role": "refuter"}],
+                             "findings": [{"source": "slice-1", "duplicates": "refuter", "survived": True},
+                                          {"source": "slice-1", "duplicates": [], "survived": "false"},
+                                          {"source": "slice-1", "duplicates": [], "survived": True}]})
+        _, run = self.build(run_json=False)
+        self.assertEqual(run["findings_by_role"], {"unknown": {"unique": 1, "repeated": 0}})
+
+    def test_broken_run_json_reported(self):
+        self.write_run_json("{not json")
+        out, _ = self.build(run_json=False)
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertIn("run.json", out["review_run_json"]["errors"][0])
+
+    def test_run_json_goes_to_the_run_it_lists(self):
+        entries = [human(0), skill_load(0), agent_call("c1", 1, "tu1", skill=RM),
+                   human(100), skill_load(100), asst("late", 101, skill=RM)]
+        self.session("s1", entries)
+        self.agent("s1", "a1", [asst("am1", 2, model="claude-haiku-5-5")], {"toolUseId": "tu1", "spawnDepth": 1})
+        self.write_run_json({"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        runs = self.report()["skills"][0]["runs"]
+        with_json = [r for r in runs if r["run_json"]]
+        self.assertEqual(len(with_json), 1)
+        self.assertEqual(with_json[0]["agents"][0]["label"], "slice-owner slice-1")
 
     def test_codex_agent_has_no_cost(self):
         _, run = self.build(extra_agents=[{"agent_id": "job-1", "role": "slice-owner", "slice": "slice-4", "model": "codex"},
@@ -129,6 +161,16 @@ class RunJson(ReportBase):
         self.assertIsNone(codex["cost"])
         self.assertEqual(run["role_costs"]["slice-owner"]["unpriced"], 1)
         self.assertEqual(run["role_costs"]["codex"]["unpriced"], 1)
+
+
+class Unpriced(ReportBase):
+    def test_unpriced_skill_flagged(self):
+        self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill="cheap", model="claude-new-9", u=usage(inp=10**6)),
+                            human(10), skill_load(10), asst("m2", 11, skill="known")])
+        out = self.report()
+        cheap = next(s for s in out["skills"] if s["skill"] == "cheap")
+        self.assertEqual(cheap["trends"]["unpriced_requests"], 1)
+        self.assertTrue(any("without a price" in n for n in cheap["notes"]))
 
 
 class Retention(TempHome):
@@ -144,6 +186,32 @@ class Retention(TempHome):
         r = report.retention(self.settings(), self.projects)
         self.assertEqual((r["cleanupPeriodDays"], r["effective_days"], r["offer"]), (None, 30, True))
         self.assertGreater(r["estimate_bytes_at_180_days"], 0)
+
+    def test_float_whole_number_accepted(self):
+        r = report.retention(self.settings({"cleanupPeriodDays": 180.0}), self.projects)
+        self.assertEqual((r["effective_days"], r["offer"]), (180, False))
+
+    def test_non_object_settings_not_replaced(self):
+        path = os.path.join(self.tmp, "settings.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("[1, 2]")
+        self.assertIn("error", report.retention(path, self.projects))
+        with self.assertRaises(ValueError):
+            report.set_retention(180, path)
+        with open(path, encoding="utf-8") as fh:
+            self.assertEqual(fh.read(), "[1, 2]")
+
+    def test_set_retention_rejects_below_one(self):
+        path = self.settings({"model": "opus"})
+        for bad in (0, -5):
+            with self.assertRaises(ValueError):
+                report.set_retention(bad, path)
+        with self.assertRaises(SystemExit):
+            report.main(["--set-retention", "0", "--settings", path])
+
+    def test_cli_rejects_negative_top(self):
+        with self.assertRaises(SystemExit):
+            report.main(["--top", "-1"])
 
     def test_zero_is_invalid_and_offers(self):
         # Claude Code rejects 0 (minimum 1), so the default of 30 applies

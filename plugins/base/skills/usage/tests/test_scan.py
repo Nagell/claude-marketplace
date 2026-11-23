@@ -27,7 +27,8 @@ class Dedupe(ScanBase):
         self.assertEqual(run["total"]["tokens"]["input"], 10)
 
     def test_growing_first_line_takes_largest(self):
-        self.session("s1", [human(0), asst("m1", 1, skill=RM, u=usage(out=1)), asst("m1", 2, skill=RM, u=usage(out=335))])
+        self.session("s1", [human(0), asst("m1", 1, skill=RM, u=usage(out=1)), asst("m1", 2, skill=RM, u=usage(out=335)),
+                            asst("m1", 3, skill=RM, u=usage(out=20))])
         self.assertEqual(self.runs(self.scan())[0]["total"]["tokens"]["output"], 335)
 
     def test_shared_ids_count_once_in_earlier_file(self):
@@ -53,7 +54,38 @@ class Dedupe(ScanBase):
 
     def test_truncated_last_line_skipped(self):
         self.session("s1", [human(0), asst("m1", 1)], tail='{"type": "assistant", "mess')
-        self.assertEqual(self.scan()["skipped_lines"], 1)
+        data = self.scan()
+        self.assertEqual((data["skipped_lines"], data["no_skill"]["requests"]), (1, 1))
+
+    def test_wrong_typed_fields_skip_the_line(self):
+        bad_tokens = asst("m2", 2, u={"input_tokens": "10", "output_tokens": 5})
+        bad_model = asst("m3", 3, model=["x"])
+        naive = asst("m4", 4)
+        naive["timestamp"] = "2026-11-20T10:00:04"
+        self.session("s1", [human(0), asst("m1", 1), bad_tokens, bad_model, naive])
+        data = self.scan()
+        self.assertEqual((data["skipped_lines"], data["no_skill"]["requests"]), (2, 2))
+
+    def test_missing_projects_dir_warns(self):
+        data = scan.scan(30, os.path.join(self.tmp, "nope"), self.table, NOW)
+        self.assertTrue(any("does not exist" in w for w in data["warnings"]))
+
+    def test_api_errors_counted_in_window_only(self):
+        old = asst("e1", 1, model="<synthetic>", u=usage(0, 0))
+        old["timestamp"] = "2026-01-01T00:00:00.000Z"
+        self.session("s1", [old, human(0), asst("e2", 1, model="<synthetic>", u=usage(0, 0)), asst("m1", 2)])
+        self.assertEqual(self.scan()["api_errors"], 1)
+
+    def test_config_dir_from_env(self):
+        old = os.environ.get("CLAUDE_CONFIG_DIR")
+        os.environ["CLAUDE_CONFIG_DIR"] = self.tmp
+        try:
+            self.assertEqual(scan.config_dir(), self.tmp)
+        finally:
+            if old is None:
+                del os.environ["CLAUDE_CONFIG_DIR"]
+            else:
+                os.environ["CLAUDE_CONFIG_DIR"] = old
 
     def test_old_file_not_opened(self):
         path = self.session("old", [human(0), asst("m1", 1, skill=RM)])
@@ -93,6 +125,37 @@ class Runs(ScanBase):
         runs = self.runs(self.scan())
         self.assertEqual(len(runs), 1)
         self.assertEqual(runs[0]["total"]["requests"], 2)
+
+    def test_answer_to_a_question_stays_in_run(self):
+        # Claude Code drops attributionSkill on the turns that answer a reply
+        ask = asst("m1", 1, skill=RM, content=[{"type": "text", "text": "Which option do you want?"}])
+        self.session("s1", [human(0), skill_load(0), ask, human(10, "the first"), asst("m2", 11), asst("m3", 12)])
+        data = self.scan()
+        self.assertEqual(self.runs(data)[0]["total"]["requests"], 3)
+        self.assertEqual(data["no_skill"]["requests"], 0)
+
+    def test_new_prompt_after_a_statement_is_no_skill(self):
+        done = asst("m1", 1, skill=RM, content=[{"type": "text", "text": "All done."}])
+        self.session("s1", [human(0), skill_load(0), done, human(10, "something else"), asst("m2", 11)])
+        self.assertEqual(self.scan()["no_skill"]["requests"], 1)
+
+    def test_compaction_summary_does_not_close_run(self):
+        summary = dict(human(5, "This session is being continued", origin=False), isCompactSummary=True)
+        self.session("s1", [human(0), asst("m1", 1, skill=RM), summary, asst("m2", 6)])
+        self.assertEqual(self.runs(self.scan())[0]["total"]["requests"], 2)
+
+    def test_resumed_session_agents_join_the_original_run(self):
+        history = [human(0), skill_load(0), asst("m1", 1, skill=RM), agent_call("m2", 2, "tu1", skill=RM)]
+        self.session("a-parent", history)
+        self.session("b-child", history + [human(30), asst("m3", 31)])
+        self.agent("b-child", "a1", [asst("am", 3)], {"toolUseId": "tu1", "spawnDepth": 1})
+        runs = self.runs(self.scan())
+        self.assertEqual(len(runs), 1)
+        self.assertEqual((runs[0]["own"]["requests"], len(runs[0]["agents"])), (2, 1))
+
+    def test_unknown_command_needs_skill_load(self):
+        self.session("s1", [command(0, "mystery"), asst("m1", 1)])
+        self.assertEqual(self.scan()["runs"], [])
 
     def test_nested_skill_stays_in_parent_run(self):
         self.session("s1", [human(0), asst("m1", 1, skill=RM), asst("m2", 2, skill="base:writing-style-guide"),
@@ -205,11 +268,26 @@ class AgentDetails(ScanBase):
         self.assertEqual(a["over_100k"], 1)
         self.assertEqual((a["model"], a["effort"], a["finished"], a["duration_s"]), ("claude-haiku-5-5", "max", True, 60.0))
 
-    def test_convention_not_used_is_na(self):
+    def test_review_mr_clean_run_counts_zero(self):
         self.make("all good")
         run = self.runs(self.scan())[0]
+        self.assertEqual((run["agents"][0]["unfinished"], run["total"]["unfinished"]), (0, 0))
+
+    def test_other_skill_is_na(self):
+        self.session("s1", [human(0), agent_call("m1", 1, "tu1", skill="base:grilling")])
+        self.agent("s1", "a1", [asst("am", 2, content=[{"type": "text", "text": "Unfinished: x.py"}])],
+                   {"toolUseId": "tu1", "spawnDepth": 1})
+        run = self.runs(self.scan(), "base:grilling")[0]
         self.assertIsNone(run["agents"][0]["unfinished"])
         self.assertIsNone(run["total"]["unfinished"])
+
+    def test_unfinished_read_from_report_write(self):
+        self.session("s1", [human(0), agent_call("m1", 1, "tu1", skill=RM)])
+        write = {"type": "tool_use", "id": "w1", "name": "Write",
+                 "input": {"file_path": "/s/wave1-slice-1.txt", "content": "Unfinished: a.py\n| ledger |\nLeftovers: none"}}
+        self.agent("s1", "a1", [asst("am1", 2, content=[write]), asst("am2", 3, content=[{"type": "text", "text": "/s/wave1-slice-1.txt"}])],
+                   {"toolUseId": "tu1", "spawnDepth": 1})
+        self.assertEqual(self.runs(self.scan())[0]["agents"][0]["unfinished"], 1)
 
     def test_summarize_agent_matches_scan(self):
         path = self.make("done")

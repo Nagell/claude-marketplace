@@ -3,11 +3,13 @@
 The single copy of the price logic for the `usage` skill. Stdlib only, Python 3.9+.
 """
 import json
+import math
 import os
 import re
 
 SEED_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prices.json")
-OVERRIDE_PATH = os.path.join(os.path.expanduser("~"), ".claude", "usage", "prices.json")
+OVERRIDE_PATH = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude"),
+                             "usage", "prices.json")
 FIELDS = ("input", "output", "cache_write_5m", "cache_write_1h", "cache_read")
 _DATE_SUFFIX = re.compile(r"-\d{8}$")
 
@@ -16,11 +18,14 @@ def _valid_entry(entry):
     if not isinstance(entry, dict):
         return False
     for f in FIELDS:
-        if not isinstance(entry.get(f), (int, float)) or isinstance(entry.get(f), bool):
+        v = entry.get(f)
+        if not isinstance(v, (int, float)) or isinstance(v, bool) or not math.isfinite(v) or v < 0:
             return False
     lp = entry.get("long_prompt")
     if lp is not None:
-        if not isinstance(lp.get("threshold") if isinstance(lp, dict) else None, (int, float)):
+        threshold = lp.get("threshold") if isinstance(lp, dict) else None
+        if not isinstance(threshold, (int, float)) or isinstance(threshold, bool) or not math.isfinite(threshold) \
+                or threshold <= 0:
             return False
         if not _valid_entry({k: v for k, v in lp.items() if k != "threshold"}):
             return False
@@ -48,19 +53,29 @@ class PriceTable:
         self.seed_version = seed.get("version")
         self.override_version = None
         self.override_error = None
+        self.override_notes = []
         if override_path and os.path.exists(override_path):
             try:
                 over = _read_table(override_path)
             except (OSError, ValueError) as exc:
                 self.override_error = f"{override_path}: {exc}"
             else:
-                self.models.update(over["models"])
+                for model, entry in over["models"].items():
+                    seed_entry = self.models.get(model)
+                    if seed_entry is None:
+                        self.override_notes.append(f"{model}: not in the seed table, added as a new model")
+                    elif "long_prompt" in seed_entry and "long_prompt" not in entry:
+                        entry = dict(entry, long_prompt=seed_entry["long_prompt"])
+                        self.override_notes.append(f"{model}: no long_prompt in the override, kept the seed's tier")
+                    self.models[model] = entry
                 self.override_version = over.get("version") or "unversioned"
 
     def versions(self):
         out = {"seed": self.seed_version, "override": self.override_version}
         if self.override_error:
             out["override_error"] = self.override_error
+        if self.override_notes:
+            out["override_notes"] = self.override_notes
         return out
 
     def lookup(self, model):
