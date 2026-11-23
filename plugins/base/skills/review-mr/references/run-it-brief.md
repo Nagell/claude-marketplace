@@ -57,18 +57,19 @@ mkdir -p "$R/home" "$R/tmp" "$R/xdg/config" "$R/xdg/cache" "$R/xdg/data" \
 - use a real credential, or read one from the real `HOME`
 - call a real network service: answer it with a stub and record the arguments
 - install a package (`npm install`, `pip install`, `npx --yes` and the like)
-- write outside `$R`
+- write outside `$R`, except the one report file below
 - leave a process running
 
 ## Keep it small
 
-The "Keep your context small" rules of the main brief apply: every run writes
-to a file in `$R/out` and you `tail` or `grep` it, and independent commands go
-in one Bash call. The soft budget applies too.
+The "Keep your context small" rules of the main brief apply. Every run writes
+to a file in `$R/out`, and you `tail` or `grep` that file.
 
 ## What you report
 
-Write the report to `<report path>` and reply with only that path.
+Write the report to `<report path>` and reply with only that path. Writing
+this one report file is required, and it is allowed: it is the only file you
+write outside `$R`.
 
 ### 1. Promises versus behaviour
 
@@ -92,6 +93,9 @@ Add a short **checked and found sound** list for the promises that held.
 
 ### 3. Leftovers
 
-Delete `$R` before you reply, also when you stop early. The report's last line
+Delete `$R` before you reply, also when you stop early. Write the delete with
+the folder's literal path, such as `rm -rf /tmp/claude-1000/.../runit.Ab12Cd`,
+not `rm -rf "$R"`: a permission allow rule matches the command text, and it
+cannot match a shell variable. The report's last line
 is `Leftovers: none`, or each path you could not delete and why. If a guard
 blocks the delete, list the path and do not work around the guard.

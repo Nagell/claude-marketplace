@@ -409,7 +409,7 @@ a later run can tell whether these settings found more, and `run_cost.py`
     {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
      "slice": "slice-2", "model": "haiku", "effort": "max",
      "files": ["hooks/guard.sh", "hooks/hooks.json"],
-     "report": "$SCRATCH/wave1-slice-2.md", "resolved_model": null, "cost": null}
+     "report": "$SCRATCH/wave1-slice-2.txt", "resolved_model": null, "cost": null}
   ],
   "findings": [
     {"id": "slice-2-1", "draft_id": "H1", "source": "slice-2",
@@ -513,7 +513,7 @@ checked out at `head_sha`.
   What differs from the Claude agents:
   - A task runs read-only without network: no platform CLI, `curl` or file
     writes. Its report comes back as its reply; collect it with
-    `node "$CODEX" result <job>` and save it to `$SCRATCH/wave<n>-<slice>.md`
+    `node "$CODEX" result <job>` and save it to `$SCRATCH/wave<n>-<slice>.txt`
     yourself. Tell it so in the brief, and that claims it cannot measure are
     derived.
   - The harness does not track the jobs. Watch them from the main session with a
@@ -674,8 +674,8 @@ hand the relevant file to the slice owners whose files it covers. It is how
 that repo wants its MRs read, and it is more specific than anything an agent
 brings from general knowledge.
 
-Each agent writes its report to `$SCRATCH/wave1-<slice>.md` (`wave1-contract.md`,
-`wave1-runit.md`) and replies with the path. A long reply truncates in transit
+Each agent writes its report to `$SCRATCH/wave1-<slice>.txt` (`wave1-contract.txt`,
+`wave1-runit.txt`) and replies with the path. A long reply truncates in transit
 and the tail is lost silently.
 
 ### Wave 2: the gap hunt
@@ -683,8 +683,8 @@ and the tail is lost silently.
 Merge the wave 1 ledgers into one list and work out what is still dark:
 
 - changed files nobody examined
-- every file on a report's `Unfinished:` line: that agent stopped at its soft
-  budget, so wave 2 starts a fresh agent on exactly those files
+- every file on a report's `Unfinished:` line: that agent could not finish
+  reading it, so wave 2 starts a fresh agent on exactly those files
 - changed exports whose consumers nobody grepped
 - the seams: where a changed file meets an unchanged one that assumes the old
   behaviour
@@ -705,7 +705,7 @@ on the same ground found it as a live defect. The fresh agents also caught that
 their headline finding was pre-existing, which the reused ones asserted the
 opposite of. That error is the expensive one, so fresh wins.
 
-Reports go to `$SCRATCH/wave2-<area>.md`, same rule about replying with the path.
+Reports go to `$SCRATCH/wave2-<area>.txt`, same rule about replying with the path.
 
 ### When an agent goes quiet
 
@@ -782,7 +782,7 @@ why in one line.
 
 Give it the "Where you are" part of `references/agent-brief.md` with
 `RUN_TMP`, then `references/run-it-brief.md` with the list of runnable things
-filled in. Its report is `$SCRATCH/wave1-runit.md`, with a "promises versus
+filled in. Its report is `$SCRATCH/wave1-runit.txt`, with a "promises versus
 behaviour" table. Each mismatch is a measured finding (`runit-<n>`), and it
 still goes through refutation, since a stub can mislead.
 

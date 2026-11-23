@@ -25,7 +25,10 @@ somewhere to go.
   that writes to `/tmp` or `~` lands there too. Use absolute paths only, built
   from `$T`, never a path typed from `ls` output (it can carry colour codes);
   list with `command ls`. Never install packages. Delete the folder before you
-  reply, also when you stop early. If a guard blocks the delete, do not work
+  reply, also when you stop early. Write the delete with the folder's literal
+  path, such as `rm -rf /tmp/claude-1000/.../slice-2.Ab12Cd`, not
+  `rm -rf "$T"`: a permission allow rule matches the command text, and it
+  cannot match a shell variable. If a guard blocks the delete, do not work
   around it: name the path on the `Leftovers:` line of your report.
 - `<Only when the rules name one:>` Product rules live in `<refuter checkout>`;
   read them there rather than inferring them. `<Product-consequence examples
@@ -114,67 +117,38 @@ Concretely, before you write your report:
    second wave works the ground your ledger leaves open, so an honest "not
    examined" is worth more to it than a padded "looks fine".
 
-## What the code does NOT set
+## What the code does NOT set (apply it to every file in your slice)
 
-Many real bugs are absent settings, not wrong lines. Apply this to every file
-in your scope, for every external tool the code runs or configures (a browser
-or its CLI, a package manager, `git`, `curl`, `gh`/`glab`, an interpreter, a
-shell, a container runtime):
+Many real bugs are absent settings, not wrong lines. For every external tool this code runs or configures:
+1. List the options/flags/config keys the code passes.
+2. Ask which important options it does NOT pass, and what the tool's DEFAULT is for each (security: sandboxing, where output/logs/caches are written, network/proxy, auto-install/download, permissions; behaviour: what happens on error, what is persisted where).
+3. If unsure about a default or about what a tool can or cannot do, check the tool's own documentation or source (WebFetch/WebSearch, or `npx --yes` is NOT allowed; read docs on the web or local node_modules only). Do NOT trust this repo's own docs about what a tool can or cannot do: verify the claim against the tool.
+4. Report an unsafe or surprising default that the code silently inherits as a finding, with the default cited.
 
-1. List the options, flags and config keys the code passes.
-2. Name the important ones it does not pass, and the tool's default for each:
-   - security: sandboxing and permissions
-   - output locations: logs, caches and snapshots, and whether they land in
-     the caller's repo
-   - network and proxy
-   - auto-install and download
-   - behaviour on error
-   - what is persisted where
-3. Check a claim about what a tool can or cannot do, or what its default is,
-   against the tool's own source or docs: its `--help`, its code in local
-   `node_modules` or site-packages, its web docs. Never against this repo's own
-   docs, which may be the thing that is wrong. Never install the tool to check.
-4. Report an unsafe or surprising default the code silently inherits as a
-   finding, with the default cited (doc URL or source `file:line`).
-
-Also look for errors that are swallowed (`|| true`, `2>/dev/null`, empty
-fallbacks) and turn a failure into a misleading "nothing there", and for checks
-that wrongly block legitimate input (false positives), not only for what slips
-through.
+Also look for errors that are swallowed (`|| true`, `2>/dev/null`, empty fallbacks) and turn a failure into a misleading "nothing there" result, and for checks that wrongly BLOCK legitimate input (false positives), not only for things that get through.
 
 ## Keep your context small
 
-Every request pays for your whole context, and past about 100k tokens each one
-costs several times more. So:
+You own a SMALL slice. Read your slice's files whole, but do not read other files whole: use `grep -n` / `sed -n 'a,bp'` for the specific lines you need from elsewhere. Do not re-read a file you already read. Keep tool output short (pipe through head, print only what you need).
 
-- Counts before content: `wc -l`, `grep -c`, `command ls | wc -l` first.
-- Open whole only the files in your scope. Read anything else by `grep -n` and
-  `sed -n 'a,bp'` ranges. Never `cat` a file over about 200 lines that is not
-  in your scope.
-- Pipe every command through `head` or `tail` (about 40 lines).
-- A command whose output may be long writes to a file in `$T`, then you
-  `grep` or `tail` that file: `cmd > "$T/out.txt" 2>&1; tail -20 "$T/out.txt"`.
-  Test and stub runs follow this too.
-- Put independent commands in one Bash call. Fewer round trips mean fewer
-  requests.
-- Never re-read a file you already read. Note line numbers as you go.
-- Append each finding to your report file when you find it, not at the end, so
-  an early stop loses nothing.
+## When you stop
 
-**Soft budget.** After about 40 tool calls, or about 150 KB of tool output
-read, stop opening new ground. Finish the ledger with every file you did not
-open marked `not examined`, put an `Unfinished: <those files>` line at the top
-of the report, and reply with the path. The next wave picks those files up with
-a fresh agent, so stopping is cheaper than pushing on.
+Stop only when every file in your slice is examined. There is no budget of
+tool calls or output to stop at. If a file stays unread anyway (a tool failed,
+a guard blocked it), mark it `not examined` in the ledger and list it on an
+`Unfinished: <files>` line at the top of the report, so the next wave picks it
+up.
 
 ## What you report
 
-Write your report to `<report path>` and reply with **only that path**. A
-long reply gets truncated in transit and the tail is lost silently, so the
-file is the deliverable and the path is the message.
+Write your report to `<report path>` and reply with **only that path**.
+Writing this one report file is required, and it is allowed: it is the only
+file you write outside your temp folder, and the read-only rule above does not
+forbid it. A long reply gets truncated in transit and the tail is lost
+silently, so the file is the deliverable and the path is the message.
 
-The report has two sections, in this order. When you stopped at the soft
-budget, its first line is `Unfinished: <files>`. Its last line is always
+The report has two sections, in this order. When a file stayed unread, its
+first line is `Unfinished: <files>`. Its last line is always
 `Leftovers: none`, or each path you left behind and why.
 
 ### 1. Coverage ledger
@@ -218,7 +192,10 @@ Each finding carries:
 Add a short **checked and found sound** section for the mechanisms you went
 after and could not break. It stops the next wave re-walking ground you have
 already cleared, and a negative result you can explain is worth as much to the
-run as a finding.
+run as a finding. List a claim as sound only when you tested it, or read it,
+against every rule or code path it covers. When you tested it on one path
+only, name that path ("quoted text: tested on the push gate only"), so the
+next wave knows the other paths are still open.
 
 Nothing found on your lens is a real answer. Say it plainly and hand back the
 ledger. Padding the list with style preferences buries the finding that
