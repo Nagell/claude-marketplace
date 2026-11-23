@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Read Claude Code transcripts on demand and turn them into correct per-run, per-agent request counts, token counts and estimated cost. Every mode of the `usage` skill and other skills, such as `review-mr`, use this one copy.
+Read Claude Code transcripts on demand and turn them into correct per-run, per-agent request counts, token counts and estimated cost. Every mode of the `usage` skill uses this one copy; no other skill prices requests.
 
 ## ADDED Requirements
 
@@ -117,10 +117,10 @@ The scanner SHALL price requests from the seed price table shipped with the plug
 - **THEN** its cost is null, its tokens are still counted and the output lists the model as unpriced
 
 ### Requirement: Reusable pricing
-The scanner SHALL expose its price lookup, its per-request cost and a per-agent summary function as importable Python functions. The summary function SHALL take one agent transcript path and return its deduped requests, token classes, prompt sizes and cost. Other scripts in the plugin SHALL use it instead of their own dedupe, token parsing, table or tier rule.
+The scanner SHALL expose its price lookup, its per-request cost and a per-agent summary function as importable Python functions. The summary function SHALL take one agent transcript path and return its deduped requests, token classes, prompt sizes and cost. Every `usage` mode SHALL use it instead of its own dedupe, token parsing, table or tier rule.
 
-#### Scenario: Another skill prices an agent
-- **WHEN** `review-mr`'s `run_cost.py` summarizes one agent transcript
+#### Scenario: Report prices a review agent
+- **WHEN** the report prices one agent listed in a `review-mr` `run.json`
 - **THEN** it calls the scanner's summary function and gets the same numbers the scanner reports for that agent
 
 ### Requirement: Tolerant parsing

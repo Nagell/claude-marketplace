@@ -20,6 +20,8 @@
 - [ ] 3.1 Write `scripts/report.py` with `--days`, `--top`, `--runs`: rank skills by spend, aggregate trends per skill (cost per run, per role, per model and effort, over-100k share, per month) and pick the last N runs plus outliers (most expensive, most `Unfinished:` lines, largest prompt), marking a run that is both and skipping the most-`Unfinished:` outlier when the count is n/a. Verify: `tests/test_report.py` covers default top 5, fewer skills than the limit, a custom run count and an outlier that is also recent, and a skill with the `Unfinished:` count n/a.
 - [ ] 3.2 Add `--retention`: read `cleanupPeriodDays` (unset means 30, 0 means no sweep and no offer), measure average transcript bytes per active day and print the 180-day estimate; add a `--set-retention 180` write that keeps every other key and replaces the file atomically. Verify: tests on a temp home for unset, 0, under 180 and 180 or more, and a write that keeps a sample of other keys.
 
+- [ ] 3.3 Read `review-mr`'s `run.json` per design decision 5a: find `<project dir>/<session id>/scratchpad/run.json` for each scanned session, match agents by `agent_id`, label by role and slice, price them with `summarize_agent`, and count unique and repeated surviving findings per role from `source` and `duplicates`. Verify: `tests/test_report.py` covers a fixture run with `run.json` (labels, cost per role, unique findings per role), a repeated finding, a run without `run.json` and a Codex agent with no cost.
+
 ## 4. Skill and docs
 
 - [ ] 4.1 Write `plugins/base/skills/usage/SKILL.md` (`disable-model-invocation: true`): retention check first, then AskUserQuestion with `report (Recommended)` and `models (not available yet)`, the report flow (run `report.py`, read the selected agents' final replies, write drop and strengthen candidates citing run ids), the "output only, apply through an OpenSpec change and a benchmark" rule, and no file writes into the working tree. Verify: read the skill end to end against each `usage-report` requirement.
@@ -33,7 +35,7 @@
 ## Workflow follow-up
 
 - Delete `openspec/changes/add-usage-collection/` in the same commit as this plan (never built).
-- `improve-review-mr` calls `summarize_agent` from `scripts/scan.py` of this change; land this change first.
+- `move-review-cost-to-usage` removed `review-mr`'s own pricing; this change is now the only place that prices review runs.
 - `add-usage-models-mode` adds the `models` mode and modifies this change's `usage-report` spec after archive.
 - Commit as `feat(base): ...` through the commit agent. Do not push without the user's yes.
 - Archive after review.

@@ -38,6 +38,25 @@ For each top skill a script SHALL aggregate every run in the window: cost per ru
 - **WHEN** `review-mr` ran 12 times over two months
 - **THEN** the report shows its cost per run, per role, per model and effort, its over-100k share and one line per month, all from the script output
 
+### Requirement: Review runs labelled from run.json
+The `report` mode SHALL be the only place that prices `review-mr` runs. When a session's scratchpad holds a valid `review-mr` `run.json`, the report SHALL label each agent it lists by role and slice, matched by agent id, show the requested model and effort next to the actual model, and show per role the cost and the number of surviving findings that role found first. Agents the file does not list, and runs with no `run.json`, SHALL keep the meta-file labels.
+
+#### Scenario: Run with run.json
+- **WHEN** a `review-mr` run's scratchpad holds `run.json` with three slice owners and a refuter, and two surviving findings name `slice-2` as source
+- **THEN** the report labels the agents `slice-owner slice-1` to `slice-3` and `refuter`, and shows cost per role with two unique surviving findings for `slice-owner`
+
+#### Scenario: Repeated finding
+- **WHEN** a surviving finding has source `slice-2` and duplicates `runit`
+- **THEN** it counts as unique for `slice-owner` and as repeated for `runit`
+
+#### Scenario: No run.json
+- **WHEN** the scratchpad of a `review-mr` session was swept
+- **THEN** the run is still priced and its agents keep their meta-file labels
+
+#### Scenario: Codex agent
+- **WHEN** `run.json` lists an agent with model `codex`
+- **THEN** the report lists it with no cost, because it has no Claude transcript
+
 ### Requirement: Deep read of recent runs and outliers
 The model SHALL read the per-agent details of the last 5 runs of each top skill, and of outlier runs in the window: the most expensive run, the run with the most `Unfinished:` lines and the run with the largest prompt. When the `Unfinished:` count is n/a for a skill, that outlier SHALL be skipped. The user SHALL be able to change the number of recent runs.
 
