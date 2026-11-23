@@ -737,8 +737,11 @@ python3 $SKILL_DIR/scripts/run_checks.py run --plan "$RUN_TMP/checks-plan.json" 
   with the package manager the lockfile names (pnpm when there is none),
   `eslint`, `prettier --check`, `ruff`, `mypy`, `pytest`, `go vet`, `go test`,
   `cargo check`, `cargo test` and `shellcheck`. A manifest that is new in the
-  MR is listed under `untrusted` and never run. A script with a fix flag runs
-  in a check-only form or is skipped with the reason.
+  MR is listed under `untrusted` and never run. A script runs by name, so the
+  package manager reads its body at head: when its body, or the body of a
+  script it runs by name, differs between base and head, it is listed under
+  `untrusted` with "script body changed in this MR" and never run. A script
+  with a fix flag runs in a check-only form or is skipped with the reason.
 - `run` stops a command at 120 s and the step at 300 s, never passes a fix
   flag and never installs anything. A command whose dependencies are missing
   is skipped with "dependencies not installed", and a timeout is "not run",
@@ -1351,7 +1354,8 @@ leaves it out. Print the total in one line: requests, share over 100k, USD.
    A leftover path an agent named outside `RUN_TMP` is reported to the user,
    not deleted.
 6. Remove each review worktree in `worktrees_created` (the counterpart's
-   included) with `git -C <repo> worktree remove <path>`, unless the user
+   included) through its own path, `git -C <path> worktree remove <path>`, so
+   the counterpart's worktree is removed from its own repo, unless the user
    passed `--keep-worktrees`. Never remove a worktree that existed before the
    run. When `remove` refuses because the worktree has changes, leave it and
    say so.

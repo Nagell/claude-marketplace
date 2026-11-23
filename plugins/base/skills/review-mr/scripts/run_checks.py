@@ -6,10 +6,15 @@ Two subcommands, stdlib only, no LLM.
 ``detect`` finds the commands for the files an MR changes. Manifests and
 config are read as they are at ``--base`` (``git show``), so an MR cannot
 change which commands run. A manifest that is new in the MR is listed under
-``untrusted`` and never run. Prints a JSON plan:
+``untrusted`` and never run. A package.json script runs by name, so the package
+manager reads its body at head: when the body of a detected script, or of any
+script it runs by name (pre/post hooks included), differs between base and
+head, the script is listed under ``untrusted`` with the reason "script body
+changed in this MR" and never run. Prints a JSON plan:
 
   {"commands": [{"id", "kind", "cwd", "argv", "files", "source", "needs"}],
-   "untrusted": [{"manifest", "commands"}], "skipped": [{"source", "reason"}]}
+   "untrusted": [{"manifest", "commands", "reason"?}],
+   "skipped": [{"source", "reason"}]}
 
 ``kind`` is ``lint``, ``format``, ``typecheck`` or ``test``. ``needs`` names
 what must exist in the worktree for the command to run (``node_modules``).
@@ -33,6 +38,7 @@ command is "base run failed" with the reason and makes no finding. Prints:
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -145,6 +151,42 @@ def package_manager(snap: Snapshot, root: str) -> str:
     return "pnpm"
 
 
+def scripts_reached(name: str, scripts: dict) -> set[str]:
+    """``name`` plus every script it may run by name: its pre/post hooks and
+    any script named (or matched by a ``*`` pattern) in a body, transitively."""
+    seen: set[str] = set()
+    todo = [name]
+    while todo:
+        n = todo.pop()
+        if n in seen:
+            continue
+        seen.add(n)
+        todo += [h for h in (f"pre{n}", f"post{n}") if h in scripts]
+        body = str(scripts.get(n, ""))
+        for t in re.split(r"[\s&|;()'\"]+", body):
+            if t in scripts:
+                todo.append(t)
+            elif "*" in t:
+                todo += [s for s in scripts if fnmatch.fnmatchcase(s, t)]
+    return seen
+
+
+def changed_scripts(name: str, base_scripts: dict, head_scripts: dict) -> list[str]:
+    """Scripts ``name`` may run whose body differs between base and head."""
+    reached = scripts_reached(name, base_scripts) | scripts_reached(name, head_scripts)
+    return sorted(n for n in reached if base_scripts.get(n) != head_scripts.get(n))
+
+
+def list_changed_script(plan: dict, manifest: str, name: str) -> None:
+    reason = "script body changed in this MR"
+    entry = next((u for u in plan["untrusted"]
+                  if u["manifest"] == manifest and u.get("reason") == reason), None)
+    if entry is None:
+        entry = {"manifest": manifest, "commands": [], "reason": reason}
+        plan["untrusted"].append(entry)
+    entry["commands"].append(f"run {name}")
+
+
 def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) -> None:
     roots: dict[str, list[str]] = {}
     for f in files:
@@ -173,8 +215,16 @@ def detect_node(base: Snapshot, head: Snapshot, files: list[str], plan: dict) ->
             continue
         pm = package_manager(base, root)
         scripts = pkg.get("scripts", {}) or {}
+        try:
+            head_scripts = json.loads(head.read(manifest)).get("scripts", {}) or {}
+        except ValueError:
+            head_scripts = {}
         for name, kind in NODE_SCRIPTS.items():
             if name not in scripts:
+                continue
+            if changed_scripts(name, scripts, head_scripts):
+                # the package manager runs the head body, so a changed one never runs
+                list_changed_script(plan, manifest, name)
                 continue
             body = str(scripts[name])
             source = f"{manifest} scripts.{name}"

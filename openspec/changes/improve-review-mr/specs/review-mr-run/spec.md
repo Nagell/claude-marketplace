@@ -25,6 +25,13 @@ The skill SHALL run the repo's own lint, typecheck, format-check and test comman
 - **WHEN** the user passes `--no-checks`
 - **THEN** no check command runs
 
+### Requirement: Changed script bodies
+A detected `package.json` script runs by name, so the package manager reads its body at head. When its body, or the body of a script it runs by name, differs between `base_sha` and head, the script SHALL be listed under `untrusted` with the reason "script body changed in this MR" and SHALL NOT run.
+
+#### Scenario: Script body changed
+- **WHEN** the MR changes the body of an existing `lint` script, or of a script `lint` runs by name
+- **THEN** `lint` is listed under `untrusted` with "script body changed in this MR" and not run
+
 ### Requirement: What gets detected
 Detection SHALL cover Node `package.json` scripts (`lint`, `typecheck`, `type-check`, `check`, `format:check`, `test`) run with the package manager the lockfile names (pnpm when none), `eslint`, `prettier --check`, `ruff`, `mypy`, `pytest`, `go vet`, `go test`, `cargo check`, `cargo test` and `shellcheck`, each only when configured or installed. Commands SHALL be limited to changed files or changed packages where the tool allows.
 
@@ -233,7 +240,7 @@ At the start the main session SHALL record `git status --porcelain=v1 -z` of the
 - **THEN** the sweep leaves it alone
 
 ### Requirement: Review worktrees removed
-The main session SHALL record each review worktree the run creates (the counterpart's included) in `run.json` and remove it with `git worktree remove` once the drafts are submitted or the user stopped the run, unless the user passed `--keep-worktrees`. It SHALL NOT remove a worktree that existed before the run. The final line SHALL name what was removed and what stayed.
+The main session SHALL record each review worktree the run creates (the counterpart's included) in `run.json` and remove it through its own path (`git -C <path> worktree remove <path>`, so the counterpart's worktree leaves its own repo) once the drafts are submitted or the user stopped the run, unless the user passed `--keep-worktrees`. It SHALL NOT remove a worktree that existed before the run. The final line SHALL name what was removed and what stayed.
 
 #### Scenario: Run created the worktree
 - **WHEN** step 1 created `<base>/reviews` and the review was posted
