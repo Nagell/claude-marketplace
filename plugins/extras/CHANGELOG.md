@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.2.0](https://github.com/Nagell/claude-marketplace/compare/extras-v3.1.0...extras-v3.2.0) (2026-11-23)
+
+
+### Features
+
+* **extras:** add PR_AUTHOR_NOTE switch for the author's note ([1d11b57](https://github.com/Nagell/claude-marketplace/commit/1d11b575ead445d6cdecbbd2f06fc93695d84d83))
+* **extras:** add PR_AUTHOR_NOTE switch for the author's note question ([c203f79](https://github.com/Nagell/claude-marketplace/commit/c203f796f6a629d84e6eff99827606b4d6e92b2e))
+
 ## [3.1.0](https://github.com/Nagell/claude-marketplace/compare/extras-v3.0.1...extras-v3.1.0) (2026-11-21)
 
 

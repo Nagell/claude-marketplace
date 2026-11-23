@@ -1,6 +1,6 @@
 {
     "name": "extras",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "description": "Optional developer tooling split out of base: skill authoring with evals, PR/MR descriptions kept current by a push hook (GitHub and GitLab), and isolated Playwright-managed browser sessions per agent.",
     "author": {
         "name": "Dawid Nitka",
