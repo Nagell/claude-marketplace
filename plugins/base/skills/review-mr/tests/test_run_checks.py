@@ -95,6 +95,21 @@ def test_new_manifest_listed_not_run(repo):
     assert plan["untrusted"] == [{"manifest": "web/package.json", "commands": ["run test"]}]
 
 
+def test_new_python_go_rust_manifests_listed_not_run(repo):
+    base, head = base_and_head(
+        repo, {"README.md": "hi"},
+        {"py/pyproject.toml": "[tool.ruff]\n[tool.pytest.ini_options]\n", "py/a.py": "1",
+         "svc/go.mod": "module x\n", "svc/a.go": "package a\n",
+         "crate/Cargo.toml": "[package]\nname='c'\n", "crate/src/main.rs": "fn main(){}"})
+    plan = rc.detect(repo, base, head)
+    assert plan["commands"] == []
+    assert sorted(plan["untrusted"], key=lambda u: u["manifest"]) == [
+        {"manifest": "crate/Cargo.toml", "commands": ["cargo check", "cargo test"]},
+        {"manifest": "py/pyproject.toml", "commands": ["ruff check", "pytest"]},
+        {"manifest": "svc/go.mod", "commands": ["go vet", "go test"]},
+    ]
+
+
 def test_manifest_read_at_base(repo):
     base, head = base_and_head(
         repo, {"package.json": json.dumps({"scripts": {"lint": "eslint ."}}), "a.js": "1"},

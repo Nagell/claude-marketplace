@@ -208,10 +208,32 @@ def py_config(base: Snapshot, root: str) -> dict[str, bool]:
     }
 
 
-def detect_python(base: Snapshot, files: list[str], plan: dict) -> None:
+def list_untrusted(base: Snapshot, head: Snapshot, f: str, name: str, plan: dict,
+                   commands) -> bool:
+    """List a manifest the MR adds next to ``f``; True when one was found."""
+    head_root = nearest(head, f, name)
+    if head_root is None or head_root == nearest(base, f, name):
+        return False
+    manifest = join(head_root, name)
+    if not any(u["manifest"] == manifest for u in plan["untrusted"]):
+        plan["untrusted"].append({"manifest": manifest, "commands": commands(manifest)})
+    return True
+
+
+def py_commands(head: Snapshot):
+    def commands(manifest: str) -> list[str]:
+        text = head.read(manifest)
+        return [c for key, c in (("[tool.ruff", "ruff check"), ("[tool.mypy", "mypy"),
+                                 ("[tool.pytest", "pytest")) if key in text]
+    return commands
+
+
+def detect_python(base: Snapshot, head: Snapshot, files: list[str], plan: dict) -> None:
     py = [f for f in files if f.endswith(".py")]
     roots: dict[str, list[str]] = {}
     for f in py:
+        if list_untrusted(base, head, f, "pyproject.toml", plan, py_commands(head)):
+            continue
         root = next((d for d in parents(f)
                      if any(base.has(join(d, n)) for n in
                             ("pyproject.toml", "ruff.toml", ".ruff.toml", "mypy.ini",
@@ -231,10 +253,12 @@ def detect_python(base: Snapshot, files: list[str], plan: dict) -> None:
             add(plan, "test", root, ["pytest", "-q"], [], f"{root} pytest config", "pytest")
 
 
-def detect_go(base: Snapshot, files: list[str], plan: dict) -> None:
+def detect_go(base: Snapshot, head: Snapshot, files: list[str], plan: dict) -> None:
     mods: dict[str, set[str]] = {}
     for f in files:
         if not f.endswith(".go"):
+            continue
+        if list_untrusted(base, head, f, "go.mod", plan, lambda m: ["go vet", "go test"]):
             continue
         root = nearest(base, f, "go.mod")
         if root is not None:
@@ -246,8 +270,10 @@ def detect_go(base: Snapshot, files: list[str], plan: dict) -> None:
         add(plan, "test", root, ["go", "test", *pk], pk, join(root, "go.mod"), "go")
 
 
-def detect_rust(base: Snapshot, files: list[str], plan: dict) -> None:
-    roots = sorted({r for f in files if f.endswith(".rs")
+def detect_rust(base: Snapshot, head: Snapshot, files: list[str], plan: dict) -> None:
+    rs = [f for f in files if f.endswith(".rs") and not list_untrusted(
+        base, head, f, "Cargo.toml", plan, lambda m: ["cargo check", "cargo test"])]
+    roots = sorted({r for f in rs
                     for r in [nearest(base, f, "Cargo.toml")] if r is not None})
     for root in roots:
         add(plan, "typecheck", root, ["cargo", "check"], [], join(root, "Cargo.toml"), "cargo")
@@ -282,9 +308,9 @@ def detect(repo: Path, base_ref: str, head_ref: str, files: list[str] | None = N
     plan: dict = {"base": base_ref, "head": head_ref, "commands": [], "untrusted": [],
                   "skipped": []}
     detect_node(base, head, files, plan)
-    detect_python(base, files, plan)
-    detect_go(base, files, plan)
-    detect_rust(base, files, plan)
+    detect_python(base, head, files, plan)
+    detect_go(base, head, files, plan)
+    detect_rust(base, head, files, plan)
     detect_shell(head, files, plan)
     return plan
 

@@ -17,6 +17,10 @@ The skill SHALL run the repo's own lint, typecheck, format-check and test comman
 - **WHEN** the MR adds a `package.json` with a `test` script
 - **THEN** the script is listed and not run
 
+#### Scenario: New non-Node manifest
+- **WHEN** the MR adds a `pyproject.toml`, `go.mod` or `Cargo.toml` next to changed files
+- **THEN** it is listed under `untrusted` with the commands it would configure, and none of them runs
+
 #### Scenario: Opt out
 - **WHEN** the user passes `--no-checks`
 - **THEN** no check command runs
