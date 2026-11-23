@@ -155,7 +155,7 @@ def trends(skill_runs):
         by_month[month]["cost"] += r["total"]["cost"]
 
     def rounded(d):
-        return {k: {kk: (round(vv, 4) if isinstance(vv, float) else vv) for kk, vv in v.items()}
+        return {k: {kk: (round(vv, 6) if isinstance(vv, float) else vv) for kk, vv in v.items()}
                 for k, v in sorted(d.items())}
 
     return {
@@ -198,7 +198,7 @@ def run_detail(run):
         "largest_prompt": run["total"]["largest_prompt"], "over_100k": run["total"]["over_100k"],
         "unfinished": run["total"]["unfinished"], "run_json": run["run_json"],
         "findings_by_role": run.get("findings_by_role"),
-        "role_costs": {k: {"agents": v["agents"], "cost": round(v["cost"], 4), "unpriced": v["unpriced"]}
+        "role_costs": {k: {"agents": v["agents"], "cost": round(v["cost"], 6), "unpriced": v["unpriced"]}
                        for k, v in sorted(role_costs(run).items())},
         "agents": [{k: a.get(k) for k in (
             "agent_id", "label", "role", "slice", "description", "requested_model", "requested_effort",
