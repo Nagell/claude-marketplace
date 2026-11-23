@@ -118,7 +118,7 @@ Findings from checks SHALL carry the id prefix `check-` and the command that pro
 - **THEN** the main session may raise it above medium
 
 ### Requirement: Run-it agent trigger
-When the diff adds or changes runnable code beyond comments and whitespace, the skill SHALL spawn one run-it agent in wave 1 on the wave-1 model. Runnable code means executable or shebang files, scripts under `scripts/`, `bin/` or `hooks/`, entries in `hooks.json` or a `package.json` `bin` or `scripts`, and skills that ship scripts.
+When the diff adds or changes runnable code beyond comments and whitespace, the skill SHALL spawn one run-it agent in wave 1 on the wave-1 model, except as the run-it skip rules say. Runnable code means executable or shebang files, scripts under `scripts/`, `bin/` or `hooks/`, entries in `hooks.json` or a `package.json` `bin` or `scripts`, and skills that ship scripts.
 
 #### Scenario: Hook changed
 - **WHEN** an MR changes a hook script
@@ -187,7 +187,7 @@ The run-it agent SHALL report a table of each promise the docs, `--help` and the
 - **THEN** it names the input that would settle it and the refuter runs that input
 
 ### Requirement: Cost per agent in run.json
-At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, first and largest prompt, duration and estimated USD, plus a run total. The `usage` scanner's summary function SHALL supply them, counting each request once by `message.id`. A Codex agent has no Claude transcript, so its `cost` SHALL be null with a reason.
+At the end of the run `scripts/run_cost.py` SHALL fill, for every agent in `run.json`, its requests, tokens by class (input, output, cache write 5 minutes, cache write 1 hour, cache read), requests over 100k prompt tokens, largest prompt, duration and estimated USD, plus a run total. The `usage` scanner's summary function SHALL supply them, counting each request once by `message.id`. A Codex agent has no Claude transcript, so its `cost` SHALL be null with a reason.
 
 #### Scenario: Split response
 - **WHEN** one response is written as three transcript lines with the same `message.id`

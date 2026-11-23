@@ -92,7 +92,9 @@ ledger already covers the rest, so give the files outside it one
 
 Concretely, before you write your report:
 
-1. **Open each changed file whole at head.** The hunk is not the unit of a
+1. **Open each changed file whole at head.** When your slice names a line
+   range of a long file, read that range whole and give the rest of the file
+   a ledger row. The hunk is not the unit of a
    bug. A guard removed three hunks up, a prop renamed at the top, a watcher
    that now fires twice - none of that is visible in the hunk that is wrong.
 2. **Grep every consumer of every changed export.** Not one traced consumer:

@@ -63,12 +63,12 @@ HAS_BLACK=false
 if [ -f "$PROJECT_ROOT/package.json" ]; then
   if command -v npx &>/dev/null; then
     # oxfmt: requires .oxfmtrc.json (preferred over prettier)
-    if [ -f "$PROJECT_ROOT/.oxfmtrc.json" ] && npx oxfmt --version &>/dev/null 2>&1; then
+    if [ -f "$PROJECT_ROOT/.oxfmtrc.json" ] && npx --no oxfmt --version &>/dev/null 2>&1; then
       HAS_OXFMT=true
     fi
 
     # prettier: requires a config file or "prettier" key in package.json
-    if ! $HAS_OXFMT && npx prettier --version &>/dev/null 2>&1; then
+    if ! $HAS_OXFMT && npx --no prettier --version &>/dev/null 2>&1; then
       if has_config "$PROJECT_ROOT"/.prettierrc{,.json,.yml,.yaml,.js,.cjs,.mjs,.toml} \
                     "$PROJECT_ROOT"/prettier.config.{js,cjs,mjs} \
         || grep -q '"prettier"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
@@ -77,7 +77,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     fi
 
     # eslint: requires a config file or "eslintConfig" key in package.json
-    if npx eslint --version &>/dev/null 2>&1; then
+    if npx --no eslint --version &>/dev/null 2>&1; then
       if has_config "$PROJECT_ROOT"/.eslintrc{,.js,.cjs,.yaml,.yml,.json} \
                     "$PROJECT_ROOT"/eslint.config.{js,mjs,cjs,ts,mts,cts} \
         || grep -q '"eslintConfig"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
@@ -86,7 +86,7 @@ if [ -f "$PROJECT_ROOT/package.json" ]; then
     fi
 
     # stylelint: requires a config file or "stylelint" key in package.json
-    if npx stylelint --version &>/dev/null 2>&1; then
+    if npx --no stylelint --version &>/dev/null 2>&1; then
       if has_config "$PROJECT_ROOT"/.stylelintrc{,.json,.yml,.yaml,.js,.cjs,.mjs} \
                     "$PROJECT_ROOT"/stylelint.config.{js,cjs,mjs} \
         || grep -q '"stylelint"' "$PROJECT_ROOT/package.json" 2>/dev/null; then

@@ -37,14 +37,16 @@ in place of the real home (no `~/.ssh`, `~/.bashrc` or `~/.claude`), and the
 tmpfs and its writes vanish when it exits:
 
 ```bash
-unshare -rmn sh -c 'mount -t tmpfs tmpfs "$1" && shift && cd "$1" && shift && exec "$@"' \
+timeout 120 unshare -rmnp --fork --kill-child sh -c 'mount -t tmpfs tmpfs "$1" && shift && cd "$1" && shift && exec "$@"' \
   sh '<real HOME>' '<R>/code' env -i HOME='<R>/home' TMPDIR='<R>/tmp' \
   XDG_CONFIG_HOME='<R>/xdg/config' XDG_CACHE_HOME='<R>/xdg/cache' \
   XDG_DATA_HOME='<R>/xdg/data' XDG_STATE_HOME='<R>/xdg/state' \
   PATH='<R>/stubs:/usr/bin:/bin' <command>
 ```
 
-When `$R` is inside the real home, the tmpfs would hide it: drop the `mount`
+`-p --fork --kill-child` and `timeout 120` stop every process the command
+started when it ends or hangs, so nothing is left running. When `$R` is inside
+the real home, the tmpfs would hide it: drop the `mount`
 part and say in the report that the real home stayed visible. When
 `unshare -rmn true` fails, there is no network cut and no hidden home: use the
 `PATH`-only fallback under "Never", run only promises that need neither the
@@ -62,12 +64,17 @@ network nor a write outside `$R`, and mark every network-dependent promise
 - **Stubs first on `PATH`.** Put stub `git`, `gh`, `glab`, `curl`, `npx`,
   `npm`, `pnpm`, `wget` and any other tool that would touch the network or a
   remote into `$R/stubs`. Each stub appends its arguments to
-  `$R/out/calls.log` and prints canned output that fits the case you test:
+  `$R/out/calls.log` and prints canned output, with an exit status, that fits
+  the case you test (exit 1 for an error branch):
 
   ```bash
-  printf '#!/bin/sh\necho "$0 $*" >> %s/out/calls.log\necho "{}"\n' "$R" \
+  printf '#!/bin/sh\necho "$0 $*" >> %s/out/calls.log\necho "{}"\nexit 0\n' "$R" \
     > "$R/stubs/curl"; chmod +x "$R/stubs/curl"
   ```
+- **Real local tools.** A tool the code needs that is not in `/usr/bin` or
+  `/bin` (`node`, `python3` from a version manager and the like): find it with
+  `command -v <tool>` before `env -i`, and link it into `$R/stubs`. Never link
+  a tool that reaches a remote.
 
   A stub that needs real local behaviour (`git` on a throwaway repo in `$R`)
   may call the real binary by absolute path, but never against a real remote

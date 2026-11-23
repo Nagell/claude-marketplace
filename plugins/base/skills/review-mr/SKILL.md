@@ -1,6 +1,6 @@
 ---
 name: review-mr
-description: Review a GitLab merge request or a GitHub pull request in an isolated worktree and post the findings in the user's name as one review (drafts, then one submit with a verdict), with range anchors, suggestion fences and every low in one thread. Asks upfront whether to review with Claude, Codex, or both, and at what effort, checks the branch out at head_sha against the MR's own target branch, loads the repo's review rules from ~/.claude/review-rules/, finds the MR for the same change in the paired repo when the rules name one and reviews the boundary between the two, or both in full, reads the existing threads first so a re-review validates our earlier findings instead of repeating them, cuts the changed files into contract-sized slices with one Haiku owner each (Opus with --fast) that also checks the repo's own instruction files, runs the repo's lint, type and test commands with no LLM (skip with --no-checks), runs changed scripts and hooks in a throwaway sandbox, runs the review in two waves so the second one hunts the ground the first left unopened, at most --max-parallel agents at once, then sends an Opus refutation agent with a browser and the code that owns the product rules to break the survivors before anything is drafted, then shows the draft comments and the proposed thread actions, each summarised in plain English, for acceptance before anything reaches the MR. On a re-review where only a couple of mediums and some lows remain, it offers to close the MR instead: every remaining finding in one non-blocking comment plus an approval. Records each agent's cost in run.json, then sweeps its temp folders and removes the review worktrees it created (keep them with --keep-worktrees). Invoke only via /review-mr.
+description: "Review a GitLab merge request or a GitHub pull request in an isolated worktree and post the findings in the user's name as one review (drafts, then one submit with a verdict), with range anchors, suggestion fences and every low in one thread. Asks upfront whether to review with Claude, Codex, or both, and at what effort, checks the branch out at head_sha against the MR's own target branch, loads the repo's review rules from ~/.claude/review-rules/, finds the MR for the same change in the paired repo when the rules name one and reviews the boundary between the two, or both in full, reads the existing threads first so a re-review validates our earlier findings instead of repeating them, cuts the changed files into contract-sized slices with one Haiku owner each (Opus with --fast) that also checks the repo's own instruction files, runs the repo's lint, type and test commands with no LLM (skip with --no-checks), runs changed scripts and hooks in a throwaway sandbox, runs the review in two waves so the second one hunts the ground the first left unopened, at most --max-parallel agents at once, then sends an Opus refutation agent with a browser and the code that owns the product rules to break the survivors before anything is drafted, then shows the draft comments and the proposed thread actions, each summarised in plain English, for acceptance before anything reaches the MR. On a re-review where only a couple of mediums and some lows remain, it offers to close the MR instead: every remaining finding in one non-blocking comment plus an approval. Records each agent's cost in run.json, then sweeps its temp folders and removes the review worktrees it created (keep them with --keep-worktrees). Invoke only via /review-mr."
 argument-hint: "<mr-or-pr-url | !iid> [<second url>] [--both] [--finish | --no-finish] [--fast] [--no-checks] [--keep-worktrees] [--max-parallel N]"
 disable-model-invocation: true
 effort: high
@@ -238,8 +238,11 @@ clone, then carry on as below.
 
 Work in `<base>/reviews`. Whether it exists is settled by
 `git -C <repo> worktree list`, not by guessing from the session's working
-directory or asking - an existing `reviews` worktree is reused as is, since
-step 2 checks out the MR head in it anyway. Create it only if that list lacks it:
+directory or asking - an existing `reviews` worktree is reused, since step 2
+checks out the MR head in it anyway. Before reusing it, run
+`git -C <base>/reviews status --porcelain`; when it lists anything, stop and
+ask the user, since edits and untracked files there would be reviewed and
+tested as part of the MR. Create it only if that list lacks it:
 
 ```bash
 git -C <repo> fetch origin <default branch>
@@ -265,8 +268,8 @@ untracked files the run left behind:
 
 ```bash
 RUN_TMP=$(mktemp -d -p "$SCRATCH" review.XXXXXX) && echo "$RUN_TMP"
-git -C <repo> status --porcelain=v1 -z > "$RUN_TMP/status-primary.before"
-git -C <base>/reviews status --porcelain=v1 -z > "$RUN_TMP/status-review.before"
+git -C <repo> status --porcelain=v1 -z -uall > "$RUN_TMP/status-primary.before"
+git -C <base>/reviews status --porcelain=v1 -z -uall > "$RUN_TMP/status-review.before"
 ```
 
 Note the printed path: it is `run_tmp` in `run.json` and the literal value
@@ -358,11 +361,13 @@ size excludes after them:
 
 ```bash
 EXCL=(':(exclude)*.lock' ':(exclude)*-lock.*' ':(exclude)pnpm-lock.yaml'
+  ':(exclude)go.sum' ':(exclude)*.lockb' ':(exclude)npm-shrinkwrap.json'
+  ':(exclude)packages.lock.json'
   ':(exclude)*.min.js' ':(exclude)*.min.css' ':(exclude)*.generated.*'
   ':(exclude)*.po' ':(exclude,glob)**/dist/**' ':(exclude,glob)**/build/**'
   ':(exclude,glob)**/locales/**' ':(exclude,glob)**/i18n/**/*.json'
   <the rules' size excludes>)
-GD=(git -C <worktree> -c core.quotePath=false diff --name-only <base_sha> <head_sha>)
+GD=(git -C <worktree> -c core.quotePath=false diff --name-only --no-renames <base_sha> <head_sha>)
 "${GD[@]}" > "$RUN_TMP/changed.txt"
 "${GD[@]}" -- . "${EXCL[@]}" > "$RUN_TMP/counted.txt"
 grep -vxFf "$RUN_TMP/counted.txt" "$RUN_TMP/changed.txt" > "$RUN_TMP/excluded.txt"
@@ -394,7 +399,8 @@ with its tests and the doc section that describes it, a hook with its
 `hooks.json` entry, a component with its composable and spec. Then cut to a
 target of **about 400 lines of whole files per slice, hard limit about 700**.
 A file above the limit is its own slice; above about 1,500 lines it splits
-into ranges of about 700 lines, one slice each. Write the plan to
+into ranges of about 700 lines, one slice each, and the slice block names
+the range. Write the plan to
 `$RUN_TMP/slices.json` as `[{slice, files: [{path, lines}], load}]`.
 
 There are no size tiers and no whole-MR lens agents: a small MR is one slice
@@ -425,13 +431,15 @@ a later run can tell whether these settings found more, and `run_cost.py`
     {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
      "slice": "slice-2", "model": "haiku", "effort": "max",
      "files": ["hooks/guard.sh", "hooks/hooks.json"],
-     "report": "$SCRATCH/wave1-slice-2.txt", "resolved_model": null, "cost": null}
+     "report": "$SCRATCH/wave1-slice-2.txt", "resolved_model": null, "cost": null,
+     "cost_reason": null}
   ],
   "findings": [
     {"id": "slice-2-1", "draft_id": "H1", "source": "slice-2",
      "duplicates": ["runit"], "survived": true}
   ],
-  "checks": {"run": [], "pre_existing": [], "not_run": []}
+  "checks": {"findings": [], "pre_existing": [], "not_run": [], "untrusted": []},
+  "cost_total": null
 }
 ```
 
@@ -485,7 +493,7 @@ Then judge what actually landed, and pick the action:
 | fix is real, thread already resolved, and our last note isn't a closing one | reply `✅ Verified` with `--resolve`             |
 | fix is real, thread already resolved, we already closed it                  | nothing                                          |
 | fix is real, thread still open                                              | reply `✅ Verified` with `--resolve`             |
-| the finding still stands, thread resolved                                   | unresolve, reply with what still stands          |
+| the finding still stands, thread resolved                                   | reply with what still stands, `--reopen`         |
 | the finding still stands, thread still open                                 | nothing, unless the reply asked us something     |
 | the code is gone or reverted, so the finding no longer applies              | reply `Does not apply anymore.` with `--resolve` |
 
@@ -748,11 +756,16 @@ python3 $SKILL_DIR/scripts/run_checks.py run --plan "$RUN_TMP/checks-plan.json" 
 ```
 
 - `detect` reads manifests and config as they are at `base_sha`, so the MR
-  cannot change which commands run. It covers `package.json` scripts (`lint`,
+  cannot change which commands are chosen. The chosen commands still run head
+  code with the head's config, so pass or fail follows the head's lint, type
+  and test config. It covers `package.json` scripts (`lint`,
   `typecheck`, `type-check`, `check`, `format:check`, `test`, `test:unit`) run
   with the package manager the lockfile names (pnpm when there is none),
   `eslint`, `prettier --check`, `ruff`, `mypy`, `pytest`, `go vet`, `go test`,
-  `cargo check`, `cargo test` and `shellcheck`. A manifest that is new in the
+  `cargo check`, `cargo test` and `shellcheck`. `pytest` is planned only when
+  a pytest config exists (`[tool.pytest` in `pyproject.toml`, `pytest.ini`
+  or `[tool:pytest` in `setup.cfg`), and a project `.venv` tool is used
+  before one on `PATH`. A manifest that is new in the
   MR is listed under `untrusted` and never run. A script runs by name, so the
   package manager reads its body at head: when its body, or the body of a
   script it runs by name, differs between base and head, it is listed under
@@ -772,7 +785,13 @@ python3 $SKILL_DIR/scripts/run_checks.py run --plan "$RUN_TMP/checks-plan.json" 
   head first, to rule out a flaky one. Head runs leave a quarter of the 300 s
   for base re-runs. When a base re-run times out or errors, or the base
   worktree cannot be made (`error` in the output), the command goes under
-  `not_run` as "base run failed" with the reason and makes no finding.
+  `not_run` as "base run failed" with the reason and makes no finding. The
+  base re-run uses the head's `node_modules` and `.venv`; the result's
+  `base.deps` says `"head"` when it did, so a failure caused by a dependency
+  bump in the MR can show as pre-existing. A head command that cannot start
+  is "not run: could not start".
+- `checks.json` holds `results`, `findings`, `pre_existing`, `not_run`,
+  `base_worktree`, `base_worktree_removed` and `network`.
 
 When nothing is detected, say so in one line and go on. Each entry of
 `findings` is a finding with its `check-<n>` id and the command that produced
@@ -1301,7 +1320,10 @@ records and prices it with `summarize_agent` from the `usage` skill's scanner
 `usage` report. When the scanner is not installed, each `cost` is null with
 the reason "usage scanner not found". A Codex task has no Claude transcript,
 so its `cost` is null with the reason "no Claude transcript" and the total
-leaves it out. Print the total in one line: requests, share over 100k, USD.
+leaves it out. The reasons are checked in this order: Codex task, "transcript
+not found", "usage scanner not found", then "usage scanner failed: <error>"
+for a transcript the scanner raised on. When no agent is priced,
+`cost_total.reason` is the most common reason. Print the total in one line: requests, share over 100k, USD.
 
 **Sweep.** Touch only the run's own paths. Every command below uses the
 literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
@@ -1329,7 +1351,7 @@ can never widen what it matches or deletes:
    ```bash
    RT='<run_tmp from run.json>'
    [ -n "$RT" ] && [ -d "$RT" ] || exit 1
-   git -C <repo> status --porcelain=v1 -z > "$RT/status-primary.after"
+   git -C <repo> status --porcelain=v1 -z -uall > "$RT/status-primary.after"
    python3 - "$RT/status-primary.before" "$RT/status-primary.after" \
      > '<scratchpad>/new-primary.json' <<'EOF'
    import json, sys
@@ -1366,8 +1388,10 @@ can never widen what it matches or deletes:
 
    Never delete anything else outside `RUN_TMP` and the review worktree.
 4. Remove the throwaway base worktree of step 4a if it is still listed
-   (`git -C <repo> worktree list`): `git -C <repo> worktree remove --force
-   <path>`, then `git -C <repo> worktree prune`.
+   (`git -C <repo> worktree list`). Take its path only from `base_worktree` in
+   `checks.json`, never by eye from the list, and only when its real path is
+   under `<run_tmp>/checks/`: `git -C <repo> worktree remove --force <path>`,
+   then `git -C <repo> worktree prune`.
 5. Delete `RUN_TMP` after checking that its real path is inside `$SCRATCH`:
 
    ```bash
