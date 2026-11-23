@@ -7,7 +7,7 @@ Say which model and effort each `review-mr` agent runs on, how the diff is cut i
 ## Requirements
 
 ### Requirement: Model and effort per role
-The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it agent), wave-2 gap agents and the optional end-to-end simulation on Haiku 5.5 at max effort. It SHALL run refuters and thread validation on Opus at the base effort. Every Agent call SHALL state model and effort, and `run.json` SHALL record both with the model id resolved from the transcript.
+The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it agent), wave-2 gap agents and the optional end-to-end simulation on Haiku 5.5 at max effort. It SHALL run refuters and thread validation on Opus at the base effort. Every Agent call SHALL state model and effort, and `run.json` SHALL record both per agent with its agent id, role and slice. `run.json` SHALL NOT hold a cost or a resolved model id; the `usage` report reads those from the transcript.
 
 #### Scenario: Default run
 - **WHEN** the user starts a review with no `--fast`
@@ -19,7 +19,7 @@ The skill SHALL run wave-1 agents (slice owners, the contract agent, the run-it 
 
 #### Scenario: Model alias moves
 - **WHEN** the `haiku` alias resolves to a different model than in an earlier run
-- **THEN** `run.json` shows the resolved model id per agent
+- **THEN** `run.json` still records the requested model and effort, and the `usage` report shows the resolved model id per agent
 
 ### Requirement: Engine question kept
 The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.txt` and pass the effort answer as `--effort`.
