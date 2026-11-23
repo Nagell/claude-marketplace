@@ -108,8 +108,9 @@ under `--fast`) and the `--effort` of every Codex task:
 - `Low` - cheaper, for a small or familiar MR.
 - `High` - for a risky change.
 
-Haiku agents always run at max, whatever the answer. Do not ask about the
-model: the role table in step 4 and `--fast` carry it.
+Haiku agents from the role table always run at max, whatever the answer. Do
+not ask about the model: the `## Models` lines, the role table in step 4 and
+`--fast` carry it.
 
 Carry the answers through as `<engine>`, `<scope>` and `<effort>`. `<engine>`
 changes only which pass(es) run in step 4 and the merge behaviour in step 5 when
@@ -430,6 +431,7 @@ report reads it to price the run by role and slice, so it is not optional:
   "agents": [
     {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
      "slice": "slice-2", "model": "haiku", "effort": "max",
+     "model_name": "Haiku 5.5", "model_source": "user",
      "files": ["hooks/guard.sh", "hooks/hooks.json"],
      "report": "$SCRATCH/wave1-slice-2.txt"}
   ],
@@ -446,6 +448,8 @@ is the name of its parent dir and the project dir the one above that.
 `agent_id` is the id the Agent call returns (`agent-<agent_id>.jsonl` is its
 transcript). `role` is one of `slice-owner`, `contract`, `runit`, `gap`,
 `e2e`, `refuter` and `thread-validation`; a Codex task gets `"model": "codex"`.
+`model_name` and `model_source` come from "Agents, models and effort";
+`model_name` is left out when the table was used.
 For each finding that survives refutation, `source` is the agent that first
 reported it and `duplicates` every agent that repeated it. `run.json` holds no
 cost and no resolved model id: the `usage` skill reads both from each agent's
@@ -558,9 +562,22 @@ checked out at `head_sha`.
 
 ### Agents, models and effort
 
-Every Agent call in this skill passes `model` and `effort` explicitly, from
-this table and `<effort>` (step 0), and records both in `run.json`. "Base" is
-`<effort>`.
+Every Agent call in this skill passes `model` and `effort` explicitly and
+records both in `run.json`.
+
+Before spawning, read the `## Models` section of `~/.claude/CLAUDE.md`, then of
+the repo's `CLAUDE.md`; when both have a line, the repo's wins. These lines set
+a role's model and effort:
+
+- `- Review slices:` every role below except refuters and thread validation.
+- `- Review refuters:` refuters and thread validation.
+- `- Review with --fast:` the slice roles when `--fast` is given.
+
+Map the model name to the Agent alias (Haiku `haiku`, Sonnet `sonnet`, Opus
+`opus`, Fable `fable`) and keep the full name (`Haiku 5.5`) in `run.json` as
+`model_name`. A role with no line uses this table and `<effort>` (step 0);
+"base" is `<effort>`. Record `model_source` per agent: `user`, `repo` or
+`table`.
 
 | role                                   | model, effort | with `--fast`  |
 | -------------------------------------- | ------------- | -------------- |
@@ -802,7 +819,7 @@ were measured by a tool, so they skip refutation. Record `pre_existing`,
 
 ## 4b. Run it
 
-One run-it agent, in wave 1, on the wave-1 model from the role table, runs the
+One run-it agent, in wave 1, on the wave-1 model (step 4), runs the
 changed code in a throwaway sandbox and compares what it does with what the
 docs promise. Reading did not find what running found on PR #238; one agent
 doing it once is cheaper than every slice setting up a sandbox.
@@ -844,7 +861,7 @@ that owns those rules is the counterpart: its reviews worktree in full scope,
 the files API in contract scope.
 For each claim it states what would have to be true for the claim to be wrong,
 then goes and checks that. A claim it cannot break comes back with the evidence
-that survived. Refuters run on Opus at the base effort (role table, step 4).
+that survived. Refuters run on the refuter model and effort from step 4.
 
 Refuters get three more things:
 
