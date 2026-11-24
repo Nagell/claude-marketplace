@@ -2,13 +2,18 @@
 """Find which apps in a repo render on the server, from their framework configs.
 
 Each framework in ``FRAMEWORKS`` names its config files and the setting that
-turns server rendering off. A config that sets it off renders client-only; a
+turns server rendering off, if it has one (Next.js has none: a static export
+still renders HTML at build time). A config that sets it off renders client-only; a
 config that computes the value (an environment variable, a function call) is
 ``"unknown"``, which the review treats as rendering on the server; a config
 without the setting uses the framework default, server rendering.
 
-The configs are read as text, not evaluated. Line comments are ignored, so a
-comment that mentions ``ssr: false`` decides nothing.
+The configs are read as text, not evaluated. Comments are ignored, so a
+comment that mentions ``ssr: false`` decides nothing. Only a setting at the top
+level of the config object counts: ``ssr: false`` inside ``routeRules`` or
+``$production`` switches rendering for some routes or builds only, so a config
+with only nested settings is ``"unknown"``, and so is one that sets the value
+twice at the top level.
 
 With ``--ref <sha>`` the files are listed and read as they are at that commit.
 The review passes ``head_sha``: the MR may itself switch rendering on or off.
@@ -34,7 +39,7 @@ FRAMEWORKS = (
     {
         "name": "nuxt",
         "config": re.compile(r"(^|/)nuxt\.config\.(ts|mts|js|mjs|cjs)$"),
-        "setting": re.compile(r"\bssr\s*:\s*(.+?)\s*,?\s*$"),
+        "setting": re.compile(r"(?<![\w$.])ssr\s*:\s*([^,}\n]+?)\s*(?=,|}|$)", re.M),
         "off": re.compile(r"^false$"),
         "on": re.compile(r"^true$"),
         "default": "no `ssr` setting: Nuxt renders on the server by default",
@@ -42,24 +47,26 @@ FRAMEWORKS = (
     {
         "name": "next",
         "config": re.compile(r"(^|/)next\.config\.(ts|mts|js|mjs|cjs)$"),
-        "setting": re.compile(r"\boutput\s*:\s*(.+?)\s*,?\s*$"),
-        "off": re.compile(r"""^['"]export['"]$"""),
-        "on": re.compile(r"""^['"](standalone|server)['"]$"""),
-        "default": "no `output: 'export'`: Next.js renders on the server by default",
+        "setting": re.compile(r"(?<![\w$.])output\s*:\s*([^,}\n]+?)\s*(?=,|}|$)", re.M),
+        # a static export still renders every page to HTML, at build time, so
+        # hydration mismatches and browser globals during render still apply
+        "off": re.compile(r"(?!)"),
+        "on": re.compile(r"""^['"](export|standalone|server)['"]$"""),
+        "default": "no `output` setting: Next.js renders on the server by default",
     },
 )
 
 SKIP_PARTS = {"node_modules", ".nuxt", ".output", ".next", "dist"}
-LINE_COMMENT = re.compile(r"(^|\s)//.*$")
 
 
 def list_files(repo: Path, ref: str | None) -> list[str]:
     cmd = ["git", "-C", str(repo), "ls-tree", "-r", "-z", "--name-only", "--full-tree", ref] \
         if ref else ["git", "-C", str(repo), "ls-files", "-z"]
-    out = subprocess.run(cmd, capture_output=True, text=True)
+    out = subprocess.run(cmd, capture_output=True)
     if out.returncode != 0:
-        sys.exit(f"{' '.join(cmd[3:5])} failed: {out.stderr.strip()}")
-    return [name for name in out.stdout.split("\0") if name]
+        err = out.stderr.decode("utf-8", "replace").strip()
+        sys.exit(f"{' '.join(cmd[3:5])} failed: {err}")
+    return [name for name in out.stdout.decode("utf-8", "replace").split("\0") if name]
 
 
 def read_file(repo: Path, ref: str | None, rel: str) -> str:
@@ -71,21 +78,61 @@ def read_file(repo: Path, ref: str | None, rel: str) -> str:
     return out.stdout.decode("utf-8", "replace")
 
 
+def scan(text: str) -> tuple[str, list[int]]:
+    """Blank out comments and give the brace depth at each character.
+
+    String contents are masked too, so neither a brace nor a setting inside a
+    string counts. Lengths are kept, so a position in the result is the same
+    position in ``text``, where a value such as ``'export'`` is read from.
+    """
+    out, depth, level = [], [], 0
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if text.startswith("//", i) and (i == 0 or text[i - 1] != ":"):
+            j = text.find("\n", i)
+            j = n if j < 0 else j
+            out.append(" " * (j - i)); depth.extend([level] * (j - i)); i = j
+        elif text.startswith("/*", i):
+            j = text.find("*/", i + 2)
+            j = n if j < 0 else j + 2
+            out.append(re.sub(r"[^\n]", " ", text[i:j])); depth.extend([level] * (j - i)); i = j
+        elif c in "'\"`":
+            j = i + 1
+            while j < n and text[j] != c and not (c != "`" and text[j] == "\n"):
+                j += 2 if text[j] == "\\" else 1
+            j = min(j + 1, n)
+            out.append(c + re.sub(r"[^\n]", "\0", text[i + 1:j - 1]) + text[j - 1:j] if j - i > 1 else c)
+            depth.extend([level] * (j - i)); i = j
+        else:
+            if c == "}":
+                level -= 1
+            out.append(c); depth.append(level)
+            if c == "{":
+                level += 1
+            i += 1
+    return "".join(out), depth
+
+
 def decide(framework: dict, path: str, text: str) -> tuple[bool | str, str]:
-    for number, raw in enumerate(text.splitlines(), start=1):
-        line = LINE_COMMENT.sub("", raw).strip()
-        if line.startswith("*") or line.startswith("/*"):
-            continue
-        match = framework["setting"].search(line)
-        if not match:
-            continue
-        value = match.group(1)
-        evidence = f"{path}:{number}: {raw.strip()}"
+    code, depth = scan(text)
+    top, nested = [], []
+    for match in framework["setting"].finditer(code):
+        number = code.count("\n", 0, match.start()) + 1
+        evidence = f"{path}:{number}: {text.splitlines()[number - 1].strip()}"
+        value = text[match.start(1):match.end(1)]
+        (top if depth[match.start()] == 1 else nested).append((value, evidence))
+    if len(top) == 1:
+        value, evidence = top[0]
         if framework["off"].match(value):
             return False, evidence
         if framework["on"].match(value):
             return True, evidence
         return "unknown", evidence
+    if top:
+        return "unknown", f"set {len(top)} times at the top level: " + "; ".join(e for _, e in top)
+    if nested:
+        return "unknown", "only nested settings, which switch some routes or builds: " + nested[0][1]
     return True, framework["default"]
 
 

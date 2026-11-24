@@ -11,6 +11,7 @@
 - A new built-in server-rendering lens: hydration mismatches, browser-only globals used during server render, module-level state shared between requests, secrets in public runtime config, and clashing or doubled data-fetch keys. It applies only when a framework config shows the app renders on the server. Repos that don't get no extra brief text.
 - A rules file can force the lens on or off per repo, for setups where detection guesses wrong.
 - Still no cross-file agent besides the counterpart contract agent.
+- The step 0 counterpart question (contract check or full review of both) is asked only when the repo's rules have a `## Counterpart` section. `find_rules.py` reports it as `counterpart`. Without one, the dialog has two questions and step 1a is skipped, unless the user passed `--both` or a second MR URL.
 
 ## Capabilities
 
@@ -20,12 +21,13 @@ None.
 
 ### Modified Capabilities
 
-- `review-mr-agents`: the seam requirement covers routes, events and message names; slicing keeps a route with its callers; new requirements for the server-rendering lens and its rules override.
+- `review-mr-agents`: the seam requirement covers routes, events and message names; slicing keeps a route with its callers; new requirements for the server-rendering lens and its rules override; the step 0 dialog asks the counterpart question only when the rules name a counterpart.
 
 ## Impact
 
-- `plugins/base/skills/review-mr/SKILL.md`: slicing, wave 1 lenses, the rules format section.
+- `plugins/base/skills/review-mr/SKILL.md`: step 0, slicing, wave 1 lenses, the rules format section.
+- `plugins/base/skills/review-mr/scripts/find_rules.py`: the `counterpart` field.
 - `plugins/base/skills/review-mr/references/agent-brief.md`: the seam step and the server-rendering lens text.
 - New `plugins/base/skills/review-mr/scripts/find_server_rendering.py` with tests, which reads framework configs at the reviewed head.
 - A fixture under `plugins/base/skills/review-mr/tests/fixtures/` for a route and caller that drift apart.
-- Repos with no server-rendering app and no in-repo routes see no change in agent count or brief size.
+- Repos with no server-rendering app see no extra brief text and no change in agent count; the seam step in the brief is longer for every repo.

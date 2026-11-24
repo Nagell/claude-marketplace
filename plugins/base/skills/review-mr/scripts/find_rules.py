@@ -70,7 +70,7 @@ class NoFrontmatter(FrontmatterError):
 
 def read_frontmatter(path: Path) -> list[str]:
     """Lines between the opening and closing ``---``; the body is never read."""
-    with path.open(encoding="utf-8") as fh:
+    with path.open(encoding="utf-8-sig") as fh:
         first = fh.readline()
         if first.strip() != "---":
             raise NoFrontmatter("no frontmatter (first line is not ---)")
@@ -113,15 +113,30 @@ def _scalar(v: str) -> str:
     return v.strip().strip("'\"")
 
 
-_COUNTERPART = re.compile(r"^##\s+Counterpart\s*$", re.M)
+_HEADING = re.compile(r"^ {0,3}##[ \t]+Counterpart[ \t]*(#+[ \t]*)?$")
+_FENCE = re.compile(r"^ {0,3}(```|~~~)")
 
 
 def has_counterpart(path: Path) -> bool:
-    """True when the rules file has a `## Counterpart` section."""
+    """True when the rules file has a `## Counterpart` heading.
+
+    A heading inside a code fence or an HTML comment does not count. A file
+    that cannot be read counts as none; a byte that is not UTF-8 does not stop
+    the read.
+    """
     try:
-        return bool(_COUNTERPART.search(path.read_text(encoding="utf-8")))
-    except (OSError, UnicodeDecodeError):
+        text = path.read_bytes().decode("utf-8-sig", "replace")
+    except OSError:
         return False
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
+    fence = None
+    for line in text.splitlines():
+        m = _FENCE.match(line)
+        if m:
+            fence = None if fence == m.group(1) else (fence or m.group(1))
+        elif fence is None and _HEADING.match(line):
+            return True
+    return False
 
 
 def find(repo: str, folder: Path) -> dict:
@@ -138,7 +153,7 @@ def find(repo: str, folder: Path) -> dict:
             names = applies_to(read_frontmatter(f))
         except NoFrontmatter:
             continue
-        except (FrontmatterError, UnicodeDecodeError) as e:
+        except (FrontmatterError, UnicodeDecodeError, OSError) as e:
             result["skipped"].append({"path": str(f), "reason": str(e)})
             continue
         if repo in names:

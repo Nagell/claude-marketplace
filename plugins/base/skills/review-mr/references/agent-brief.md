@@ -115,13 +115,27 @@ Concretely, before you write your report:
    other owner.
    Some links are a string, not an import, and the grep has to use that
    string. A file-based server route is called by its URL, which comes from
-   its path, not its file name: `server/api/items.post.ts` is `POST /api/items`
-   (Nuxt `server/api/**` and `server/routes/**`, Next.js `app/**/route.*` and
-   `pages/api/**`). An emitted event or a websocket message is read by its
-   name. For each one you change, grep the URL (its static prefix when the
-   caller builds it at runtime) or the name, and compare both ways: every
-   field the caller sends against what the handler now requires, and every
-   field the handler returns against what the caller reads.
+   its path, not its file name:
+   - Nuxt: `server/api/<p>` is `/api/<p>` and `server/routes/<p>` is `/<p>`.
+     A `.get`, `.post` (and so on) suffix is the method; without one the
+     route answers every method. `index` is the folder itself.
+   - Next.js: `app/<p>/route.ts` is `/<p>`, its methods are the exported
+     `GET`, `POST` (and so on); `pages/api/<p>` is `/api/<p>`.
+   - In both, `[id]` is a parameter, `[...slug]` is a catch-all that also
+     answers the bare folder, and a `(group)` folder is not part of the URL:
+     `server/api/(admin)/items/[id].delete.ts` is `DELETE /api/items/:id`.
+
+   Grep with `grep -rnF` for the static part up to the first parameter
+   (`/api/items/` for `/api/items/:id`), since callers build the rest at
+   runtime. A caller that starts from a base URL (`${apiBase}/items`,
+   `useRuntimeConfig().public.apiBase + '/items'`) has its static part after
+   the variable, so grep that tail too and check each hit. An emitted event or
+   a websocket message is read by its name. For each one you change, compare
+   both ways: the method each caller uses against the methods the handler
+   serves, every field the caller sends against what the handler now requires,
+   and every field the handler returns against what the caller reads. A caller
+   you cannot resolve to one route goes in the ledger as
+   `not found by grep: <expression> at <file:line>`, never as "no consumers".
 3. **Read the MR description against the code.** "The description says it
    does X, the code does Y" is a finding, and it is one nobody catches by
    reading the diff alone.

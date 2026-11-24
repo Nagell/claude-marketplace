@@ -30,7 +30,11 @@ The skill SHALL NOT spawn a cross-file agent by default. Run B, D and E found no
 
 #### Scenario: Route reached by URL
 - **WHEN** a slice changes a file-based server route and a file in another slice calls that route's URL
-- **THEN** the owner of the route's slice finds the caller by the URL, and compares the fields each side sends and reads
+- **THEN** the owner of the route's slice finds the caller by the URL, and compares the method and the fields each side sends and reads
+
+#### Scenario: Caller the grep cannot resolve
+- **WHEN** a caller builds the URL from a variable the owner cannot resolve to one route
+- **THEN** the ledger names it as not found by grep, with its expression and file:line, instead of "no consumers"
 
 #### Scenario: Event or message name
 - **WHEN** a slice changes what an emitted event or a websocket message carries
@@ -65,8 +69,20 @@ The main session SHALL read the framework configs at the reviewed head once and 
 - **THEN** that slice's brief carries the server-rendering lens
 
 #### Scenario: Client-only app
-- **WHEN** `nuxt.config` sets `ssr: false`, or a Next.js config sets `output: 'export'`
+- **WHEN** the top level of `nuxt.config` sets `ssr: false`
 - **THEN** no brief carries the lens and no brief text is added
+
+#### Scenario: Per-route or per-build setting
+- **WHEN** `ssr: false` is set only inside `routeRules` or `$production`
+- **THEN** the app counts as rendering on the server and its slices carry the lens
+
+#### Scenario: Next.js static export
+- **WHEN** a Next.js config sets `output: 'export'`
+- **THEN** the app counts as rendering, since pages are rendered to HTML at build time, and its slices carry the lens
+
+#### Scenario: Shared code
+- **WHEN** an app renders on the server and a slice holds source files outside every app root
+- **THEN** that slice carries the lens
 
 #### Scenario: No supported framework
 - **WHEN** the repo has no Nuxt or Next.js config
@@ -78,3 +94,11 @@ A rules file SHALL be able to force the server-rendering lens on or off per repo
 #### Scenario: Detection says client-only, rules say on
 - **WHEN** detection finds `ssr: false` but the rules say server rendering is on for the repo
 - **THEN** the lens goes into the briefs of slices holding the repo's source files
+
+#### Scenario: Rules say on, no supported framework
+- **WHEN** the rules say server rendering is on and the script lists no app
+- **THEN** the repo root counts as the app root and slices holding its source files carry the lens
+
+#### Scenario: Rules say off
+- **WHEN** detection finds an app that renders on the server but the rules say off for the repo
+- **THEN** no brief carries the lens

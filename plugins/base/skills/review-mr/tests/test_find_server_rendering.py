@@ -43,7 +43,7 @@ def apps(repo: Path, ref: str | None = None) -> list[dict]:
         ("nuxt.config.ts", "export default defineNuxtConfig({})\n", True),
         ("nuxt.config.ts", "export default defineNuxtConfig({\n  ssr: process.env.SSR === '1',\n})\n",
          "unknown"),
-        ("next.config.mjs", "export default {\n  output: 'export',\n}\n", False),
+        ("next.config.mjs", "export default {\n  output: 'export',\n}\n", True),
         ("next.config.js", "module.exports = { reactStrictMode: true }\n", True),
         ("next.config.ts", "export default {\n  output: \"standalone\",\n}\n", True),
     ],
@@ -88,3 +88,38 @@ def test_ref_reads_the_committed_config(repo: Path) -> None:
     (repo / "nuxt.config.ts").write_text("export default defineNuxtConfig({})\n")
     assert apps(repo, head)[0]["renders_on_server"] is False
     assert apps(repo)[0]["renders_on_server"] is True
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        # a per-route or per-build setting does not decide the whole app
+        ("export default defineNuxtConfig({\n  routeRules: {\n    '/admin/**': {\n      ssr: false,\n"
+         "    },\n  },\n})\n", "unknown"),
+        ("export default defineNuxtConfig({\n  $production: {\n    ssr: false,\n  },\n})\n", "unknown"),
+        ("export default defineNuxtConfig({\n  routeRules: { '/a': { ssr: true } },\n  ssr: false,\n})\n",
+         False),
+        # block comments, comments without a space, one-line configs
+        ("export default defineNuxtConfig({\n  /*\n  ssr: false,\n  */\n})\n", True),
+        ("export default defineNuxtConfig({\n  ssr: true,// keep\n})\n", True),
+        ("export default defineNuxtConfig({ ssr: false })\n", False),
+        ("export default defineNuxtConfig({\n  ssr: false,\n  ssr: true,\n})\n", "unknown"),
+        # a brace or the word inside a string decides nothing
+        ("export default defineNuxtConfig({\n  app: { head: { title: '{ ssr: false }' } },\n})\n", True),
+    ],
+)
+def test_only_the_top_level_setting_decides(repo: Path, text: str, expected: object) -> None:
+    write(repo, "nuxt.config.ts", text)
+    [app] = apps(repo)
+    assert app["renders_on_server"] == expected, app["evidence"]
+
+
+def test_one_line_next_config(repo: Path) -> None:
+    write(repo, "next.config.js", "module.exports = { output: 'standalone' };\n")
+    assert apps(repo)[0]["renders_on_server"] is True
+
+
+def test_url_in_a_string_is_not_a_comment(repo: Path) -> None:
+    write(repo, "nuxt.config.ts",
+          "export default defineNuxtConfig({\n  site: 'https://x.test', ssr: false,\n})\n")
+    assert apps(repo)[0]["renders_on_server"] is False

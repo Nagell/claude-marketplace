@@ -12,7 +12,7 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Add a route-and-caller drift fixture under `tests/fixtures/route-drift/` (server requires a field the page doesn't send) and run a slice owner with the new brief on it; done when the owner reports the drift.
+- [x] 3.1 Add a route-and-caller drift fixture under `tests/fixtures/route-drift/` (server requires a field the page doesn't send) and run a slice owner with the new brief on it; done when the owner reports the drift. Done 2026-11-24: a Haiku owner given only the route file found `pages/items.vue` by the URL `POST /api/items` and reported the missing `quantity` as high.
 
 ## 4. Counterpart question only where one can exist
 

@@ -104,7 +104,10 @@ ship as two MRs:
 Skip the second question when the user passed `--both` or two MR URLs: that is
 `Full review of both` already. Drop it too when the rules lookup prints
 `"counterpart": false` - no rules file, or one without a `## Counterpart`
-section - since this repo has no paired MR to scope; step 1a is then skipped.
+section - since this repo has no paired MR to scope; step 1a then runs only
+for a second MR URL the user passed. `--both` without a second URL and
+without a counterpart in the rules has nothing to pair with: say so in one
+line and review this MR alone.
 
 The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
 under `--fast`) and the `--effort` of every Codex task:
@@ -188,7 +191,10 @@ applies-to: [backend-repo, frontend-repo]
 ```
 
 Only the frontmatter is parsed; the body is prose for the review to read, and
-any section may be left out. A minimal example:
+any section may be left out. The one heading a script looks for is
+`## Counterpart`, spelled exactly so (a `###` heading or `## Counterpart repo`
+does not count): without it, step 0 does not ask about a paired MR. A minimal
+example:
 
 ```markdown
 ---
@@ -290,7 +296,8 @@ brief. A stopped run leaves a
 
 ## 1a. Find the counterpart MR
 
-Only when the rules name a counterpart repo; otherwise skip this step. The rules
+Only when the rules lookup printed `"counterpart": true`, or the user passed a
+second MR URL; otherwise skip this step. The rules
 give the pairing rule - usually that the two halves of a change share a branch
 name - and the description sometimes links the other one:
 
@@ -730,18 +737,34 @@ python3 $SKILL_DIR/scripts/find_server_rendering.py --repo <worktree> \
   --ref <head_sha> > "$RUN_TMP/server-rendering.json"
 ```
 
-It prints one entry per app root with `framework`, `config`, `renders_on_server`
-(`true`, `false` or `"unknown"`) and the `evidence` line that decided it. A
-Nuxt app renders on the server unless its config sets `ssr: false`, a Next.js
-app unless its config sets `output: 'export'`; a config that computes the
-value is `unknown`, which counts as rendering on the server. A `## Server
-rendering` section in the rules (`<repo>: on` or `<repo>: off`) wins over the
-script for that repo, because layers, environment variables and per-route
-settings can switch rendering in ways a config read cannot see. A slice holding
-source files under the root of an app that renders on the server gets the
-server-rendering line in its brief, with the evidence; no other slice gets
-any text. Say in the run summary which apps got the lens and why, `unknown`
-included. More frameworks go in the script's `FRAMEWORKS` table.
+It prints one entry per config file with `root` (the config's folder, `""`
+for the repo root), `framework`, `config`, `renders_on_server` (`true`,
+`false` or `"unknown"`) and the `evidence` line that decided it. A Nuxt app
+renders on the server unless the top level of its config sets `ssr: false`; a
+Next.js app always renders HTML, on the server or, with `output: 'export'`, at
+build time, so it always gets the lens. A value that is computed, set twice,
+or only set inside a nested block such as `routeRules` or `$production` is
+`unknown`, which counts as rendering on the server.
+
+Which slices get the lens:
+
+- A source file belongs to the app whose `root` is the nearest folder above
+  it. When two configs share a root, the one that renders on the server wins.
+- A slice holding source files of an app that renders on the server gets the
+  server-rendering line in its brief, with the evidence.
+- When any app renders on the server, a slice holding source files outside
+  every app root (shared packages such as `packages/ui` that an app imports)
+  gets the line too, since that code renders wherever the app does.
+- A `## Server rendering` section in the rules (`<repo>: on` or
+  `<repo>: off`) wins over the script for that repo, because layers,
+  environment variables and per-route settings can switch rendering in ways
+  a config read cannot see. With `on` and no app in the script's output, the
+  repo root counts as the app root.
+- When the script fails, treat every app as `unknown` and say so.
+
+No other slice gets any text. Say in the run summary which apps got the lens
+and why, `unknown` included. More frameworks go in the script's `FRAMEWORKS`
+table.
 
 Give every agent the brief in `references/agent-brief.md` with the paths filled
 in, `RUN_TMP` and the slice block included, the counterpart section included

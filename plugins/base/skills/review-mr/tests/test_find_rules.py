@@ -146,3 +146,38 @@ def test_counterpart_flag(tmp_path):
             capture_output=True, text=True, check=True,
             env={"REVIEW_RULES_DIR": str(rules), "PATH": "/usr/bin:/bin:/usr/local/bin"})
         assert json.loads(proc.stdout)["counterpart"] is want, name
+
+
+@pytest.mark.parametrize("body,want", [
+    ("## Counterpart\n\nx\n", True),
+    ("  ## Counterpart ##\n", True),
+    ("## Counterpart repo\n", False),
+    ("### Counterpart\n", False),
+    ("```markdown\n## Counterpart\n```\n", False),
+    ("<!--\n## Counterpart\n-->\n", False),
+    ("﻿# Rules\n\n## Counterpart\n", True),
+])
+def test_has_counterpart_heading_forms(tmp_path, body, want):
+    p = write(tmp_path, "r.md", body)
+    assert find_rules.has_counterpart(p) is want
+
+
+def test_has_counterpart_survives_a_bad_byte(tmp_path):
+    p = tmp_path / "r.md"
+    p.write_bytes(b"caf\xe9\n\n## Counterpart\n")
+    assert find_rules.has_counterpart(p) is True
+
+
+def test_bom_before_frontmatter_still_matches(tmp_path):
+    rules = tmp_path / "rules"
+    write(rules, "shared.md", "﻿---\napplies-to: [a, b]\n---\n")
+    assert find_rules.find("b", rules)["matched_by"] == "applies-to"
+
+
+def test_unreadable_md_entry_is_skipped_not_fatal(tmp_path):
+    rules = tmp_path / "rules"
+    (rules / "aa-dir.md").mkdir(parents=True)
+    write(rules, "zz.md", "---\napplies-to: [b]\n---\n")
+    r = find_rules.find("b", rules)
+    assert r["matched_by"] == "applies-to"
+    assert r["skipped"] and "aa-dir.md" in r["skipped"][0]["path"]
