@@ -78,10 +78,12 @@ path into every command.
 
 ## 0. Choose the review engine, the counterpart scope and the effort
 
-These questions are the run's **first tool call** - before reading the rules,
-running `refs`, fetching, or anything else. They need nothing from the MR, and
-the user should not wait through setup to answer them. Use **AskUserQuestion**
-once, with three questions.
+These questions come first - before running `refs`, fetching, or anything
+else. They need nothing from the MR, and the user should not wait through
+setup to answer them. The one call before them is the local rules lookup
+(`find_rules.py`, step 0a), which reads no network and decides whether the
+counterpart question is asked at all. Use **AskUserQuestion** once, with
+three questions (two when the counterpart one is dropped).
 
 The engine:
 
@@ -100,7 +102,9 @@ ship as two MRs:
 - `Full review of both` - review both MRs in full, as one change.
 
 Skip the second question when the user passed `--both` or two MR URLs: that is
-`Full review of both` already.
+`Full review of both` already. Drop it too when the rules lookup prints
+`"counterpart": false` - no rules file, or one without a `## Counterpart`
+section - since this repo has no paired MR to scope; step 1a is then skipped.
 
 The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
 under `--fast`) and the `--effort` of every Codex task:
@@ -141,7 +145,8 @@ Run from inside a checkout of the repo, it can read the name off
 `git remote get-url origin` instead (omit `--repo-name`); the remote, not the
 directory name, so a worktree resolves the same as its main checkout. It
 prints one JSON object: `path` (the rules file, or `null`), `expected` (the
-exact path it looked for), `repo`, and `skipped` (rules files whose frontmatter
+exact path it looked for), `repo`, `counterpart` (whether the rules have a
+`## Counterpart` section, which step 0 uses), and `skipped` (rules files whose frontmatter
 could not be read, with the reason). Mention any `skipped` entry to the user in
 one line: a typo there reads like "no rules".
 

@@ -14,6 +14,10 @@
 
 - [ ] 3.1 Add a route-and-caller drift fixture under `tests/fixtures/route-drift/` (server requires a field the page doesn't send) and run a slice owner with the new brief on it; done when the owner reports the drift.
 
+## 4. Counterpart question only where one can exist
+
+- [x] 4.1 `find_rules.py` prints `counterpart` (true when the rules file has a `## Counterpart` section); step 0 drops the contract-or-both question when it is false, and step 1a is skipped. Verify: `test_counterpart_flag` covers no rules file, rules without the section and rules with it.
+
 ## Workflow follow-up
 
 - Plan check, review and archive after the PR is reviewed.

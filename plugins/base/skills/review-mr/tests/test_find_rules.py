@@ -132,3 +132,17 @@ def test_no_origin_fails_with_a_clear_message(tmp_path):
                           cwd=tmp_path, capture_output=True, text=True)
     assert proc.returncode != 0
     assert "no origin remote" in proc.stderr
+
+
+def test_counterpart_flag(tmp_path):
+    rules = tmp_path / "rules"
+    write(rules, "solo.md", "# Review rules: solo\n\n## Size excludes\n\nx\n")
+    write(rules, "pair.md", "# Review rules\n\n## Counterpart\n\nThe sibling is other.\n")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for name, want in (("solo", False), ("pair", True), ("none", False)):
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPTS / "find_rules.py"), "--repo-name", name],
+            capture_output=True, text=True, check=True,
+            env={"REVIEW_RULES_DIR": str(rules), "PATH": "/usr/bin:/bin:/usr/local/bin"})
+        assert json.loads(proc.stdout)["counterpart"] is want, name

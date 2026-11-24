@@ -113,6 +113,17 @@ def _scalar(v: str) -> str:
     return v.strip().strip("'\"")
 
 
+_COUNTERPART = re.compile(r"^##\s+Counterpart\s*$", re.M)
+
+
+def has_counterpart(path: Path) -> bool:
+    """True when the rules file has a `## Counterpart` section."""
+    try:
+        return bool(_COUNTERPART.search(path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError):
+        return False
+
+
 def find(repo: str, folder: Path) -> dict:
     expected = folder / f"{repo}.md"
     result = {"repo": repo, "path": None, "expected": str(expected),
@@ -145,7 +156,9 @@ def main() -> None:
                         "e.g. the last segment of the MR's project path")
     a = p.parse_args()
     repo = a.repo_name or repo_name_from_git(a.repo_dir)
-    print(json.dumps(find(repo, rules_dir()), indent=2))
+    result = find(repo, rules_dir())
+    result["counterpart"] = bool(result["path"]) and has_counterpart(Path(result["path"]))
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":
