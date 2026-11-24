@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.4.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.4.0...base-v2.4.1) (2026-11-24)
+
+
+### Bug Fixes
+
+* **base:** usage checks managed settings and merges renamed skills ([6d4e933](https://github.com/Nagell/claude-marketplace/commit/6d4e933c8bc8081e1e800dd245badbb12cbd04f6))
+* **base:** usage findings from the review-mr run ([0ae002d](https://github.com/Nagell/claude-marketplace/commit/0ae002d7af92a32fbee2eda220d4fe009b5c2773))
+* **base:** usage prices fast mode and splits the main session by model ([9152f41](https://github.com/Nagell/claude-marketplace/commit/9152f41f17f906aaf4d0c4091478b8e9af55821c))
+
 ## [2.4.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.3.0...base-v2.4.0) (2026-11-23)
 
 
