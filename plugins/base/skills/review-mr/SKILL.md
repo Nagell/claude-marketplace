@@ -7,6 +7,7 @@ dependencies:
   - browser
   - writing-style-guide
   - humanizer
+  - usage
 ---
 
 # Review an MR and post the comments
