@@ -189,6 +189,7 @@ def test_unreadable_md_entry_is_skipped_not_fatal(tmp_path):
     ("shop-web-old\n", False),
     ("", False),
     (None, False),
+    ("other\r\nshop-web\r\n", True),
 ])
 def test_declined_list(tmp_path, content, want):
     if content is not None:
@@ -212,3 +213,38 @@ def test_template_copy_has_no_counterpart(tmp_path):
     p = write(tmp_path, "demo.md", template.read_text(encoding="utf-8").replace("<repo>", "demo"))
     assert find_rules.has_counterpart(p) is False
     assert find_rules.find("demo", tmp_path)["matched_by"] == "name"
+
+
+def test_decline_creates_folder_and_keeps_names_apart(tmp_path):
+    rules = tmp_path / "missing" / "rules"
+    find_rules.decline("a", rules)
+    (rules / ".declined").write_text((rules / ".declined").read_text().rstrip("\n"))
+    find_rules.decline("b", rules)
+    find_rules.decline("b", rules)
+    assert (rules / ".declined").read_text() == "a\nb\n"
+
+
+def test_unreadable_declined_is_reported(tmp_path):
+    rules = tmp_path / "rules"
+    (rules / ".declined").mkdir(parents=True)
+    out = subprocess.run(
+        [sys.executable, str(SCRIPTS / "find_rules.py"), "--repo-name", "x"],
+        capture_output=True, text=True, check=True,
+        env={"REVIEW_RULES_DIR": str(rules), "PATH": "/usr/bin:/bin:/usr/local/bin"})
+    r = json.loads(out.stdout)
+    assert r["declined"] is False and r["skipped"][0]["path"].endswith(".declined")
+
+
+@pytest.mark.parametrize("body,want", [
+    ("```\n<!-- open\n```\n\n## Counterpart\n\n<!-- x -->\n", True),
+    ("<!--\n## Counterpart\n", False),
+    ("text <!-- a --> more\n## Counterpart\n", True),
+    ("<!-- a\nb --> ## Counterpart\n", False),
+])
+def test_comment_edges(tmp_path, body, want):
+    assert find_rules.has_counterpart(write(tmp_path, "r.md", body)) is want
+
+
+def test_empty_rules_dir_env_uses_default(monkeypatch):
+    monkeypatch.setenv("REVIEW_RULES_DIR", "")
+    assert find_rules.rules_dir() == Path("~/.claude/review-rules").expanduser()

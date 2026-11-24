@@ -46,6 +46,8 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
   worktree, sizing, waves, refutation, grading and acceptance to posting.
 - **Agent brief** - `references/agent-brief.md`: what every review agent is
   told, including the coverage ledger it reports.
+- **Rules template** - `references/rules-template.md`: the starting point for
+  a project rules file (step 0b).
 - **Run-it brief** - `references/run-it-brief.md`: the throwaway sandbox and
   the "promises versus behaviour" table for the run-it agent (step 4b).
 - **Platforms** - `platforms/gitlab.md` and `platforms/github.md`: how each
@@ -84,7 +86,8 @@ setup to answer them. The one call before them is the local rules lookup
 (`find_rules.py`, step 0a), which reads no network and decides whether the
 counterpart question and the rules-file question below are asked at all. Use
 **AskUserQuestion** once, with the engine and effort questions plus whichever
-of those two apply.
+of those two apply; only step 0b, when the user creates a rules file, asks
+more.
 
 The engine:
 
@@ -116,10 +119,10 @@ a rules file):
 
 - `Create rules from the template (Recommended)` - step 0b creates
   `<expected>` and fills it with you, then the review goes on with it.
-- `Not for this repo` - add the repo name as a line to
-  `~/.claude/review-rules/.declined` (`REVIEW_RULES_DIR` when set; create the
-  file if needed) and go on without rules. The question is not asked again
-  for this repo.
+- `Not for this repo` - run the step 0a lookup again with `--decline`, which
+  adds the repo to `.declined` in the rules folder (creating both when
+  missing), and go on without rules. The question is not asked again for
+  this repo.
 
 The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
 under `--fast`) and the `--effort` of every Codex task:
@@ -140,33 +143,6 @@ every Codex task.
 
 With `--fast` and `<engine>` `Codex` alone, say in one line that `--fast` does
 not apply to Codex, then run the Codex review as usual.
-
-## 0b. Create the rules file
-
-Only when the user picked `Create rules from the template` in step 0.
-
-1. **Copy.** Read `$SKILL_DIR/references/rules-template.md`, replace `<repo>`
-   with the repo name and fill the Repos row: `<checkout>` with the checkout
-   step 1 would use (the session's checkout whose `origin` is the MR's
-   project; leave the placeholder when there is none), `<project id>` with
-   the project path from the MR URL, `<tag>` with a short label or `-`. Leave
-   the worktree base out: its default is `<checkout>.worktrees/`. Write it to
-   `<expected>` only if nothing is there yet (`set -o noclobber`, or check
-   first); if a file appeared, say so, use it and skip to step 4.
-2. **Show it.** Print the full path and the file content.
-3. **Ask, one question at a time,** with **AskUserQuestion**:
-   - "Do this repo's changes ship together with MRs in another repo, such as
-     the backend of this frontend?" `No (Recommended)` or a free-text answer
-     naming the repo and its project. On a name, replace the commented
-     Counterpart block with a live `## Counterpart` section for it, add its
-     row to Repos, and show the change.
-   - "Anything to add (size excludes, an extra lens, the browser skill,
-     server rendering on or off)?" `Nothing (Recommended)` or free text. Write
-     each point into the section it belongs to, replacing that section's
-     comment, and show the change. Ask again until the answer is `Nothing`.
-4. **Re-read.** Run `find_rules.py` again and go on with its output: when it
-   now prints `"counterpart": true`, ask the counterpart question from step 0
-   on its own before going on.
 
 ## 0a. Platform and project rules
 
@@ -219,7 +195,9 @@ checkout beyond the MR's own worktree.
 ```
 
 With `"declined": true`, add a last line to the notice: ` Declined earlier:
-remove <repo> from <rules dir>/.declined to be offered a file again.`
+remove <repo> from .declined in the rules folder to be offered a file
+again.` The rules folder is `~/.claude/review-rules/`, or `REVIEW_RULES_DIR`
+when that is set.
 
 ### Project rules: the format
 
@@ -236,7 +214,8 @@ applies-to: [backend-repo, frontend-repo]
 Only the frontmatter is parsed; the body is prose for the review to read, and
 any section may be left out. The one heading a script looks for is
 `## Counterpart`, spelled exactly so (a `###` heading or `## Counterpart repo`
-does not count): without it, step 0 does not ask about a paired MR.
+does not count, and neither does one inside an HTML comment or a code
+fence): without it, step 0 does not ask about a paired MR.
 
 The template, `$SKILL_DIR/references/rules-template.md`, has every section
 with a comment on what it does: Repos (checkout and `--project` per repo; a
@@ -244,12 +223,55 @@ worktree base only when review worktrees should not go to the default
 `<checkout>.worktrees/`), Counterpart (commented out, so a copy does not ask
 about a paired repo until you enable it), Size excludes, Lens details, Server
 rendering, Refuters, Repo review material, Product consequences and Machine
-notes. Step 0 offers to create a file from it when a repo has none.
+notes. Step 0 offers to create a file from it when a repo has none (step 0b).
+
+## 0b. Create the rules file
+
+Only when the user picked `Create rules from the template` in step 0. It runs
+after step 0a's platform detection, so the lookup output and the project path
+are known.
+
+1. **Copy.** Read `$SKILL_DIR/references/rules-template.md` and replace
+   `<repo>` with the repo name. Fill the Repos row:
+   - `--project`: the project path from the MR URL, or, for a bare `!iid`,
+     from `git remote get-url origin`.
+   - checkout: the session's checkout whose `origin` is the MR's project.
+     When there is none, ask once for the local clone, as step 1 would. Never
+     write a placeholder into a live row: a value nobody knows is `-`, which
+     step 1 reads as "not set".
+   - label: a short tag such as `FE` or `BE`, or `-`.
+
+   Leave the worktree base out: its default is `<checkout>.worktrees/`.
+   Create the rules folder if it is missing (`mkdir -p`), then write the file
+   only if nothing is at `<expected>` yet (check first). When a file is
+   already there, say so, use it and go to item 4 of this step.
+2. **Show it.** Print the full path and the file content.
+3. **Ask, one question at a time,** with **AskUserQuestion**:
+   - Unless the user passed a second MR URL or `--both` (which already name
+     the other half): "Do this repo's changes ship together with MRs in
+     another repo, such as the backend of this frontend?" `No (Recommended)`
+     or a free-text answer naming the repo, its project and, if there is
+     one, its local clone. On a name, replace the commented Counterpart block
+     with a live `## Counterpart` section (that exact heading) for it, add its
+     row to Repos (`-` for a clone nobody named), and show the change.
+   - "Anything to add (size excludes, an extra lens, the browser skill,
+     server rendering on or off)?" `Nothing (Recommended)` or free text. Write
+     each point into the section it belongs to, replacing that section's
+     comment, and show the change. Ask again until the answer is `Nothing`.
+4. **Re-read.** Run step 0a's `find_rules.py` command again and go on with its
+   output:
+   - `"path": null` (the write failed): say why, show the no-rules notice and
+     go on without rules.
+   - a paired repo was named but `"counterpart": false`: the heading is wrong;
+     fix it and re-read.
+   - `"counterpart": true`: ask step 0's counterpart question on its own,
+     unless `--both` or a second MR URL already settled it.
 
 ## 1. Locate the repo and its review worktree
 
 Take the repo's local checkout, worktree base (`<checkout>.worktrees/` when the
-rules leave it out) and `--project` from the rules.
+rules leave it out) and `--project` from the rules; a value of `-` there
+means "not set", the same as no rules for that value.
 Without rules, a session already inside a checkout whose `origin` is the MR's
 project uses that checkout, with `<repo>.worktrees/` as the worktree base and
 the project path from the MR URL as `--project`. A repo found neither way is

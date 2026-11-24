@@ -26,7 +26,7 @@ None.
 ## Impact
 
 - New `plugins/base/skills/review-mr/references/rules-template.md`.
-- `plugins/base/skills/review-mr/SKILL.md`: step 0, step 0a and the format section.
-- `plugins/base/skills/review-mr/scripts/find_rules.py` and its tests: the `declined` field.
+- `plugins/base/skills/review-mr/SKILL.md`: step 0, step 0a, the new step 0b, the format section and step 1 (`-` means not set).
+- `plugins/base/skills/review-mr/scripts/find_rules.py` and its tests: the `declined` field and `--decline`.
 - `plugins/base/README.md`: "Project rules".
 - Writes under `~/.claude/review-rules/` only after the user's yes (the rules file) or no (the declined list).

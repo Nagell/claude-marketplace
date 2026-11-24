@@ -13,8 +13,9 @@
 - **Template file, not the inline example.** `references/rules-template.md` holds the frontmatter and every section with an HTML comment per section. The `SKILL.md` format section keeps a short description and points to the file, so the example and the template cannot drift.
 - **Counterpart commented out.** A live heading in the template would turn the paired-repo question on for every new file. The creation step asks about a paired repo explicitly instead, because that section is the only one a script reads.
 - **Worktree base optional.** The column is documented with its default, `<checkout>.worktrees/`, and the prefill leaves it out.
-- **Creation in the procedure, declined list in the script.** The copy, prefill and edits are done by the main session as `SKILL.md` describes (it needs the user's answers anyway). `find_rules.py` only reads `.declined` and reports `declined`, so the offer decision is testable.
-- **Where the prefill comes from.** Repo name from the rules lookup, checkout from the session's checkout whose `origin` is the MR's project (step 1's rule), project id from the MR URL. A value that is not known yet is left as a placeholder.
+- **Creation in the procedure, declined list in the script.** The copy, prefill and edits are done by the main session as `SKILL.md` step 0b describes (it needs the user's answers anyway). `find_rules.py` reads `.declined`, reports `declined`, and writes it with `--decline`, so the list format (one name per line, newline-safe appends) lives in one tested place.
+- **Step 0b after 0a.** The creation step needs the lookup command and the project path, which step 0a defines, so it sits after it in the file.
+- **Where the prefill comes from.** Repo name from the rules lookup, checkout from the session's checkout whose `origin` is the MR's project (step 1's rule), project id from the MR URL. A value nobody knows is written as `-`, which step 1 reads as not set, so no placeholder reaches a later run.
 
 Rejected: an empty rules file as the "declined" marker (it would read as "rules exist" and hide the notice); stopping the run after creation (the user chose to continue).
 
