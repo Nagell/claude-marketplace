@@ -32,8 +32,8 @@ def run_script(cwd: Path, rules: Path) -> dict:
 
 
 @pytest.mark.parametrize("url,name", [
-    ("git@gitlab.com:group/sub/provetcloud.git", "provetcloud"),
-    ("https://gitlab.com/group/provet-cloud-frontend.git", "provet-cloud-frontend"),
+    ("git@gitlab.com:group/sub/shop-api.git", "shop-api"),
+    ("https://gitlab.com/group/shop-web.git", "shop-web"),
     ("https://github.com/Nagell/claude-marketplace", "claude-marketplace"),
     ("https://github.com/Nagell/claude-marketplace/\n", "claude-marketplace"),
     ("/srv/git/repo.git", "repo"),
@@ -112,16 +112,16 @@ def test_worktree_uses_remote_name_not_directory(tmp_path):
     git("init", "-q", "-b", "main", cwd=repo)
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
         "--allow-empty", "-m", "init", cwd=repo)
-    git("remote", "add", "origin", "git@gitlab.com:group/provet-cloud-frontend.git", cwd=repo)
+    git("remote", "add", "origin", "git@gitlab.com:group/shop-web.git", cwd=repo)
     wt = tmp_path / "wt" / "some-feature"
     git("worktree", "add", "-q", "-b", "feat", str(wt), cwd=repo)
     rules = tmp_path / "rules"
-    shared = write(rules, "provetcloud.md",
-                   "---\napplies-to: [provetcloud, provet-cloud-frontend]\n---\n")
+    shared = write(rules, "shop-api.md",
+                   "---\napplies-to: [shop-api, shop-web]\n---\n")
 
     for cwd in (repo, wt):
         r = run_script(cwd, rules)
-        assert r["repo"] == "provet-cloud-frontend"
+        assert r["repo"] == "shop-web"
         assert r["path"] == str(shared)
         assert r["matched_by"] == "applies-to"
 
