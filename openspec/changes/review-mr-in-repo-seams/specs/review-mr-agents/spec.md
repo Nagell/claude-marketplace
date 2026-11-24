@@ -36,7 +36,26 @@ The skill SHALL NOT spawn a cross-file agent by default. Run B, D and E found no
 - **WHEN** a slice changes what an emitted event or a websocket message carries
 - **THEN** the owner finds every listener by the event or message name and checks it reads what is now sent
 
+### Requirement: Engine question kept
+The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.txt` and pass the effort answer as `--effort`.
+
+#### Scenario: First tool call
+- **WHEN** a review starts and the repo's rules name a counterpart
+- **THEN** the rules lookup runs, then one question dialog with the engine, counterpart and effort questions
+
+#### Scenario: Codex effort
+- **WHEN** the user picks Codex and answers `High` in the effort question
+- **THEN** each Codex slice task runs with `--effort high`
+
 ## ADDED Requirements
+
+### Requirement: Counterpart question only with a counterpart
+Before the step 0 dialog the skill SHALL run only the local rules lookup. It SHALL ask the counterpart question only when the rules file has a `## Counterpart` section.
+
+#### Scenario: No counterpart in the rules
+- **WHEN** a review starts and there is no rules file, or it has no `## Counterpart` section
+- **THEN** the dialog asks only the engine and effort questions, and step 1a is skipped
+
 
 ### Requirement: Server-rendering lens
 The main session SHALL read the framework configs at the reviewed head once and decide per app whether it renders on the server. Only then SHALL each slice holding that app's source files get the server-rendering lens: hydration mismatches, browser-only globals during server render, module-level state shared between requests, secrets in public runtime config, and clashing or doubled data-fetch keys.

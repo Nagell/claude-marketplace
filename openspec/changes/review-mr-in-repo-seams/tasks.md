@@ -16,7 +16,7 @@
 
 ## 4. Counterpart question only where one can exist
 
-- [x] 4.1 `find_rules.py` prints `counterpart` (true when the rules file has a `## Counterpart` section); step 0 drops the contract-or-both question when it is false, and step 1a is skipped. Verify: `test_counterpart_flag` covers no rules file, rules without the section and rules with it.
+- [x] 4.1 (spec: "Counterpart question only with a counterpart", "Engine question kept") `find_rules.py` prints `counterpart` (true when the rules file has a `## Counterpart` section); step 0 drops the contract-or-both question when it is false, and step 1a is skipped. Verify: `test_counterpart_flag` covers no rules file, rules without the section and rules with it.
 
 ## Workflow follow-up
 
