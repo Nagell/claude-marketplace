@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.5.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.4.1...base-v2.5.0) (2026-11-24)
+
+
+### Features
+
+* **base:** review-mr checks in-repo routes and server rendering ([5d53d62](https://github.com/Nagell/claude-marketplace/commit/5d53d621cc14929442c35916f81faa6f3c612b5f))
+* **base:** review-mr offers a rules file from a template ([44a2cea](https://github.com/Nagell/claude-marketplace/commit/44a2cea7375261e367557df148f9cc13bf69a852))
+* **base:** review-mr offers a rules file from a template ([#264](https://github.com/Nagell/claude-marketplace/issues/264)) ([631cfb0](https://github.com/Nagell/claude-marketplace/commit/631cfb03257e20602c883cc6171f1d219b6128a6))
+
+
+### Bug Fixes
+
+* **base:** resolve-review marks commit shas with a bookmark ([e7f411b](https://github.com/Nagell/claude-marketplace/commit/e7f411b0d1dd9344b8dee9402d1feb73f6b2a435))
+* **base:** review-mr rules template findings from the review ([75431f0](https://github.com/Nagell/claude-marketplace/commit/75431f071503574e1859143b5f363d769a6755a2))
+* **base:** review-mr shows the new rules file inside the dialog ([ddfefdf](https://github.com/Nagell/claude-marketplace/commit/ddfefdfacd3f05a5976e460a5a399feb8c82caea))
+
 ## [2.4.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.4.0...base-v2.4.1) (2026-11-24)
 
 

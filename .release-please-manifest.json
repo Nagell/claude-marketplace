@@ -1,5 +1,5 @@
 {
-  "plugins/base": "2.4.1",
+  "plugins/base": "2.5.0",
   "plugins/coding-tutor": "0.4.2",
   "plugins/extras": "3.2.0"
 }
