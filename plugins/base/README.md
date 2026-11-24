@@ -215,7 +215,7 @@ Costs are **estimates** at API prices, not your plan usage. Only assistant lines
 
 - **Review runs:** for `review-mr`, the report labels agents by role and slice and counts surviving findings per role from the run's `run.json` in the session scratchpad (`/tmp/claude-<uid>/...`). A session keeps only its latest review's `run.json`, and a reboot or `/base:cleanup` removes it, so older runs keep the generic labels.
 - **Prices:** a seed table ships in `skills/usage/prices.json`. A file at `~/.claude/usage/prices.json` with the same shape overrides it per model id, so it may list only the models you want to change. An entry replaces that model's prices; when it leaves out Haiku 5.5's `long_prompt` tier, the seed's tier is kept and the report says so. An invalid file is reported and the seed is used.
-- **Retention:** Claude Code deletes transcripts after `cleanupPeriodDays` (30 when unset). When it is under 180, the skill shows the average transcript size per day with writes and the estimate at 180 days, and offers to set 180; it writes `~/.claude/settings.json` only after you agree, keeping every other key. Only the user settings file is checked, not managed settings.
+- **Retention:** Claude Code deletes transcripts after `cleanupPeriodDays` (30 when unset). When it is under 180, the skill shows the average transcript size per day with writes and the estimate at 180 days, and offers to set 180; it writes `~/.claude/settings.json` only after you agree, keeping every other key. A value from managed (organisation) or project settings wins over yours, so the skill then only says where it comes from and offers nothing.
 
 Tests, stdlib only:
 

@@ -251,9 +251,10 @@ def report(days=30, top=5, n_runs=5, projects_dir=scan.PROJECTS_DIR, scratch_roo
     data = scan.scan(days, projects_dir, table, now)
     runs = data["runs"]
     coverage = label_agents(runs, scratch_root or default_scratch_root())
+    # group by the name without the plugin prefix, so a skill whose plugin was renamed stays one row
     by_skill = collections.defaultdict(list)
     for r in runs:
-        by_skill[r["skill"]].append(r)
+        by_skill[r["skill_display"]].append(r)
     ranked = sorted(by_skill.items(), key=lambda kv: -sum(r["total"]["cost"] for r in kv[1]))
     skills = []
     for skill, skill_runs in ranked[:top]:
@@ -261,7 +262,8 @@ def report(days=30, top=5, n_runs=5, projects_dir=scan.PROJECTS_DIR, scratch_roo
         missing = sum(r["total"]["unpriced_requests"] for r in skill_runs)
         if missing:
             notes.append(f"{missing} requests on models without a price count as $0, so this skill's cost and rank are too low")
-        skills.append({"skill": skill, "skill_display": scan.skill_display(skill), "trends": trends(skill_runs),
+        names = sorted({r["skill"] for r in skill_runs})
+        skills.append({"skill": names[-1], "skill_display": skill, "full_names": names, "trends": trends(skill_runs),
                        "runs": picked, "notes": notes})
     return {
         "estimate": True,
@@ -289,11 +291,47 @@ def read_settings(path):
     return data
 
 
-def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR):
+def managed_settings_files():
+    """Managed (organisation) settings files Claude Code reads, highest precedence first."""
+    if sys.platform == "darwin":
+        roots = ["/Library/Application Support/ClaudeCode"]
+    elif sys.platform == "win32":
+        roots = [r"C:\Program Files\ClaudeCode"]
+    else:
+        roots = ["/etc/claude-code"]
+        if os.environ.get("WSL_DISTRO_NAME"):
+            roots.append("/mnt/c/Program Files/ClaudeCode")
+    files = []
+    for root in roots:
+        files += sorted(glob.glob(os.path.join(root, "managed-settings.d", "*.json")), reverse=True)
+        files.append(os.path.join(root, "managed-settings.json"))
+    return files
+
+
+def setting_source(settings_path, project_dir=None, managed=None):
+    """Where cleanupPeriodDays comes from, by Claude Code's precedence: managed, project local, project, user.
+
+    Returns (value, source, path) for the first file that sets it, or (None, None, None).
+    """
+    layers = [("managed", f) for f in (managed_settings_files() if managed is None else managed)]
+    if project_dir:
+        layers += [("project local", os.path.join(project_dir, ".claude", "settings.local.json")),
+                   ("project", os.path.join(project_dir, ".claude", "settings.json"))]
+    layers.append(("user", settings_path))
+    for source, path in layers:
+        if not os.path.exists(path):
+            continue
+        data = read_settings(path)  # a user file that cannot be read raises; the caller reports it
+        if "cleanupPeriodDays" in data:
+            return data["cleanupPeriodDays"], source, path
+    return None, None, None
+
+
+def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR, project_dir=None, managed=None):
     try:
-        value = read_settings(settings_path).get("cleanupPeriodDays")
+        value, source, source_path = setting_source(settings_path, project_dir, managed)
     except (OSError, ValueError) as exc:
-        return {"error": f"{settings_path} is unreadable: {exc}", "offer": False}
+        return {"error": f"a settings file is unreadable: {exc}", "offer": False}
     whole = isinstance(value, (int, float)) and not isinstance(value, bool) and float(value).is_integer()
     valid = whole and value >= 1
     effective = int(value) if valid else DEFAULT_RETENTION
@@ -314,9 +352,15 @@ def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR):
                 "minimum 1). Counted as 30 here; set 1 or more")
     else:
         note = None
+    if source in ("managed", "project", "project local"):
+        note = ((note + "; ") if note else "") + (
+            f"set in {source} settings ({source_path}), which override your user settings, so a change there "
+            "would have no effect")
     note_estimate = "average per day that had transcript writes; the 180-day figure assumes you use Claude Code daily"
     return {
         "cleanupPeriodDays": value,
+        "source": source or "unset",
+        "source_file": source_path,
         "effective_days": effective,
         "note": note,
         "bytes_on_disk": total,
@@ -325,7 +369,7 @@ def retention(settings_path=SETTINGS_PATH, projects_dir=scan.PROJECTS_DIR):
         "estimate_bytes_at_180_days": int(avg * TARGET_RETENTION),
         "estimate_note": note_estimate,
         "checked_file": os.path.abspath(settings_path),
-        "offer": effective < TARGET_RETENTION,
+        "offer": effective < TARGET_RETENTION and source in (None, "user"),
     }
 
 
@@ -383,7 +427,7 @@ def main(argv=None):
             sys.stdout.write("\n")
             sys.exit(1)
     elif a.retention:
-        out = retention(a.settings, a.projects_dir)
+        out = retention(a.settings, a.projects_dir, os.getcwd())
     else:
         out = report(a.days, a.top, a.runs, a.projects_dir, a.scratch_root, prices.PriceTable(a.prices, a.override))
     json.dump(out, sys.stdout, indent=1)

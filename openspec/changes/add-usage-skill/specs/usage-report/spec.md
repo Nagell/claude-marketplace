@@ -108,6 +108,10 @@ Every run SHALL read `cleanupPeriodDays` from `~/.claude/settings.json`. When it
 - **WHEN** the user says no to the offer
 - **THEN** `~/.claude/settings.json` is unchanged
 
+#### Scenario: Set by an organisation
+- **WHEN** a managed settings file sets `cleanupPeriodDays`
+- **THEN** the skill shows that value and its file and makes no offer
+
 #### Scenario: Invalid value
 - **WHEN** `cleanupPeriodDays` is 0
 - **THEN** the skill says the value is invalid, counts it as 30 and offers 180

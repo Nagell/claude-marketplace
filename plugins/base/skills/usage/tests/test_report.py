@@ -163,6 +163,16 @@ class RunJson(ReportBase):
         self.assertEqual(run["role_costs"]["codex"]["unpriced"], 1)
 
 
+class Renamed(ReportBase):
+    def test_renamed_plugin_is_one_skill(self):
+        self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill="base-setup:setup-zsh"),
+                            human(10), skill_load(10), asst("m2", 11, skill="base:setup-zsh")])
+        skills = self.report()["skills"]
+        self.assertEqual(len(skills), 1)
+        self.assertEqual(skills[0]["full_names"], ["base-setup:setup-zsh", "base:setup-zsh"])
+        self.assertEqual(skills[0]["trends"]["runs"], 2)
+
+
 class Unpriced(ReportBase):
     def test_unpriced_skill_flagged(self):
         self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill="cheap", model="claude-new-9", u=usage(inp=10**6)),
@@ -174,6 +184,44 @@ class Unpriced(ReportBase):
 
 
 class Retention(TempHome):
+    def setUp(self):
+        super().setUp()
+        self._real_retention = report.retention
+        report_mod = report
+
+        def isolated(settings_path, projects_dir, project_dir=None, managed=()):
+            return self._real_retention(settings_path, projects_dir, project_dir, managed)
+        report_mod.retention = isolated
+
+    def tearDown(self):
+        report.retention = self._real_retention
+        super().tearDown()
+
+    def write(self, rel, data):
+        path = os.path.join(self.tmp, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+        return path
+
+    def test_managed_setting_wins_and_no_offer(self):
+        managed = self.write("etc/managed-settings.json", {"cleanupPeriodDays": 14})
+        r = self._real_retention(self.settings({"cleanupPeriodDays": 90}), self.projects, None, [managed])
+        self.assertEqual((r["source"], r["effective_days"], r["offer"]), ("managed", 14, False))
+        self.assertIn("override your user settings", r["note"])
+
+    def test_project_setting_wins_over_user(self):
+        self.write("proj/.claude/settings.json", {"cleanupPeriodDays": 60})
+        r = self._real_retention(self.settings({"cleanupPeriodDays": 90}), self.projects, os.path.join(self.tmp, "proj"), [])
+        self.assertEqual((r["source"], r["effective_days"], r["offer"]), ("project", 60, False))
+
+    def test_user_setting_used_when_nothing_overrides(self):
+        r = self._real_retention(self.settings({"cleanupPeriodDays": 90}), self.projects, os.path.join(self.tmp, "proj"), [])
+        self.assertEqual((r["source"], r["offer"]), ("user", True))
+
+    def test_managed_paths_listed(self):
+        self.assertTrue(all(f.endswith(".json") for f in report.managed_settings_files()))
+
     def settings(self, data=None):
         path = os.path.join(self.tmp, "settings.json")
         if data is not None:
