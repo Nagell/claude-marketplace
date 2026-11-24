@@ -173,7 +173,7 @@ open the thread.>
 (`scripts/client.py:891`).
 **Planned change.** None.
 **Draft reply.**
-> Fixed in [`0dc4655`](<commit url>).
+> Fixed in 🔖 [`0dc4655`](<commit url>).
 ```
 
 Above the threads, one line of totals per verdict. Where no reply is planned
@@ -184,7 +184,8 @@ reply says `none` and why.
 user writes: run them through **writing-style-guide** (which pulls in
 **humanizer**) when installed. Without them:
 
-- **Addressed or Fix** - the commit link, and a `file:line` when the fix sits
+- **Addressed or Fix** - the commit link, with 🔖 right before every commit
+  sha (as in the example above), and a `file:line` when the fix sits
   somewhere the reviewer would not look. Nothing else: the reviewer opens the
   commit faster than they read about it.
 - **Disagree** - two or three sentences with the reason from the code, and room
