@@ -32,8 +32,8 @@ def run_script(cwd: Path, rules: Path) -> dict:
 
 
 @pytest.mark.parametrize("url,name", [
-    ("git@gitlab.com:group/sub/provetcloud.git", "provetcloud"),
-    ("https://gitlab.com/group/provet-cloud-frontend.git", "provet-cloud-frontend"),
+    ("git@gitlab.com:group/sub/shop-api.git", "shop-api"),
+    ("https://gitlab.com/group/shop-web.git", "shop-web"),
     ("https://github.com/Nagell/claude-marketplace", "claude-marketplace"),
     ("https://github.com/Nagell/claude-marketplace/\n", "claude-marketplace"),
     ("/srv/git/repo.git", "repo"),
@@ -112,16 +112,16 @@ def test_worktree_uses_remote_name_not_directory(tmp_path):
     git("init", "-q", "-b", "main", cwd=repo)
     git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q",
         "--allow-empty", "-m", "init", cwd=repo)
-    git("remote", "add", "origin", "git@gitlab.com:group/provet-cloud-frontend.git", cwd=repo)
+    git("remote", "add", "origin", "git@gitlab.com:group/shop-web.git", cwd=repo)
     wt = tmp_path / "wt" / "some-feature"
     git("worktree", "add", "-q", "-b", "feat", str(wt), cwd=repo)
     rules = tmp_path / "rules"
-    shared = write(rules, "provetcloud.md",
-                   "---\napplies-to: [provetcloud, provet-cloud-frontend]\n---\n")
+    shared = write(rules, "shop-api.md",
+                   "---\napplies-to: [shop-api, shop-web]\n---\n")
 
     for cwd in (repo, wt):
         r = run_script(cwd, rules)
-        assert r["repo"] == "provet-cloud-frontend"
+        assert r["repo"] == "shop-web"
         assert r["path"] == str(shared)
         assert r["matched_by"] == "applies-to"
 
@@ -132,3 +132,52 @@ def test_no_origin_fails_with_a_clear_message(tmp_path):
                           cwd=tmp_path, capture_output=True, text=True)
     assert proc.returncode != 0
     assert "no origin remote" in proc.stderr
+
+
+def test_counterpart_flag(tmp_path):
+    rules = tmp_path / "rules"
+    write(rules, "solo.md", "# Review rules: solo\n\n## Size excludes\n\nx\n")
+    write(rules, "pair.md", "# Review rules\n\n## Counterpart\n\nThe sibling is other.\n")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    for name, want in (("solo", False), ("pair", True), ("none", False)):
+        proc = subprocess.run(
+            [sys.executable, str(SCRIPTS / "find_rules.py"), "--repo-name", name],
+            capture_output=True, text=True, check=True,
+            env={"REVIEW_RULES_DIR": str(rules), "PATH": "/usr/bin:/bin:/usr/local/bin"})
+        assert json.loads(proc.stdout)["counterpart"] is want, name
+
+
+@pytest.mark.parametrize("body,want", [
+    ("## Counterpart\n\nx\n", True),
+    ("  ## Counterpart ##\n", True),
+    ("## Counterpart repo\n", False),
+    ("### Counterpart\n", False),
+    ("```markdown\n## Counterpart\n```\n", False),
+    ("<!--\n## Counterpart\n-->\n", False),
+    ("﻿# Rules\n\n## Counterpart\n", True),
+])
+def test_has_counterpart_heading_forms(tmp_path, body, want):
+    p = write(tmp_path, "r.md", body)
+    assert find_rules.has_counterpart(p) is want
+
+
+def test_has_counterpart_survives_a_bad_byte(tmp_path):
+    p = tmp_path / "r.md"
+    p.write_bytes(b"caf\xe9\n\n## Counterpart\n")
+    assert find_rules.has_counterpart(p) is True
+
+
+def test_bom_before_frontmatter_still_matches(tmp_path):
+    rules = tmp_path / "rules"
+    write(rules, "shared.md", "﻿---\napplies-to: [a, b]\n---\n")
+    assert find_rules.find("b", rules)["matched_by"] == "applies-to"
+
+
+def test_unreadable_md_entry_is_skipped_not_fatal(tmp_path):
+    rules = tmp_path / "rules"
+    (rules / "aa-dir.md").mkdir(parents=True)
+    write(rules, "zz.md", "---\napplies-to: [b]\n---\n")
+    r = find_rules.find("b", rules)
+    assert r["matched_by"] == "applies-to"
+    assert r["skipped"] and "aa-dir.md" in r["skipped"][0]["path"]

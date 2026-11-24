@@ -37,8 +37,8 @@ The skill SHALL take each role's model and effort from the `## Models` lines `- 
 The skill SHALL keep the step 0 question that chooses Claude, Codex or both, with `Claude (Recommended)` as the default, and SHALL describe the Claude option as Haiku slice owners with Opus refuters. It SHALL NOT add a model question. With the Codex engine, the skill SHALL run one Codex task per slice, name its reports `wave<n>-<slice>.txt` and pass the effort answer as `--effort`.
 
 #### Scenario: First tool call
-- **WHEN** a review starts
-- **THEN** the first tool call is one question dialog with the engine, counterpart and effort questions
+- **WHEN** a review starts and the repo's rules name a counterpart
+- **THEN** the rules lookup runs, then one question dialog with the engine, counterpart and effort questions
 
 #### Scenario: Codex effort
 - **WHEN** the user picks Codex and answers `High` in the effort question
@@ -74,11 +74,15 @@ The size excludes SHALL apply to the line count only. Every excluded file SHALL 
 - **THEN** it is given to the owner of the slice that uses it, or listed under "Not reviewed"
 
 ### Requirement: Slices follow one contract
-Files SHALL be grouped so that a slice holds one tool contract or component: a script with its tests and the doc section describing it, a hook with its `hooks.json` entry, a component with its composable and spec.
+Files SHALL be grouped so that a slice holds one tool contract or component: a script with its tests and the doc section describing it, a hook with its `hooks.json` entry, a component with its composable and spec, a changed route with the changed files that call it by its URL.
 
 #### Scenario: One contract, several files
 - **WHEN** an MR changes a hook script, its `hooks.json` entry and its test
 - **THEN** the three files are one slice
+
+#### Scenario: Route and caller both changed
+- **WHEN** an MR changes `server/api/items.post.ts` and a page that posts to `/api/items`, together under the hard slice limit
+- **THEN** both files are in one slice
 
 ### Requirement: Slice size target
 The skill SHALL cut slices to a target of about 400 lines of whole files with a hard limit of about 700, grouped by tool contract or component. A file above the limit SHALL be its own slice and, above about 1,500 lines, split into ranges of about 700 lines. `SKILL.md` SHALL name these values and cite benchmark run E (see `design.md` section 3).
@@ -138,6 +142,18 @@ The skill SHALL NOT spawn a cross-file agent by default. Run B, D and E found no
 #### Scenario: Seam between slices
 - **WHEN** a changed export in one slice is consumed by a file in another slice
 - **THEN** the owner of the slice that holds the export greps every consumer of it, not only one
+
+#### Scenario: Route reached by URL
+- **WHEN** a slice changes a file-based server route and a file in another slice calls that route's URL
+- **THEN** the owner of the route's slice finds the caller by the URL, and compares the method and the fields each side sends and reads
+
+#### Scenario: Caller the grep cannot resolve
+- **WHEN** a caller builds the URL from a variable the owner cannot resolve to one route
+- **THEN** the ledger names it as not found by grep, with its expression and file:line, instead of "no consumers"
+
+#### Scenario: Event or message name
+- **WHEN** a slice changes what an emitted event or a websocket message carries
+- **THEN** the owner finds every listener by the event or message name and checks it reads what is now sent
 
 ### Requirement: Full counterpart scope
 With full counterpart scope, the skill SHALL cut the counterpart's changed files into slices by the same reading-load and contract rules as the primary MR's files, and SHALL still run exactly one contract agent across both MRs.
@@ -266,3 +282,52 @@ Refuters SHALL also get up to 3 entries from each slice report's "checked and fo
 #### Scenario: Refuter lowers a high
 - **WHEN** a refuter lowers a finding from high to medium
 - **THEN** step 6's grading flags it, the main session re-checks it before the final grade, and the step 7 summary lists it
+
+### Requirement: Counterpart question only with a counterpart
+Before the step 0 dialog the skill SHALL run only the local rules lookup. It SHALL ask the counterpart question only when the rules file has a `## Counterpart` section.
+
+#### Scenario: No counterpart in the rules
+- **WHEN** a review starts and there is no rules file, or it has no `## Counterpart` section
+- **THEN** the dialog asks only the engine and effort questions, and step 1a is skipped
+
+### Requirement: Server-rendering lens
+The main session SHALL read the framework configs at the reviewed head once and decide per app whether it renders on the server. Only then SHALL each slice holding that app's source files get the server-rendering lens: hydration mismatches, browser-only globals during server render, module-level state shared between requests, secrets in public runtime config, and clashing or doubled data-fetch keys.
+
+#### Scenario: Nuxt with server rendering
+- **WHEN** an app's `nuxt.config` does not set `ssr: false` and a slice changes its pages
+- **THEN** that slice's brief carries the server-rendering lens
+
+#### Scenario: Client-only app
+- **WHEN** the top level of `nuxt.config` sets `ssr: false`
+- **THEN** no brief carries the lens and no brief text is added
+
+#### Scenario: Per-route or per-build setting
+- **WHEN** `ssr: false` is set only inside `routeRules` or `$production`
+- **THEN** the app counts as rendering on the server and its slices carry the lens
+
+#### Scenario: Next.js static export
+- **WHEN** a Next.js config sets `output: 'export'`
+- **THEN** the app counts as rendering, since pages are rendered to HTML at build time, and its slices carry the lens
+
+#### Scenario: Shared code
+- **WHEN** an app renders on the server and a slice holds source files outside every app root
+- **THEN** that slice carries the lens
+
+#### Scenario: No supported framework
+- **WHEN** the repo has no Nuxt or Next.js config
+- **THEN** no brief carries the lens
+
+### Requirement: Server-rendering override in the rules
+A rules file SHALL be able to force the server-rendering lens on or off per repo, and that SHALL win over detection, because layers, environment variables and per-route settings can switch rendering in ways a config read cannot see.
+
+#### Scenario: Detection says client-only, rules say on
+- **WHEN** detection finds `ssr: false` but the rules say server rendering is on for the repo
+- **THEN** the lens goes into the briefs of slices holding the repo's source files
+
+#### Scenario: Rules say on, no supported framework
+- **WHEN** the rules say server rendering is on and the script lists no app
+- **THEN** the repo root counts as the app root and slices holding its source files carry the lens
+
+#### Scenario: Rules say off
+- **WHEN** detection finds an app that renders on the server but the rules say off for the repo
+- **THEN** no brief carries the lens

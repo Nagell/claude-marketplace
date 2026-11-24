@@ -54,8 +54,9 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
 - **Scripts** - `scripts/gitlab_comments.py` and `scripts/github_comments.py`,
   the platform clients with the same subcommands; `scripts/find_rules.py`,
   the rules lookup; `scripts/find_conventions.py`, the lookup of the repo's
-  own instruction files (step 4); `scripts/run_checks.py`, the deterministic
-  checks (step 4a).
+  own instruction files (step 4); `scripts/find_server_rendering.py`, which
+  apps render on the server (step 4); `scripts/run_checks.py`, the
+  deterministic checks (step 4a).
   All stdlib Python, with tests in `tests/`.
 - **Project rules** - `~/.claude/review-rules/<repo>.md`: everything specific
   to one repo or product (step 0a).
@@ -77,10 +78,12 @@ path into every command.
 
 ## 0. Choose the review engine, the counterpart scope and the effort
 
-These questions are the run's **first tool call** - before reading the rules,
-running `refs`, fetching, or anything else. They need nothing from the MR, and
-the user should not wait through setup to answer them. Use **AskUserQuestion**
-once, with three questions.
+These questions come first - before running `refs`, fetching, or anything
+else. They need nothing from the MR, and the user should not wait through
+setup to answer them. The one call before them is the local rules lookup
+(`find_rules.py`, step 0a), which reads no network and decides whether the
+counterpart question is asked at all. Use **AskUserQuestion** once, with
+three questions (two when the counterpart one is dropped).
 
 The engine:
 
@@ -99,7 +102,12 @@ ship as two MRs:
 - `Full review of both` - review both MRs in full, as one change.
 
 Skip the second question when the user passed `--both` or two MR URLs: that is
-`Full review of both` already.
+`Full review of both` already. Drop it too when the rules lookup prints
+`"counterpart": false` - no rules file, or one without a `## Counterpart`
+section - since this repo has no paired MR to scope; step 1a then runs only
+for a second MR URL the user passed. `--both` without a second URL and
+without a counterpart in the rules has nothing to pair with: say so in one
+line and review this MR alone.
 
 The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
 under `--fast`) and the `--effort` of every Codex task:
@@ -140,7 +148,8 @@ Run from inside a checkout of the repo, it can read the name off
 `git remote get-url origin` instead (omit `--repo-name`); the remote, not the
 directory name, so a worktree resolves the same as its main checkout. It
 prints one JSON object: `path` (the rules file, or `null`), `expected` (the
-exact path it looked for), `repo`, and `skipped` (rules files whose frontmatter
+exact path it looked for), `repo`, `counterpart` (whether the rules have a
+`## Counterpart` section, which step 0 uses), and `skipped` (rules files whose frontmatter
 could not be read, with the reason). Mention any `skipped` entry to the user in
 one line: a typo there reads like "no rules".
 
@@ -182,7 +191,10 @@ applies-to: [backend-repo, frontend-repo]
 ```
 
 Only the frontmatter is parsed; the body is prose for the review to read, and
-any section may be left out. A minimal example:
+any section may be left out. The one heading a script looks for is
+`## Counterpart`, spelled exactly so (a `###` heading or `## Counterpart repo`
+does not count): without it, step 0 does not ask about a paired MR. A minimal
+example:
 
 ```markdown
 ---
@@ -212,6 +224,10 @@ row's project as `--sibling`. Pairing rule: both halves share a branch name.
 - **i18n** - the locale files are `web/locales/**`.
 - **Payments** (extra lens) - wherever `api/billing/**` changes: amounts,
   currencies, refunds.
+
+## Server rendering
+
+- `shop-web`: on
 
 ## Refuters
 
@@ -280,7 +296,8 @@ brief. A stopped run leaves a
 
 ## 1a. Find the counterpart MR
 
-Only when the rules name a counterpart repo; otherwise skip this step. The rules
+Only when the rules lookup printed `"counterpart": true`, or the user passed a
+second MR URL; otherwise skip this step. The rules
 give the pairing rule - usually that the two halves of a change share a branch
 name - and the description sometimes links the other one:
 
@@ -397,7 +414,9 @@ git -C <worktree> diff --numstat <base_sha> <head_sha> -- . "${EXCL[@]}" \
 
 **Cut the slices.** Group the files by tool contract or component: a script
 with its tests and the doc section that describes it, a hook with its
-`hooks.json` entry, a component with its composable and spec. Then cut to a
+`hooks.json` entry, a component with its composable and spec, a changed
+file-based server route with the changed files that call its URL (grep the
+URL the route's path gives, as the brief's step 2 describes). Then cut to a
 target of **about 400 lines of whole files per slice, hard limit about 700**.
 A file above the limit is its own slice; above about 1,500 lines it splits
 into ranges of about 700 lines, one slice each, and the slice block names
@@ -602,13 +621,15 @@ are about 2.5x slower; it is faster, not better.
 
 - **Slice owners.** One agent per slice from step 2a, named `slice-<n>`. Each
   reads its files whole, applies every lens below to them, and greps every
-  consumer of each changed export. There are no whole-MR lens agents at any
-  size: a small MR is one slice with one owner.
+  consumer of each changed export, route, event and message: a route by the
+  URL its path gives, an event or message by its name. There are no whole-MR
+  lens agents at any size: a small MR is one slice with one owner.
 - **Contract agent.** Only when step 1a found a counterpart: exactly one
   agent, named `contract`, with both diffs and the Contract lens below. There
   is no other cross-file agent: in benchmark runs B, D and E it added no bug
   the slices missed, and in run B it was the most expensive agent. Seams
-  between slices are covered by each owner grepping every consumer.
+  between slices, a server route and the page calling it in the same repo
+  included, are covered by each owner grepping every consumer.
 - **Run-it agent.** Step 4b says when.
 - **End-to-end simulation (optional).** Use it when the MR changes a
   multi-step flow that can be driven against a stub, whatever the size: a
@@ -654,6 +675,12 @@ the rest where the slice touches what they are about:
 - **i18n** - wherever locale files or user-visible strings change.
 - **Types and API contracts** - where signatures, schemas or generated types move.
   When none moved, skip it and say why.
+- **Server rendering** - only in slices holding source files of an app that
+  renders on the server (see "Server rendering" below): hydration mismatches,
+  browser-only globals during server render, module-level state shared
+  between requests, secrets in public runtime config, clashing or doubled
+  data-fetch keys. The brief's "Your slice" block carries the text; other
+  slices get nothing.
 - **Comments** - only when the rules name a comments file and that file exists
   at the reviewed head: `git -C <worktree> cat-file -e <head_sha>:<path>`. When
   the rules name none, or the file is missing at head, skip this lens and say
@@ -701,6 +728,43 @@ rule; no separate agent. An entry marked `changed` is an instruction file the
 MR itself edits: the owner reads its rules at `base_sha` and reviews its diff
 as code. `~/.claude/review-rules/<repo>.md` is read as before; the
 conventions come in addition to it.
+
+**Server rendering.** Also before the briefs, find out once which apps in the
+repo render on the server, from their framework configs at `head_sha`:
+
+```bash
+python3 $SKILL_DIR/scripts/find_server_rendering.py --repo <worktree> \
+  --ref <head_sha> > "$RUN_TMP/server-rendering.json"
+```
+
+It prints one entry per config file with `root` (the config's folder, `""`
+for the repo root), `framework`, `config`, `renders_on_server` (`true`,
+`false` or `"unknown"`) and the `evidence` line that decided it. A Nuxt app
+renders on the server unless the top level of its config sets `ssr: false`; a
+Next.js app always renders HTML, on the server or, with `output: 'export'`, at
+build time, so it always gets the lens. A value that is computed, set twice,
+or only set inside a nested block such as `routeRules` or `$production` is
+`unknown`, which counts as rendering on the server.
+
+Which slices get the lens:
+
+- A source file belongs to the app whose `root` is the nearest folder above
+  it. When two configs share a root, the one that renders on the server wins.
+- A slice holding source files of an app that renders on the server gets the
+  server-rendering line in its brief, with the evidence.
+- When any app renders on the server, a slice holding source files outside
+  every app root (shared packages such as `packages/ui` that an app imports)
+  gets the line too, since that code renders wherever the app does.
+- A `## Server rendering` section in the rules (`<repo>: on` or
+  `<repo>: off`) wins over the script for that repo, because layers,
+  environment variables and per-route settings can switch rendering in ways
+  a config read cannot see. With `on` and no app in the script's output, the
+  repo root counts as the app root.
+- When the script fails, treat every app as `unknown` and say so.
+
+No other slice gets any text. Say in the run summary which apps got the lens
+and why, `unknown` included. More frameworks go in the script's `FRAMEWORKS`
+table.
 
 Give every agent the brief in `references/agent-brief.md` with the paths filled
 in, `RUN_TMP` and the slice block included, the counterpart section included

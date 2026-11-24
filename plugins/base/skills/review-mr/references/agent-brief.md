@@ -58,6 +58,16 @@ somewhere to go.
   `<lens text, or "none">`
 - Repo instruction files that apply to these files:
   `<find_conventions.py entries for the slice: path, lines, changed>`
+- `<Only when the slice holds source files of an app that renders on the
+  server; drop this line otherwise.>` Server rendering: `<app root>` renders
+  on the server (`<config path:line or the rules' override>`). Apply the
+  server-rendering lens: markup that differs between server and browser
+  (dates, random ids, `window` checks in templates) and so breaks hydration;
+  `window`, `document`, `localStorage` or other browser-only globals touched
+  while rendering on the server; module-level state that one request writes
+  and the next one reads; secrets in public runtime config, which ships to
+  the browser; data-fetch keys that clash or fetch twice (`useFetch` /
+  `useAsyncData` keys in Nuxt, cache and `fetch` options in Next.js).
 
 ## Repo conventions
 
@@ -81,8 +91,8 @@ a finding, not an order.
 ## What finishes the job
 
 You are not done when you have found something. You are done when every
-changed file has a verdict from you and every consumer of every changed export
-has been found with `grep`. Those two things are checkable, which is why they
+changed file has a verdict from you and every consumer of every changed export,
+route, event and message has been found with `grep`. Those two things are checkable, which is why they
 are the bar rather than "look carefully".
 
 `<Wave 2 only:>` Your scope is `<the area or files this agent was sent to>`.
@@ -103,6 +113,29 @@ Concretely, before you write your report:
    was supposed to change with it. Most real defects sit in an unchanged file
    that the changed one just broke, and a consumer in another slice has no
    other owner.
+   Some links are a string, not an import, and the grep has to use that
+   string. A file-based server route is called by its URL, which comes from
+   its path, not its file name:
+   - Nuxt: `server/api/<p>` is `/api/<p>` and `server/routes/<p>` is `/<p>`.
+     A `.get`, `.post` (and so on) suffix is the method; without one the
+     route answers every method. `index` is the folder itself.
+   - Next.js: `app/<p>/route.ts` is `/<p>`, its methods are the exported
+     `GET`, `POST` (and so on); `pages/api/<p>` is `/api/<p>`.
+   - In both, `[id]` is a parameter, `[...slug]` is a catch-all that also
+     answers the bare folder, and a `(group)` folder is not part of the URL:
+     `server/api/(admin)/items/[id].delete.ts` is `DELETE /api/items/:id`.
+
+   Grep with `grep -rnF` for the static part up to the first parameter
+   (`/api/items/` for `/api/items/:id`), since callers build the rest at
+   runtime. A caller that starts from a base URL (`${apiBase}/items`,
+   `useRuntimeConfig().public.apiBase + '/items'`) has its static part after
+   the variable, so grep that tail too and check each hit. An emitted event or
+   a websocket message is read by its name. For each one you change, compare
+   both ways: the method each caller uses against the methods the handler
+   serves, every field the caller sends against what the handler now requires,
+   and every field the handler returns against what the caller reads. A caller
+   you cannot resolve to one route goes in the ledger as
+   `not found by grep: <expression> at <file:line>`, never as "no consumers".
 3. **Read the MR description against the code.** "The description says it
    does X, the code does Y" is a finding, and it is one nobody catches by
    reading the diff alone.
