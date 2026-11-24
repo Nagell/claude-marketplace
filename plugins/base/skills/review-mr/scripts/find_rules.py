@@ -12,7 +12,11 @@ Lookup order:
 
 Prints one JSON object:
   {"repo": ..., "path": <file or null>, "expected": <rules dir>/<repo>.md,
-   "matched_by": "name" | "applies-to" | null, "skipped": [...]}
+   "matched_by": "name" | "applies-to" | null, "skipped": [...],
+   "counterpart": <bool>, "declined": <bool>}
+
+``declined`` is true when the repo is listed in ``<rules dir>/.declined``, one
+name per line: the user said no to creating a rules file for it.
 
 ``skipped`` lists files whose frontmatter could not be read, with the reason,
 so a typo in a rules file does not read like "no rules for this repo". A file
@@ -139,6 +143,15 @@ def has_counterpart(path: Path) -> bool:
     return False
 
 
+def is_declined(repo: str, folder: Path) -> bool:
+    """True when ``<folder>/.declined`` lists the repo on a line of its own."""
+    try:
+        text = (folder / ".declined").read_bytes().decode("utf-8-sig", "replace")
+    except OSError:
+        return False
+    return repo in {line.strip() for line in text.splitlines()}
+
+
 def find(repo: str, folder: Path) -> dict:
     expected = folder / f"{repo}.md"
     result = {"repo": repo, "path": None, "expected": str(expected),
@@ -173,6 +186,7 @@ def main() -> None:
     repo = a.repo_name or repo_name_from_git(a.repo_dir)
     result = find(repo, rules_dir())
     result["counterpart"] = bool(result["path"]) and has_counterpart(Path(result["path"]))
+    result["declined"] = is_declined(repo, rules_dir())
     print(json.dumps(result, indent=2))
 
 

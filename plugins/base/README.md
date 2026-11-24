@@ -172,7 +172,9 @@ A rules file can name:
 - examples of product consequences
 - machine notes
 
-`skills/review-mr/SKILL.md` (step 0a) documents the format with a full example. When no rules file matches, the review shows a framed notice with the exact path it looked for, then continues without rules.
+The template `skills/review-mr/references/rules-template.md` has every section with a comment on what it does; all of them are optional. The paired-repo section (`## Counterpart`) is commented out, since it switches on the question about a paired MR. The worktree base defaults to `<checkout>.worktrees/`.
+
+When a repo has no rules file, the first review offers to create one from the template: it fills in the repo, checkout and project id, shows you the file, asks whether the repo has a paired repo and whether to add anything, then reviews with it. Say no and the repo goes into `~/.claude/review-rules/.declined`, so you are not asked again; delete its line there to get the offer back.
 
 ### Platforms
 

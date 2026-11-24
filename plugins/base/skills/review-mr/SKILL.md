@@ -82,8 +82,9 @@ These questions come first - before running `refs`, fetching, or anything
 else. They need nothing from the MR, and the user should not wait through
 setup to answer them. The one call before them is the local rules lookup
 (`find_rules.py`, step 0a), which reads no network and decides whether the
-counterpart question is asked at all. Use **AskUserQuestion** once, with
-three questions (two when the counterpart one is dropped).
+counterpart question and the rules-file question below are asked at all. Use
+**AskUserQuestion** once, with the engine and effort questions plus whichever
+of those two apply.
 
 The engine:
 
@@ -109,6 +110,17 @@ for a second MR URL the user passed. `--both` without a second URL and
 without a counterpart in the rules has nothing to pair with: say so in one
 line and review this MR alone.
 
+The rules file, asked only when the lookup prints `"path": null` and
+`"declined": false` (it never comes with the counterpart question, which needs
+a rules file):
+
+- `Create rules from the template (Recommended)` - step 0b creates
+  `<expected>` and fills it with you, then the review goes on with it.
+- `Not for this repo` - add the repo name as a line to
+  `~/.claude/review-rules/.declined` (`REVIEW_RULES_DIR` when set; create the
+  file if needed) and go on without rules. The question is not asked again
+  for this repo.
+
 The effort of the Opus roles (refuters, thread validation, and wave 1 and 2
 under `--fast`) and the `--effort` of every Codex task:
 
@@ -128,6 +140,33 @@ every Codex task.
 
 With `--fast` and `<engine>` `Codex` alone, say in one line that `--fast` does
 not apply to Codex, then run the Codex review as usual.
+
+## 0b. Create the rules file
+
+Only when the user picked `Create rules from the template` in step 0.
+
+1. **Copy.** Read `$SKILL_DIR/references/rules-template.md`, replace `<repo>`
+   with the repo name and fill the Repos row: `<checkout>` with the checkout
+   step 1 would use (the session's checkout whose `origin` is the MR's
+   project; leave the placeholder when there is none), `<project id>` with
+   the project path from the MR URL, `<tag>` with a short label or `-`. Leave
+   the worktree base out: its default is `<checkout>.worktrees/`. Write it to
+   `<expected>` only if nothing is there yet (`set -o noclobber`, or check
+   first); if a file appeared, say so, use it and skip to step 4.
+2. **Show it.** Print the full path and the file content.
+3. **Ask, one question at a time,** with **AskUserQuestion**:
+   - "Do this repo's changes ship together with MRs in another repo, such as
+     the backend of this frontend?" `No (Recommended)` or a free-text answer
+     naming the repo and its project. On a name, replace the commented
+     Counterpart block with a live `## Counterpart` section for it, add its
+     row to Repos, and show the change.
+   - "Anything to add (size excludes, an extra lens, the browser skill,
+     server rendering on or off)?" `Nothing (Recommended)` or free text. Write
+     each point into the section it belongs to, replacing that section's
+     comment, and show the change. Ask again until the answer is `Nothing`.
+4. **Re-read.** Run `find_rules.py` again and go on with its output: when it
+   now prints `"counterpart": true`, ask the counterpart question from step 0
+   on its own before going on.
 
 ## 0a. Platform and project rules
 
@@ -149,7 +188,8 @@ Run from inside a checkout of the repo, it can read the name off
 directory name, so a worktree resolves the same as its main checkout. It
 prints one JSON object: `path` (the rules file, or `null`), `expected` (the
 exact path it looked for), `repo`, `counterpart` (whether the rules have a
-`## Counterpart` section, which step 0 uses), and `skipped` (rules files whose frontmatter
+`## Counterpart` section, which step 0 uses), `declined` (the repo is listed in
+`.declined`, so step 0 does not offer a rules file), and `skipped` (rules files whose frontmatter
 could not be read, with the reason). Mention any `skipped` entry to the user in
 one line: a typo there reads like "no rules".
 
@@ -163,8 +203,8 @@ notes for
 running git or the platform CLI. Where a step below says "the rules", it means
 this file.
 
-When `path` is `null`, show this notice, framed, then **continue without
-rules**: no counterpart lookup, no extra lenses or excludes, no refuter
+When `path` is `null` and the user did not create a file in step 0b, show this
+notice, framed, then **continue without rules**: no counterpart lookup, no extra lenses or excludes, no refuter
 checkout beyond the MR's own worktree.
 
 ```text
@@ -173,10 +213,13 @@ checkout beyond the MR's own worktree.
  Looked for: <expected>
  A rules file there (or any *.md in ~/.claude/review-rules/ whose
  frontmatter lists <repo> under applies-to:) adds the paired repo,
- size excludes, extra lenses and the browser skill. Continuing
- without rules.
+ size excludes, extra lenses and the browser skill. Template:
+ <SKILL_DIR>/references/rules-template.md. Continuing without rules.
 ────────────────────────────────────────────────────────────────────
 ```
+
+With `"declined": true`, add a last line to the notice: ` Declined earlier:
+remove <repo> from <rules dir>/.declined to be offered a file again.`
 
 ### Project rules: the format
 
@@ -193,60 +236,20 @@ applies-to: [backend-repo, frontend-repo]
 Only the frontmatter is parsed; the body is prose for the review to read, and
 any section may be left out. The one heading a script looks for is
 `## Counterpart`, spelled exactly so (a `###` heading or `## Counterpart repo`
-does not count): without it, step 0 does not ask about a paired MR. A minimal
-example:
+does not count): without it, step 0 does not ask about a paired MR.
 
-```markdown
----
-applies-to: [shop-api, shop-web]
----
-
-# Review rules: shop
-
-## Repos
-
-| repo       | label | checkout            | worktree base                 | `--project`       |
-| ---------- | ----- | ------------------- | ----------------------------- | ----------------- |
-| `shop-api` | BE    | `~/code/shop-api`   | `~/code/shop-api.worktrees/`  | `acme/shop-api`   |
-| `shop-web` | FE    | `~/code/shop-web`   | `~/code/shop-web.worktrees/`  | `acme/shop-web`   |
-
-## Counterpart
-
-The sibling of `shop-api` is `shop-web` and the other way round; pass the other
-row's project as `--sibling`. Pairing rule: both halves share a branch name.
-
-## Size excludes
-
-':(exclude)**/locales/**' ':(exclude)**/migrations/**'
-
-## Lens details
-
-- **i18n** - the locale files are `web/locales/**`.
-- **Payments** (extra lens) - wherever `api/billing/**` changes: amounts,
-  currencies, refunds.
-
-## Server rendering
-
-- `shop-web`: on
-
-## Refuters
-
-- Checkout for product rules: `~/code/shop-api`.
-- Browser skill: `browser`.
-
-## Repo review material
-
-- `docs/review/CORRECTNESS.md`
-- Comments file: `docs/review/comments.md`
-
-## Product consequences
-
-High: an order charged twice, one shop seeing another shop's orders.
-```
+The template, `$SKILL_DIR/references/rules-template.md`, has every section
+with a comment on what it does: Repos (checkout and `--project` per repo; a
+worktree base only when review worktrees should not go to the default
+`<checkout>.worktrees/`), Counterpart (commented out, so a copy does not ask
+about a paired repo until you enable it), Size excludes, Lens details, Server
+rendering, Refuters, Repo review material, Product consequences and Machine
+notes. Step 0 offers to create a file from it when a repo has none.
 
 ## 1. Locate the repo and its review worktree
 
-Take the repo's local checkout, worktree base and `--project` from the rules.
+Take the repo's local checkout, worktree base (`<checkout>.worktrees/` when the
+rules leave it out) and `--project` from the rules.
 Without rules, a session already inside a checkout whose `origin` is the MR's
 project uses that checkout, with `<repo>.worktrees/` as the worktree base and
 the project path from the MR URL as `--project`. A repo found neither way is
