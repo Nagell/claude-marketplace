@@ -245,8 +245,15 @@ are known.
    Create the rules folder if it is missing (`mkdir -p`), then write the file
    only if nothing is at `<expected>` yet (check first). When a file is
    already there, say so, use it and go to item 4 of this step.
-2. **Show it.** Print the full path and the file content.
-3. **Ask, one question at a time,** with **AskUserQuestion**:
+2. **Show it, where the user can see it.** A dialog covers the text printed
+   before it, so the path and the file go into the dialog itself: the first
+   question below names the file's full path, and its recommended option's
+   `preview` holds the whole file as it is now. Print both as reply text too,
+   in the same turn, for the scrollback.
+3. **Ask, one question at a time,** with **AskUserQuestion**, each one
+   carrying the full path in its question text and the current file in its
+   recommended option's `preview`, so every answer is given with the file in
+   view:
    - Unless the user passed a second MR URL or `--both` (which already name
      the other half): "Do this repo's changes ship together with MRs in
      another repo, such as the backend of this frontend?" `No (Recommended)`
@@ -258,8 +265,9 @@ are known.
      server rendering on or off)?" `Nothing (Recommended)` or free text. Write
      each point into the section it belongs to, replacing that section's
      comment, and show the change. Ask again until the answer is `Nothing`.
-4. **Re-read.** Run step 0a's `find_rules.py` command again and go on with its
-   output:
+4. **Re-read.** Run step 0a's `find_rules.py` command again, say in one line
+   "Rules file: `<full path>`" so the path stays in the scrollback, and go on
+   with its output:
    - `"path": null` (the write failed): say why, show the no-rules notice and
      go on without rules.
    - a paired repo was named but `"counterpart": false`: the heading is wrong;
