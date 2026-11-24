@@ -181,9 +181,9 @@ def trends(skill_runs):
             key = f"{a.get('model')} / {a.get('effort') or '?'}"
             by_model[key]["requests"] += a.get("requests", 0)
             by_model[key]["cost"] += a.get("cost") or 0.0
-        if r["own"]["requests"]:
-            by_model["main session"]["requests"] += r["own"]["requests"]
-            by_model["main session"]["cost"] += r["own"]["cost"]
+        for key, v in r["own"]["by_model"].items():
+            by_model[f"main session: {key}"]["requests"] += v["requests"]
+            by_model[f"main session: {key}"]["cost"] += v["cost"]
         reqs += r["total"]["requests"]
         over += r["total"]["over_100k"]
         unpriced += r["total"]["unpriced_requests"]
@@ -234,6 +234,8 @@ def run_detail(run):
         "run_id": run["run_id"], "start": run["start"], "end": run["end"], "session": run["session"],
         "project": run["project"], "cost": run["total"]["cost"], "requests": run["total"]["requests"],
         "unpriced_requests": run["total"]["unpriced_requests"], "nested_skills": run.get("nested_skills"),
+        "fast_requests": run["total"]["fast_requests"],
+        "model_switch": sorted(run["own"]["by_model"]) if len(run["own"]["by_model"]) > 1 else None,
         "largest_prompt": run["total"]["largest_prompt"], "over_100k": run["total"]["over_100k"],
         "unfinished": run["total"]["unfinished"], "run_json": run["run_json"],
         "findings_by_role": run.get("findings_by_role"),
@@ -262,8 +264,9 @@ def report(days=30, top=5, n_runs=5, projects_dir=scan.PROJECTS_DIR, scratch_roo
         missing = sum(r["total"]["unpriced_requests"] for r in skill_runs)
         if missing:
             notes.append(f"{missing} requests on models without a price count as $0, so this skill's cost and rank are too low")
+        latest = max(skill_runs, key=lambda r: r["start"] or "")["skill"]
         names = sorted({r["skill"] for r in skill_runs})
-        skills.append({"skill": names[-1], "skill_display": skill, "full_names": names, "trends": trends(skill_runs),
+        skills.append({"skill": latest, "skill_display": latest, "older_names": [n for n in names if n != latest], "trends": trends(skill_runs),
                        "runs": picked, "notes": notes})
     return {
         "estimate": True,

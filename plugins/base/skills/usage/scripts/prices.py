@@ -51,6 +51,7 @@ class PriceTable:
         seed = _read_table(seed_path)
         self.models = dict(seed["models"])
         self.seed_version = seed.get("version")
+        self.fast_multiplier = seed.get("fast_multiplier", 2.0)
         self.override_version = None
         self.override_error = None
         self.override_notes = []
@@ -110,12 +111,16 @@ def prompt_size(tokens):
     return tokens["input"] + tokens["cache_write_5m"] + tokens["cache_write_1h"] + tokens["cache_read"]
 
 
-def request_cost(table, model, tokens):
-    """USD for one request, on the long-prompt tier when the prompt is above its threshold. None when unpriced."""
+def request_cost(table, model, tokens, speed=None):
+    """USD for one request, on the long-prompt tier when the prompt is above its threshold. None when unpriced.
+
+    Fast mode (`usage.speed` "fast") costs `fast_multiplier` times the standard price.
+    """
     entry = table.lookup(model)
     if entry is None:
         return None
     lp = entry.get("long_prompt")
     if lp and prompt_size(tokens) > lp["threshold"]:
         entry = lp
-    return sum(tokens[f] * entry[f] for f in FIELDS) / 1e6
+    cost = sum(tokens[f] * entry[f] for f in FIELDS) / 1e6
+    return cost * table.fast_multiplier if speed == "fast" else cost

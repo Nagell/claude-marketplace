@@ -219,7 +219,7 @@ def collect_requests(entries, seen, table, counters, key="", since=None):
             reqs[mid] = {
                 "id": mid, "line": idx, "model": model, "effort": e.get("effort"),
                 "ts": parse_ts(e.get("timestamp")), "tokens": tokens,
-                "skill": e.get("attributionSkill"),
+                "skill": e.get("attributionSkill"), "speed": usage.get("speed"),
             }
         else:
             for f in TOKEN_FIELDS:
@@ -230,7 +230,7 @@ def collect_requests(entries, seen, table, counters, key="", since=None):
         if r is None:
             continue
         r["prompt"] = prices.prompt_size(r["tokens"])
-        r["cost"] = prices.request_cost(table, r["model"], r["tokens"])
+        r["cost"] = prices.request_cost(table, r["model"], r["tokens"], r["speed"])
         if r["cost"] is None and (since is None or (r["ts"] and r["ts"] >= since)):
             counters.unpriced[r["model"] or "unknown"] += 1
         out[mid] = r
@@ -239,7 +239,7 @@ def collect_requests(entries, seen, table, counters, key="", since=None):
 
 def empty_totals():
     return {"requests": 0, "tokens": {f: 0 for f in TOKEN_FIELDS}, "cost": 0.0,
-            "unpriced_requests": 0, "largest_prompt": 0, "over_100k": 0}
+            "unpriced_requests": 0, "largest_prompt": 0, "over_100k": 0, "fast_requests": 0, "by_model": {}}
 
 
 def add_request(tot, r):
@@ -253,6 +253,11 @@ def add_request(tot, r):
     tot["largest_prompt"] = max(tot["largest_prompt"], r["prompt"])
     if r["prompt"] > LONG_PROMPT:
         tot["over_100k"] += 1
+    if r.get("speed") == "fast":
+        tot["fast_requests"] += 1
+    m = tot["by_model"].setdefault(f"{r['model']} / {r.get('effort') or '?'}", {"requests": 0, "cost": 0.0})
+    m["requests"] += 1
+    m["cost"] += r["cost"] or 0.0
 
 
 def merge_totals(a, b):
@@ -263,6 +268,11 @@ def merge_totals(a, b):
     a["unpriced_requests"] += b["unpriced_requests"]
     a["largest_prompt"] = max(a["largest_prompt"], b["largest_prompt"])
     a["over_100k"] += b["over_100k"]
+    a["fast_requests"] += b.get("fast_requests", 0)
+    for k, v in b.get("by_model", {}).items():
+        m = a["by_model"].setdefault(k, {"requests": 0, "cost": 0.0})
+        m["requests"] += v["requests"]
+        m["cost"] += v["cost"]
 
 
 def iso(t):

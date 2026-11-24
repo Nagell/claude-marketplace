@@ -72,7 +72,13 @@ class TopSkills(ReportBase):
         self.assertEqual(t["runs"], 2)
         self.assertAlmostEqual(t["over_100k_share"], 1 / 3, places=3)
         self.assertEqual(list(t["per_month"]), ["2026-11"])
-        self.assertIn("main session", t["per_model_effort"])
+        self.assertIn("main session: claude-opus-5-5 / medium", t["per_model_effort"])
+
+    def test_model_switch_inside_a_run(self):
+        self.session("s1", [human(0), skill_load(0), asst("m1", 1, skill="x"),
+                            asst("m2", 2, skill="x", model="claude-sonnet-5-5")])
+        run = self.report()["skills"][0]["runs"][0]
+        self.assertEqual(run["model_switch"], ["claude-opus-5-5 / medium", "claude-sonnet-5-5 / medium"])
 
 
 class RunJson(ReportBase):
@@ -169,7 +175,7 @@ class Renamed(ReportBase):
                             human(10), skill_load(10), asst("m2", 11, skill="base:setup-zsh")])
         skills = self.report()["skills"]
         self.assertEqual(len(skills), 1)
-        self.assertEqual(skills[0]["full_names"], ["base-setup:setup-zsh", "base:setup-zsh"])
+        self.assertEqual((skills[0]["skill_display"], skills[0]["older_names"]), ("base:setup-zsh", ["base-setup:setup-zsh"]))
         self.assertEqual(skills[0]["trends"]["runs"], 2)
 
 

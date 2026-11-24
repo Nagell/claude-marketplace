@@ -81,6 +81,11 @@ class OverrideTests(TempHome):
                                        '"cache_write_1h": 1, "cache_read": 1}}}' % bad)
             self.assertIn("override_error", prices.PriceTable(prices.SEED_PATH, over).versions(), bad)
 
+    def test_fast_mode_doubles(self):
+        tk = prices.token_classes(usage(inp=1_000_000, out=0))
+        self.assertAlmostEqual(prices.request_cost(self.table, "claude-opus-5-5", tk, "fast"), 8.0)
+        self.assertAlmostEqual(prices.request_cost(self.table, "claude-opus-5-5", tk, "standard"), 4.0)
+
     def test_tier_boundary(self):
         at = prices.token_classes(usage(inp=0, out=0, read=100_000))
         above = prices.token_classes(usage(inp=0, out=0, read=100_001))

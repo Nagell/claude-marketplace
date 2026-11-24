@@ -1,6 +1,7 @@
 {
   "version": "2026-11-21",
   "unit": "USD per million tokens",
+  "fast_multiplier": 2.0,
   "models": {
     "claude-fable-5-2": {"input": 8.0, "output": 40.0, "cache_write_5m": 10.0, "cache_write_1h": 16.0, "cache_read": 0.2},
     "claude-mythos-5-2": {"input": 8.0, "output": 40.0, "cache_write_5m": 10.0, "cache_write_1h": 16.0, "cache_read": 0.2},
