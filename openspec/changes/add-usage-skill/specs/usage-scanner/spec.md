@@ -47,15 +47,23 @@ The scanner SHALL keep input, 5-minute cache write, 1-hour cache write, cache re
 - **THEN** the output shows each token class on its own
 
 ### Requirement: Skill runs and their agents
-The scanner SHALL group requests into skill runs. A run is a stretch of one session that works for one skill, from its invocation until the next typed prompt. An assistant line without `attributionSkill` inside an open run SHALL stay in that run. Each agent started inside a run SHALL belong to that run. A nested agent SHALL belong to its parent agent's run through `parentAgentId`. Requests outside any skill SHALL be grouped as "no skill".
+The scanner SHALL group requests into skill runs. A run is a stretch of one session that works for one skill, from its invocation until the next typed prompt. An assistant line without `attributionSkill` inside an open run SHALL stay in that run. A skill loaded inside an open run SHALL stay in that run. Each agent started inside a run SHALL belong to that run. A nested agent SHALL belong to its parent agent's run through `parentAgentId`. Requests outside any skill SHALL be grouped as "no skill".
 
 #### Scenario: Skill with agents
 - **WHEN** a session invokes `review-mr` and the run starts nine agents
 - **THEN** the scanner reports one `review-mr` run with nine agents and their requests
 
 #### Scenario: Same skill twice
-- **WHEN** one session runs `review-mr`, the user types a new prompt, and `review-mr` runs again
+- **WHEN** one session runs `review-mr`, the user types a new prompt, and `review-mr` is invoked again
 - **THEN** the scanner reports two runs
+
+#### Scenario: Reply typed during a run
+- **WHEN** the run's last turn asks the user something, the user answers, and the next lines carry no skill and no new invocation
+- **THEN** the scanner reports one run that includes those lines
+
+#### Scenario: Nested skill
+- **WHEN** a `review-mr` run loads `writing-style-guide` and then continues as `review-mr`
+- **THEN** the scanner reports one `review-mr` run that lists `writing-style-guide` as nested
 
 #### Scenario: Gaps in attribution
 - **WHEN** a run has attributed assistant lines with unattributed ones between them and no typed prompt
@@ -80,15 +88,19 @@ When assistant lines lack `attributionSkill`, a run SHALL start at a `Skill` too
 - **THEN** no run starts and its requests stay under "no skill"
 
 ### Requirement: Per-agent details
-For each agent in a run the scanner SHALL report its role (agent type and description), the model it actually used, its effort, requests, token classes, largest prompt, requests over 100k prompt tokens, duration, estimated cost the number of lines starting with `Unfinished:` in its final reply, and the meta `finished` field when present. When no agent of a skill uses the `Unfinished:` convention, the count SHALL be n/a.
+For each agent in a run the scanner SHALL report its role (agent type and description), the model it actually used, its effort, requests, token classes, largest prompt, requests over 100k prompt tokens, duration, estimated cost, the number of lines starting with `Unfinished:` in its final reply and its report file, and the meta `finished` field when present. The `Unfinished:` count SHALL apply to `review-mr` only; for other skills it SHALL be n/a.
 
 #### Scenario: Agent overwhelmed
 - **WHEN** an agent's final reply starts with an `Unfinished:` line and its largest prompt is 140k tokens
 - **THEN** its details show one `Unfinished:` line, a largest prompt of 140k and its count of requests over 100k
 
 #### Scenario: Convention not used
-- **WHEN** no agent of a skill ever wrote an `Unfinished:` line
+- **WHEN** a skill other than `review-mr` runs agents
 - **THEN** that skill's agents show the `Unfinished:` count as n/a
+
+#### Scenario: Line in the report file
+- **WHEN** a `review-mr` agent writes `Unfinished: a.py` into its report file and replies with only the path
+- **THEN** its details show one `Unfinished:` line
 
 ### Requirement: Prompt size and long-prompt tier
 The scanner SHALL measure each request's prompt as input plus cache write plus cache read tokens. When the model's price entry has a long-prompt tier, a request whose prompt is above the tier threshold SHALL be priced at that tier. Haiku 5.5 has such a tier above 100k tokens.
@@ -121,7 +133,7 @@ The scanner SHALL expose its price lookup, its per-request cost and a per-agent 
 
 #### Scenario: Report prices a review agent
 - **WHEN** the report prices one agent listed in a `review-mr` `run.json`
-- **THEN** it calls the scanner's summary function and gets the same numbers the scanner reports for that agent
+- **THEN** its numbers are the scanner's numbers for that agent, which come from the summary function
 
 ### Requirement: Tolerant parsing
 The scanner SHALL skip a line it cannot parse, or a line that lacks a field it needs, and SHALL report the number of skipped lines in its output. It SHALL NOT stop or alert on a threshold.
