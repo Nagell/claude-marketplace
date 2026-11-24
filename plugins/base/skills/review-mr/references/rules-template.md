@@ -8,10 +8,14 @@ applies-to: [<repo>]
 
 <!--
 How review-mr uses this file: it reads it whole as instructions for the
-review. Every section is optional - delete what you do not need. Comments
-like this one are notes for you; replace a section's comment with your text
-when you fill it in. The one
-heading a script reads is "## Counterpart" (see below), so keep that spelling.
+review. Every section is optional, and an empty one is fine: start with only
+the Repos row. Fill a section when a review gets something wrong for this
+repo - it read generated files line by line (Size excludes), missed what
+matters here (Lens details), graded a finding too high or too low (Product
+consequences) - and write the rule that would have avoided it, in plain
+words. Comments like this one are notes for you; replace a section's comment
+with your text. The one heading a script reads is "## Counterpart" (see
+below), so keep that spelling.
 -->
 
 <!--
