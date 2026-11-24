@@ -136,7 +136,7 @@ Finish mode is offered on a re-review where only a couple of mediums and some lo
 
 ### What a run does
 
-1. Asks which engine (Claude, Codex or both) and what effort to use, and whether to review a paired MR in full or only the boundary between the two. The effort sets the Opus roles and the Codex `--effort`.
+1. Asks which engine (Claude, Codex or both) and what effort to use. When the repo's rules name a paired repo, it also asks whether to review the paired MR in full or only the boundary between the two; when the repo has no rules file, it offers to create one. The effort sets the Opus roles and the Codex `--effort`.
 2. Checks the MR out at its head in a `reviews` worktree, and diffs against the MR's own merge base rather than `main`.
 3. Reads the existing threads first, so a re-review checks earlier findings instead of repeating them.
 4. Cuts the changed files into slices of about 400 lines of whole files, one tool contract or component each. One slice owner per slice applies every lens, on Haiku at max effort (Opus with `--fast`). There are no whole-MR lens agents and no cross-file agent; a contract agent runs only when a paired MR exists. Each brief lists the repo's own instruction files (`CLAUDE.md`, `AGENTS.md`, Copilot and Cursor rules) that apply to the slice.
@@ -172,7 +172,9 @@ A rules file can name:
 - examples of product consequences
 - machine notes
 
-`skills/review-mr/SKILL.md` (step 0a) documents the format with a full example. When no rules file matches, the review shows a framed notice with the exact path it looked for, then continues without rules.
+The template `skills/review-mr/references/rules-template.md` has every section with a comment on what it does; all of them are optional. The paired-repo section (`## Counterpart`) is commented out, since it switches on the question about a paired MR. The worktree base defaults to `<checkout>.worktrees/`.
+
+When a repo has no rules file, the review shows a framed notice with the exact path it looked for, and the first review offers to create one from the template. On **Create**, it fills in the repo, checkout and project id (`-` for anything it can't find out), shows you the file, asks whether the repo has a paired repo and whether to add anything, then reviews with it. On **Not for this repo**, the repo goes into `.declined` in the rules folder, so you are not asked again; delete its line there to get the offer back. The rules folder is `~/.claude/review-rules/`, or `REVIEW_RULES_DIR` when that is set.
 
 ### Platforms
 

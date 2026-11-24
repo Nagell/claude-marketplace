@@ -12,7 +12,13 @@ Lookup order:
 
 Prints one JSON object:
   {"repo": ..., "path": <file or null>, "expected": <rules dir>/<repo>.md,
-   "matched_by": "name" | "applies-to" | null, "skipped": [...]}
+   "matched_by": "name" | "applies-to" | null, "skipped": [...],
+   "counterpart": <bool>, "declined": <bool>}
+
+``declined`` is true when the repo is listed in ``<rules dir>/.declined``, one
+name per line: the user said no to creating a rules file for it. An unreadable
+``.declined`` is listed in ``skipped``. ``--decline`` adds the repo to that
+list first (creating the folder and the file when missing).
 
 ``skipped`` lists files whose frontmatter could not be read, with the reason,
 so a typo in a rules file does not read like "no rules for this repo". A file
@@ -34,7 +40,7 @@ DEFAULT_DIR = "~/.claude/review-rules"
 
 
 def rules_dir() -> Path:
-    return Path(os.environ.get("REVIEW_RULES_DIR", DEFAULT_DIR)).expanduser()
+    return Path(os.environ.get("REVIEW_RULES_DIR") or DEFAULT_DIR).expanduser()
 
 
 def repo_name_from_url(url: str) -> str:
@@ -128,15 +134,55 @@ def has_counterpart(path: Path) -> bool:
         text = path.read_bytes().decode("utf-8-sig", "replace")
     except OSError:
         return False
-    text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
     fence = None
+    comment = False
     for line in text.splitlines():
+        if comment:
+            # the line holding the closing marker still belongs to the comment
+            # block, as in Markdown, so nothing on it can be a heading
+            if "-->" in line:
+                comment = False
+            continue
         m = _FENCE.match(line)
         if m:
             fence = None if fence == m.group(1) else (fence or m.group(1))
-        elif fence is None and _HEADING.match(line):
+            continue
+        if fence is not None:
+            continue
+        line = re.sub(r"<!--.*?-->", "", line)
+        if "<!--" in line:
+            comment, line = True, line.split("<!--", 1)[0]
+        if _HEADING.match(line):
             return True
     return False
+
+
+def is_declined(repo: str, folder: Path) -> bool:
+    """True when ``<folder>/.declined`` lists the repo on a line of its own.
+
+    A missing file means nothing is declined. Any other read error raises
+    ``OSError``, so the caller can report it instead of offering again.
+    """
+    try:
+        text = (folder / ".declined").read_bytes().decode("utf-8-sig", "replace")
+    except FileNotFoundError:
+        return False
+    return repo in {line.strip() for line in text.splitlines()}
+
+
+def decline(repo: str, folder: Path) -> None:
+    """Add the repo to ``<folder>/.declined``, creating both when missing."""
+    if is_declined(repo, folder):
+        return
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / ".declined"
+    lead = ""
+    if path.exists() and path.stat().st_size:
+        with path.open("rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            lead = "" if fh.read(1) == b"\n" else "\n"
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(f"{lead}{repo}\n")
 
 
 def find(repo: str, folder: Path) -> dict:
@@ -169,10 +215,19 @@ def main() -> None:
     p.add_argument("--repo-name", default=None,
                    help="use this name instead of reading the origin remote, "
                         "e.g. the last segment of the MR's project path")
+    p.add_argument("--decline", action="store_true",
+                   help="add the repo to <rules dir>/.declined, then print as usual")
     a = p.parse_args()
     repo = a.repo_name or repo_name_from_git(a.repo_dir)
+    if a.decline:
+        decline(repo, rules_dir())
     result = find(repo, rules_dir())
     result["counterpart"] = bool(result["path"]) and has_counterpart(Path(result["path"]))
+    try:
+        result["declined"] = is_declined(repo, rules_dir())
+    except OSError as e:
+        result["declined"] = False
+        result["skipped"].append({"path": str(rules_dir() / ".declined"), "reason": str(e)})
     print(json.dumps(result, indent=2))
 
 
