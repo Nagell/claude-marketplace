@@ -120,7 +120,7 @@ The models mode SHALL run the benchmark only for models that have no stored resu
 - **THEN** only the new model runs, and the comparison uses the stored Haiku 5.5 max result
 
 ### Requirement: At most two efforts per new model
-For each new model the mode SHALL run at most 2 efforts: the effort with the lowest cost per index point on Artificial Analysis, and the effort that matches real use in report mode's data. When both are the same, it SHALL run 1 effort.
+For each new model the mode SHALL run at most 2 efforts: the effort with the lowest cost per index point among Artificial Analysis coding-agent rows (the models page counts only for max), and the effort that matches real use in report mode's data. When both are the same, it SHALL run 1 effort.
 
 #### Scenario: Same effort twice
 - **WHEN** the best Artificial Analysis effort and the most used effort are both `high`

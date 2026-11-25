@@ -93,7 +93,7 @@ Per task, candidates are ranked by cost per finished task, then wall time per ta
 
 `bench.py plan <case> [--setup <id>]` reads the case's `results.json`. The default setup is the one of the current model's result. It lists models without a result in that setup. Per new model it picks at most 2 efforts:
 
-1. The effort with the lowest cost per index point on Artificial Analysis.
+1. The effort with the lowest cost per index point among Artificial Analysis coding-agent rows. The models page is used only for max: a model listed there at max only prints "Effort not listed" for its lower efforts.
 2. The effort used most for the case's skill in report mode's data (most frequent `effort` of that skill's agents in the scan window).
 
 Equal picks collapse to 1. Each pick runs once. After scoring, a repeat is proposed only when the result is within 2 key bugs of the current model for that task.
@@ -106,7 +106,9 @@ Cost estimate per run: the stored cost of the closest older run in the same setu
 
 `claude -p --model <id> --effort <level> --output-format json` in a fresh `mktemp -d` folder per agent, because the Agent tool offers only aliases and older models need full ids. The snapshot is copied in without the key, and the folder is removed after the run.
 
-The briefs need Bash: review-mr's brief tells reviewers to run scripts against stubs in /tmp. So the tool flags are `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, plus `--disallowedTools` deny rules for every copy of the key: the case folder in the repo checkout, the installed plugin copy under `~/.claude/plugins/`, `~/.claude/model-bench/` and the old scratchpad `exp2-key/`. The temp folder only keeps the key out of the working folder; the deny rules stop reads by absolute path. Task 3.3's dry run confirms the exact flags and whether `--bare` (no plugin hooks such as safety-guards) is wanted.
+The briefs need Bash: review-mr's brief tells reviewers to run scripts against stubs in /tmp. So the tool flags are `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, plus `--disallowedTools` deny rules for every copy of the key: the case folder in the repo checkout, the installed plugin copy under `~/.claude/plugins/`, `~/.claude/model-bench/` and the old scratchpad `exp2-key/`. The temp folder only keeps the key out of the working folder; the deny rules stop reads by absolute path. Each call also gets `--strict-mcp-config` (no MCP servers) and `--settings '{"enabledPlugins": {...}}'` that switches off every plugin enabled in `~/.claude/settings.json` except base, so the start context is close to a real review subagent's (dry run: about 10.5k input tokens on the first request, about 410k before the trim). `--bare` is not used: it needs `ANTHROPIC_API_KEY`, and runs use the subscription login.
+
+Final flags, confirmed by task 3.3's dry run: `claude -p --model <id> --effort <level> --output-format json --tools "Read,Grep,Glob,Bash" --permission-mode dontAsk --strict-mcp-config --settings <plugins off> --disallowedTools <key deny rules> -n bench-<case>-<run>-<role> --max-budget-usd <remaining cap>`.
 
 Each call gets `-n bench-<case>-<run>`, which writes a `{"type":"custom-title","customTitle":"bench-..."}` line, so the scanner can leave benchmark sessions out. `--no-session-persistence` is not used, because `summarize_agent` needs the transcript. `bench.py` finds the transcript at `~/.claude/projects/<slug of the temp folder path>/<session_id>.jsonl`, with `session_id` from the JSON output. Real cost comes from `summarize_agent` on that transcript; the JSON output's cost is a cross-check. Wall time per agent is active time with gaps over 5 minutes left out. `bench.py` reimplements that rule from `runs/walltime.py`, which hardcodes one subagent folder, and applies it to the run's own transcripts.
 
@@ -152,6 +154,14 @@ The mode prints a `## Models` list, one line per task, for example:
 
 Only tasks with evidence get a line; others keep their current line. It shows one diff over two places and asks once. On yes it writes the same section into `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md`, replacing an existing `## Models` section, else appending one, and updates the rows of review-mr's fallback role table (`plugins/base/skills/review-mr/SKILL.md`, step 4) that the `- Review` lines cover. review-mr reads those lines when present, so the table only matters for a machine without them; keeping it in line stops the two from drifting. Rejected: different content per file (the user keeps them identical), a report or table as output (the user wants usable data only), leaving the role table alone (it would go stale after the first model change).
 
+### 11. Apply-time choices
+
+- Cost per caught bug uses the strict caught count, and the cost includes the refuter.
+- Slices are packed in file path order.
+- Each run's temp folder is a git repo: an empty base commit, then the snapshot as head.
+- The checker's cost counts against the cap but not against the run's cost.
+- Lines in a rule list that name no Claude model are dropped.
+
 ## Risks / Trade-offs
 
 - [One case, 14 bugs] → each bug moves recall by 7 points; differences under 2 bugs trigger a repeat, not a rule.
@@ -172,4 +182,4 @@ The first case moves from `~/.claude/model-bench/review-hooks-browser/` into the
 
 ## Open Questions
 
-- Answered on 2026-11-22: Artificial Analysis lists Sonnet 5.5 at low, medium, high, xhigh and max ("Default Fallback" variants). Opus 5.5 and Haiku 5.5 appear only at max. Task 2.2 checks this again against the free API and the page data.
+None. The effort question is settled in decision 6: effort picks come from Artificial Analysis coding-agent rows (Sonnet 5.5 at low to max; Opus 5.5 and Haiku 5.5 only at max on the models page as of 2026-11-22).
