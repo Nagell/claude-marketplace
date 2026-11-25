@@ -98,6 +98,21 @@ It fetches Anthropic's pricing page (URL in `sources.json`), maps display names 
 
 When `added` or `changed` is not empty, ask one AskUserQuestion: `Update ~/.claude/usage/prices.json (Recommended)` or `Keep the current table`. On yes run `python3 $SKILL_DIR/scripts/models.py --prices --write` (atomic; only those models change, other keys are kept) and confirm in one line. On no, nothing is written and the run uses the current table.
 
+### M3. External data
+
+Before any fetch, check whether `AA_API_KEY` is set (`test -n "$AA_API_KEY"`; never print it). When it is not set, ask one AskUserQuestion first:
+
+- `I'll paste a key (Recommended)` - Artificial Analysis gives a free API key after a free sign-up; get it at https://artificialanalysis.ai/data-api. The free tier covers the models list (index score and cost to run per model and effort, 100 requests a day). The key is used for this run only and is not stored.
+- `No key, read the page` - the scores come from the public page, which lists fewer efforts.
+
+Then run, with a pasted key only in the command's environment:
+
+```bash
+AA_API_KEY='<pasted key>' python3 $SKILL_DIR/scripts/models.py --external   # or without the variable
+```
+
+Say which `path` was used (`free API` or `page`). A Pro+ endpoint answering 403 is reported in `notes` as `free tier`; that is expected, not an error. Name every entry in `skipped` (a source that did not answer) and go on without it. Show `effort_coverage` notes ("Effort not listed: ...") for the models you discuss. Rows tagged `reference` (other vendors) are context only: never benchmark them and never put them in the rule list. Credit Artificial Analysis when you show its numbers (`attribution`). Raw fetches with their hashes are under `~/.claude/model-bench/external/<date>/`; when a hash differs from the last run and the rows look wrong, say the page layout may have changed.
+
 ## Tests
 
 ```bash
