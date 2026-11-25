@@ -2,26 +2,19 @@
 
 ## Context
 
-See proposal.md for why. This change builds on `add-usage-skill` and reuses the still-valid research of the deleted `add-model-guidance`.
+See proposal.md for why. This change builds on `add-usage-skill` (merged and archived as `2026-11-24-add-usage-skill`) and reuses the still-valid research of the deleted `add-model-guidance`.
 
-- `add-usage-skill` ships `plugins/base/skills/usage/` with SKILL.md (mode question: `report (Recommended)`, then `models` marked not available), `scripts/scan.py` (transcripts, dedupe, runs, agents, `summarize_agent(path)`), `scripts/prices.py` (seed table, per-model override `~/.claude/usage/prices.json`, Haiku 100k tier) and `scripts/report.py` (top skills by spend, model and effort per skill, trends, outliers). Stdlib Python 3.9, `unittest`.
+- `add-usage-skill` shipped `plugins/base/skills/usage/` with SKILL.md (mode question: `report (Recommended)`, then `models` marked not available), `scripts/scan.py` (transcripts, dedupe, runs, agents, `summarize_agent(path)`), `scripts/prices.py` (seed table, per-model override `~/.claude/usage/prices.json`, Haiku 100k tier) and `scripts/report.py` (top skills by spend, model and effort per skill, trends, outliers). Stdlib Python 3.9, `unittest`.
 - Effort does not change per-token price. It changes token counts and tool calls, so effort effects come from measurement.
-- The first case exists at `~/.claude/model-bench/review-hooks-browser/`: `snap/` (2,905 lines), `answer-key.md` (14 bugs from later fix commits), `brief.md`, `brief-D-addendum.md` (run D's lens), `checker-brief.md`, `refuter-brief.md`, `cost.py`, `runs/` (with `walltime.py`) and `RESULTS.md` with runs B to F. The case belongs to the `review-mr` skill.
-- The stored briefs only work in the old session. `brief.md`, `checker-brief.md` and `refuter-brief.md` hardcode that session's scratchpad (`exp2/snap/`, `exp2-key/`) and transcript folder. `checker-brief.md` hardcodes "4 reports". `walltime.py` hardcodes one subagent folder. No slicing file exists: run D's 7 slices exist only as report names. A reboot can clear the scratchpad.
-- RESULTS.md has no checker model or effort, no date for runs B to D and no hashes. B's over-100k share is "n/a" (Opus has a flat price). Wall time for B to E is active time with gaps over 5 minutes left out (`walltime.py`). F's 9.2 min is in the notes.
-- Baseline from RESULTS.md (key caught strict, real cost, cost per caught key bug, slowest agent):
-
-| Run | Setup | Caught | Cost | Per bug | Slowest |
-|---|---|---|---|---|---|
-| B | Opus 5.5 medium, 3 slices + cross-file | 6 | $6.38 | $1.06 | 8.9 min |
-| C | Haiku 5.5 max, same slices | 7 | $3.34 | $0.48 | 23.1 min |
-| D | Haiku 5.5 max, 7 small slices + lens | 13 | $5.08 | $0.39 | 23.7 min |
-| E | Haiku 5.5 max, 3 slices + lens | 9 | $4.25 | $0.47 | 32.9 min |
-| F | Opus 5.5 medium, 3 slices + lens | 9 | $6.99 | $0.78 | 9.2 min |
+- The first case exists outside the repo at `~/.claude/model-bench/review-hooks-browser/`: `snap/` (20 files, 2,905 lines), `answer-key.md` (14 bugs from later fix commits), `brief.md`, `brief-D-addendum.md` (run D's lens), `checker-brief.md`, `refuter-brief.md`, `cost.py`, `runs/` (with `walltime.py` and `check-B.md` to `check-I.md`) and `RESULTS.md` with runs B to I. The case belongs to the `review-mr` skill.
+- The stored briefs only work in the old session. `brief.md`, `checker-brief.md` and `refuter-brief.md` hardcode that session's scratchpad (`exp2/snap/`, `exp2-key/`) and transcript folder. `checker-brief.md` hardcodes "4 reports" and names no checker model. `answer-key.md` points into the source repo instead of quoting the fixes. `walltime.py` hardcodes one subagent folder. A reboot can clear the scratchpad.
+- Snapshot sources: the browser files match commit `0dc4655`, the parent of fix `05e0493`. The source commit of the 5 hook files is not recorded yet.
+- RESULTS.md has no checker model or effort, no date for runs B to D and no hashes. Runs B to H used different briefs and slicings (3 slices with or without a cross-file agent, D's 7 named slices, PR #251's first brief). They are history, not comparable setups.
+- Reference point: run I. Haiku 5.5 max, the older slice brief from commit `c3f54be` (PR #251's brief with D's lens and context wording restored), run D's 7 hand-cut slices plus run-it, Opus 5.5 medium refuter. 12 key bugs caught strict, 2 partial, 0 missed of 14 (13 with partials at half), all 4 highs. $7.89, $11.59 with the refuter ($3.70). Slowest agent 26.9 min. Run I is not the baseline of `review-mr-v1`: v1 uses review-mr's current brief, which gained lines since `c3f54be` (commits `c7930ea`, `38eebcc`, `f8ce2b0`), and the size rule instead of hand-cut slices. Haiku 7-slice range of runs D, G and I: 10 to 13 strict of 14, all 4 highs.
 
 - Refuter test on run F: Opus medium gave the same verdicts as Opus high on 34 of 35 findings for 37% less ($1.74 vs $2.76). That is the reason for an Opus medium checker. Single sample.
-- `improve-review-mr` task 11.1 reruns this case with a new brief and slicing rule. Its rows go to the same case under a new setup.
-- The repo is public. Cases and keys stay under `~/.claude/model-bench/`.
+- `improve-review-mr` task 11.1 was done: it reran this case as runs G, H and I.
+- The repo is public. The case moves into it so it survives reboots and new machines; the key comes from public fix commits, so moving it exposes nothing new. `~/.claude/model-bench/` keeps only run outputs and raw external fetches.
 - The user is on a subscription with a 5-hour window. Benchmark runs use it.
 - Both `~/.claude/CLAUDE.md` and `plugins/base/CLAUDE.md` have a `## Models` section. review-mr reads its `- Review slices:`, `- Review refuters:` and `- Review with --fast:` lines when present, and falls back to the role table in its SKILL.md step 4.
 
@@ -41,6 +34,8 @@ See proposal.md for why. This change builds on `add-usage-skill` and reuses the 
 - Re-running stored results, variance studies or three repeats per finalist.
 - Plan-window measurement.
 - A paid Artificial Analysis tier. The free key is enough.
+- `~/.claude/model-bench/pr-238/`. It is not a case and is left alone.
+- Ranking runs B to H. They stay in RESULTS.md as history.
 
 ## Decisions
 
@@ -52,14 +47,15 @@ plugins/base/skills/usage/
   sources.json          external source registry
   scripts/models.py     usage per skill, price check diff, AA fetch, ranking inputs (CLI, JSON out)
   scripts/bench.py      plan runs, cost estimate, cap check, run, store result (CLI)
+  references/bench/<case>/   snapshot, provenance, answer key, templates, setups, results (decision 9)
   tests/                unittest + fixtures (saved pricing page, AA responses, AA page data, case folder)
 ```
 
-Both scripts import `scan.py`, `prices.py` and `report.py` by path, as improve-review-mr's planned `run_cost.py` will. The model does judgment: reading footnotes, choosing tasks, writing the rule list. Scripts do the numbers. Rejected: a separate `model-guidance` skill (a second copy of usage reading and prices).
+Both scripts import `scan.py`, `prices.py` and `report.py` by path. The model does judgment: reading footnotes, choosing tasks, writing the rule list. Scripts do the numbers. Rejected: a separate `model-guidance` skill (a second copy of usage reading and prices).
 
 ### 2. Usage
 
-`models.py --usage` calls `report.py`'s per-skill aggregate and prints, per top skill, the model and effort used most and the cost per run. Each case names its skill in `results.json` (`"skill": "review-mr"` for the first case), so the benchmark plan can find that skill's most used effort. Sessions tagged as benchmark runs (decision 7) are left out.
+`models.py --usage` calls `report.py`'s `report()` for the top skills and their runs and `trends()` for the per-model and per-effort split, and prints, per top skill, the model and effort used most and the cost per run. Each case names its skill in `results.json` (`"skill": "review-mr"` for the first case), so the benchmark plan can find that skill's most used effort. Benchmark sessions (decision 7) are left out by the scanner, so both modes skip them.
 
 ### 3. Prices
 
@@ -87,7 +83,7 @@ Key: `models.py --external` reads `AA_API_KEY`, the name Artificial Analysis use
 
 With a free key, `/language/models/free` gives the index score and cost to run per model and effort. Time per task and the coding-agent rows come from the page's embedded data. The pages are JavaScript rendered, so the parser reads the embedded JSON, tested against a saved fixture. The mode calls the Pro+ endpoints once; a 403 is expected on a free key, is reported as "free tier" and is not an error. The mode prints which path it used.
 
-Rows carry vendor, model, effort, metric, URL and date. Raw fetches go to `~/.claude/model-bench/external/<date>/` with a hash, so a layout change is noticed. A failing source is named and skipped. Rows for other vendors are tagged `reference` and never reach the run plan or the rule list.
+Rows carry vendor, model, effort, metric, URL and date. Raw fetches go to `~/.claude/model-bench/external/<date>/` (outside the repo) with a hash, so a layout change is noticed. A failing source is named and skipped. Rows for other vendors are tagged `reference` and never reach the run plan or the rule list.
 
 ### 5. Ranking
 
@@ -104,33 +100,40 @@ Equal picks collapse to 1. Each pick runs once. After scoring, a repeat is propo
 
 The current model for a task is the model and effort named in the `## Models` line for that task, once that section exists. Before that, it is the best-ranked stored result for the case in the chosen setup.
 
-Cost estimate per run: the stored cost of the closest older run in the same setup, scaled by the new model's price relative to that run's model from `prices.py` (Haiku tier included at the stored over-100k share). The review case costs about $4 to $7 per run. `bench.py` prints the plan with estimates and total, and the skill asks for a cap through AskUserQuestion. `bench.py run --cap <usd>` stops before a run whose estimate would pass the remaining cap. Each `claude -p` call also gets `--max-budget-usd` set to the remaining cap, so a run that overspends is stopped by the CLI.
+Cost estimate per run: the stored cost of the closest older run in the same setup, scaled by the new model's price relative to that run's model from `prices.py` (Haiku tier included at the stored over-100k share). The review case costs about $8 per run, $12 with the refuter (run I, older setup). `bench.py` prints the plan with estimates and total, and the skill asks for a cap through AskUserQuestion. `bench.py run --cap <usd>` stops before a run whose estimate would pass the remaining cap. Each `claude -p` call also gets `--max-budget-usd` set to the remaining cap, so a run that overspends is stopped by the CLI.
 
 ### 7. Runner
 
 `claude -p --model <id> --effort <level> --output-format json` in a fresh `mktemp -d` folder per agent, because the Agent tool offers only aliases and older models need full ids. The snapshot is copied in without the key, and the folder is removed after the run.
 
-The briefs need Bash: `brief.md` tells reviewers to run scripts against stubs in /tmp. So the tool flags are `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, plus `--disallowedTools` deny rules for the key paths: `~/.claude/model-bench/` and any other copy of the key, such as the old scratchpad `exp2-key/`. The temp folder only keeps the key out of the working folder; the deny rules stop reads by absolute path. Task 3.2's dry run confirms the exact flags and whether `--bare` (no plugin hooks such as safety-guards) is wanted.
+The briefs need Bash: review-mr's brief tells reviewers to run scripts against stubs in /tmp. So the tool flags are `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, plus `--disallowedTools` deny rules for every copy of the key: the case folder in the repo checkout, the installed plugin copy under `~/.claude/plugins/`, `~/.claude/model-bench/` and the old scratchpad `exp2-key/`. The temp folder only keeps the key out of the working folder; the deny rules stop reads by absolute path. Task 3.3's dry run confirms the exact flags and whether `--bare` (no plugin hooks such as safety-guards) is wanted.
 
-Each call gets `-n bench-<case>-<run>`, so report mode can leave benchmark sessions out. `--no-session-persistence` is not used, because `summarize_agent` needs the transcript. `bench.py` finds the transcript at `~/.claude/projects/<slug of the temp folder path>/<session_id>.jsonl`, with `session_id` from the JSON output. Real cost comes from `summarize_agent` on that transcript; the JSON output's cost is a cross-check. Wall time per agent is active time with gaps over 5 minutes left out, as `walltime.py` measured runs B to E.
+Each call gets `-n bench-<case>-<run>`, which writes a `{"type":"custom-title","customTitle":"bench-..."}` line, so the scanner can leave benchmark sessions out. `--no-session-persistence` is not used, because `summarize_agent` needs the transcript. `bench.py` finds the transcript at `~/.claude/projects/<slug of the temp folder path>/<session_id>.jsonl`, with `session_id` from the JSON output. Real cost comes from `summarize_agent` on that transcript; the JSON output's cost is a cross-check. Wall time per agent is active time with gaps over 5 minutes left out. `bench.py` reimplements that rule from `runs/walltime.py`, which hardcodes one subagent folder, and applies it to the run's own transcripts.
 
-The brief and the slices come from the run's setup (decision 9), filled in with the temp folder paths.
+The brief and the slices come from the run's setup (decision 9): the brief template filled in with the temp folder paths, and slices cut from the snapshot by the setup's size rule.
 
 ### 8. Checker
 
-Opus 5.5 at medium, fixed per case, with the case's checker brief template and `answer-key.md`. It writes caught, partial or missed per key item and real, false or unsettled per other finding. `results.json` records the checker model and effort and the checker brief and key hashes per run, so a change is visible.
+Opus 5.5 at medium, pinned in the case's checker brief template and used with the case's `answer-key.md`. It writes caught, partial or missed per key item and real, false or unsettled per other finding. `results.json` records the checker model and effort and the checker brief and key hashes per run, so a change is visible.
 
 ### 9. Case storage and setups
 
-The existing case folder keeps its files. A task turns `brief.md`, `brief-D-addendum.md`, `checker-brief.md` and `refuter-brief.md` into templates with path placeholders (`{snap}`, `{reports}`, `{key}` and a report count). Each setup gets `setups/<setup>/slices.json`: setup name, version, file list per slice, brief template and addendum. The first case starts with three setups, all at version 1:
+Each case lives in the repo at `plugins/base/skills/usage/references/bench/<case>/`, so it does not depend on a session scratchpad or the source repo. The first case, `review-hooks-browser`, holds:
 
-- `3-slices-xfile` (runs B and C): 3 slices plus a cross-file agent, no lens.
-- `7-slices-lens` (run D): run D's 7 slices and `brief-D-addendum.md`.
-- `3-slices-lens` (runs E and F): 3 slices plus `brief-D-addendum.md` (both runs read it; their spawn prompts are in the session transcript).
+- `snap/`: the 20 snapshot files (2,905 lines), copied from the old folder.
+- `provenance.md`: each snapshot file with its source commit. The browser files come from `0dc4655`, the parent of fix `05e0493`. The 5 hook files get their source commit at apply time, or "snapshot only" when none matches.
+- `answer-key.md`: self-contained. Each of the 14 bugs has id, severity, mechanism, file and line in the snapshot, the fixing commit and the fix excerpt as a diff hunk.
+- `checker-brief.md` and `refuter-brief.md`: templates with placeholders (`{snap}`, `{reports}`, `{key}`, `{report_count}`). The checker brief names Opus 5.5 medium as the checker.
+- `setups/<setup>.json`: one file per setup.
+- `results.json` and `RESULTS.md`: the result history, moved from the old folder.
 
-A setup id is the setup name and version plus the hashes of its brief, addendum and `slices.json`. Results are compared only within one setup, so runs B to F stay valid next to later runs. A changed brief or slicing is a new setup or version, not an edit. If a hash no longer matches a stored setup id, or the checker, checker brief, key or snapshot changed, the affected results are marked not comparable and the user decides.
+A setup is review-mr's slice brief version plus its size-based slicing rule (review-mr SKILL.md step 2a: about 400 lines of whole files per slice, hard limit about 700), not a slice count. The setup file holds name, version, the brief template (review-mr's slice brief with placeholders), the size rule, the extra agents (run-it) and the refuter (Opus 5.5 medium). `bench.py` cuts the slices from the snapshot with the size rule at run time. The first case starts with one setup, `review-mr-v1`: review-mr's current slice brief (`plugins/base/skills/review-mr/references/agent-brief.md` at main) and its current size rule.
 
-A new `results.json` per case holds the case's `skill` and one entry per run: id, model, effort, setup id, caught strict and with partials, real cost, slowest-agent minutes, wall-time method, over-100k share, checker, checker brief hash, key hash, date. It is seeded from every RESULTS.md row present at apply time, including rows that improve-review-mr 11.1 added. For seeded rows B to F, `checker` and missing dates are `null`, B's over-100k share is `null`, and the hashes are taken from the templates at seeding as the baseline. RESULTS.md stays as the human log and gets one line per new run.
+A setup id is the setup name and version plus the hashes of its brief template and setup file. Results are compared only within one setup. A later change to review-mr's brief or size rule is a new setup version, not an edit. If a hash no longer matches a stored setup id, or the checker, checker brief, key or snapshot changed, the affected results are marked not comparable and the user decides.
+
+`results.json` holds the case's `skill` and one entry per run: id, model, effort, setup id, caught strict and with partials, real cost with and without the refuter, slowest-agent minutes, wall-time method, over-100k share, checker, checker brief hash, key hash, date. It is seeded empty. The setup id's hashes are taken from the current templates at seeding, and missing values in later entries are `null`. Runs B to I stay in RESULTS.md as history and get no entry, so they are never ranked. The first `review-mr-v1` entry is the baseline run of task 7.1, compared against run I and the Haiku 7-slice range of runs D, G and I (10 to 13 strict of 14, all 4 highs). RESULTS.md gets one line per new run. `bench.py` writes results only to the case folder in a repo checkout, never to the installed plugin copy, which a plugin update replaces; the change reaches other machines through a commit.
+
+The old briefs `brief.md` and `brief-D-addendum.md` belong to runs B to H. They are not carried into the case.
 
 New cases: the mode lists report mode's top skills without a case as suggestions. A case is added only on the user's yes and only from a merged fix: the snapshot is the fix's parent, the key is the bugs the fix closed. Without a merged fix, no case.
 
@@ -155,17 +158,17 @@ Only tasks with evidence get a line; others keep their current line. It shows on
 - [Single runs] → accepted to keep cost down; the repeat rule covers close calls.
 - [AA effort coverage] → Opus 5.5 and Haiku 5.5 appear only at max. Then the AA pick is max and the real-use pick covers the other effort.
 - [AA free tier] → no time per task through the free API; the page parse fills it and can break. The raw fetch hash and the saved fixture show a layout change.
-- [Contamination] → the key comes from public fix commits; newer models may have seen them.
+- [Contamination] → the key comes from public fix commits, and the case is now public in this repo; newer models may have seen both.
 - [Checker mis-scores] → same checker for every run; the user can spot check against the key.
-- [Agent with Bash] → it could read the key by absolute path; deny rules block the key paths, and the dry run checks it.
+- [Agent with Bash] → it could read the key by absolute path, in the repo checkout or the installed plugin copy; deny rules block every key path, and the dry run checks it.
 - [Scraping breaks] → registry with verified dates, raw fetches saved, failing sources skipped.
 - [Estimate off] → `--max-budget-usd` stops an overspending run, and the cap stops further runs; actual cost is shown after each run.
 
 ## Migration Plan
 
-None. `add-model-guidance` was never built. Its folder deletion is staged in the worktree and goes into the same commit as this change.
+The first case moves from `~/.claude/model-bench/review-hooks-browser/` into the repo (decision 9). The old folder keeps its `runs/` outputs; new run outputs go to `~/.claude/model-bench/<case>/runs/`.
 
-Archive order: `add-usage-skill` is archived (or its specs synced) before this change is archived, because the REMOVED delta for "Models mode not available yet" needs that requirement in `openspec/specs/`.
+`add-usage-skill` is already archived, so the REMOVED delta for "Models mode not available yet" finds that requirement in `openspec/specs/usage-report/`.
 
 ## Open Questions
 

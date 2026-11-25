@@ -69,33 +69,55 @@ The models mode SHALL rank model and effort pairs by real cost per caught key bu
 - **WHEN** a pair has only Artificial Analysis data
 - **THEN** its cost column is labelled "cost per index point" and it is not ranked against local results
 
-### Requirement: Benchmark cases stored per case
-Each local benchmark case SHALL live under `~/.claude/model-bench/<case>/` with a snapshot, an answer key, a checker brief and a results file. Cases and keys SHALL NOT be written into any repository. A run SHALL use a fresh throwaway folder, so the key is never in the model's working folder.
+### Requirement: Benchmark cases stored in the repo
+Each local benchmark case SHALL live in the plugin at `plugins/base/skills/usage/references/bench/<case>/` with a snapshot, a provenance file naming each snapshot file's source commit (or "snapshot only"), a self-contained answer key, brief templates, setup files, `results.json`, `RESULTS.md` and a `history/` folder for briefs of runs before the first setup. Each answer key item SHALL carry id, severity, mechanism, file and line in the snapshot, the fixing commit and the fix as a diff hunk.
+
+#### Scenario: Answer key item complete
+- **WHEN** a case's answer key is read
+- **THEN** every item names its id, severity, mechanism, snapshot file and line, fixing commit and fix hunk
+
+### Requirement: Benchmark outputs kept apart from the case
+Run outputs and raw external fetches SHALL go to `~/.claude/model-bench/`. Results SHALL be written only to the case folder in a repo checkout, never to the installed plugin copy. A run SHALL use a fresh throwaway folder, so the key is never in the model's working folder.
+
+#### Scenario: Case without the source repo
+- **WHEN** the case is scored on a machine without the repo the snapshot came from
+- **THEN** the checker has every bug's location and fix from the answer key alone
 
 #### Scenario: Run in a throwaway folder
 - **WHEN** a benchmark run starts
 - **THEN** the snapshot is copied to a new temp folder without the answer key, and the folder is deleted after the run
 
 ### Requirement: Answer key not readable by the agent
-A benchmark agent SHALL get only Read, Grep, Glob and Bash, with deny rules for every path that holds the answer key. Each run SHALL be tagged as a benchmark session, so report mode can leave it out.
+A benchmark agent SHALL get only Read, Grep, Glob and Bash, with deny rules for every path that holds the answer key, including the repo checkout and the installed plugin copy. Each run SHALL be tagged as a benchmark session, so report mode can leave it out.
 
 #### Scenario: Agent tries to read the key
 - **WHEN** a benchmark agent runs `cat` on the answer key path
 - **THEN** the call is denied and the run continues
 
 ### Requirement: Results compared within one setup
-Each result SHALL record a setup id: the setup name and version plus the hashes of its brief, addendum and slice file. Results SHALL be compared only within one setup. A changed brief or slicing SHALL be a new setup or version. Briefs SHALL be stored as templates with path placeholders, with no path to a session folder.
+A setup SHALL be review-mr's slice brief version plus its size-based slicing rule (about 400 lines per slice, hard limit about 700), not a slice count. Each result SHALL record a setup id: the setup name and version plus the hashes of its brief template and setup file. Results SHALL be compared only within one setup, and a change to review-mr's brief or size rule SHALL be a new setup version.
 
-#### Scenario: New brief on the same case
-- **WHEN** a rerun uses a new brief and slicing rule on the same case
-- **THEN** its rows get a new setup id, and the older setups stay comparable among themselves
+#### Scenario: Result from another setup
+- **WHEN** a stored result has a different setup id than the current setup
+- **THEN** it is not ranked against results of the current setup
+
+### Requirement: Briefs as templates and runs before setups as history
+Briefs SHALL be stored as templates with path placeholders, with no path to a session folder. Runs recorded before the first setup SHALL stay in RESULTS.md as history and SHALL NOT be ranked.
+
+#### Scenario: review-mr's brief changes
+- **WHEN** a rerun uses a changed review-mr brief or size rule on the same case
+- **THEN** its rows get a new setup version, and results of the older version are marked not comparable to them
+
+#### Scenario: Historical runs
+- **WHEN** the mode ranks results for the first case
+- **THEN** runs B to I are not ranked, and the baseline of setup `review-mr-v1` is its first stored run, not run I
 
 ### Requirement: Only new models run
 The models mode SHALL run the benchmark only for models that have no stored result in the chosen setup of that case. It SHALL compare them against the stored results of older models in that setup and SHALL NOT re-run those.
 
 #### Scenario: New model released
-- **WHEN** a new model ships and the case already has results for Opus 5.5 and Haiku 5.5
-- **THEN** only the new model runs, and the comparison uses the stored Opus 5.5 and Haiku 5.5 results
+- **WHEN** a new model ships and the setup already has a stored Haiku 5.5 max result
+- **THEN** only the new model runs, and the comparison uses the stored Haiku 5.5 max result
 
 ### Requirement: At most two efforts per new model
 For each new model the mode SHALL run at most 2 efforts: the effort with the lowest cost per index point on Artificial Analysis, and the effort that matches real use in report mode's data. When both are the same, it SHALL run 1 effort.
@@ -131,7 +153,7 @@ Before any benchmark run, the mode SHALL show the planned runs with an estimated
 - **THEN** the CLI budget limit stops the agent
 
 ### Requirement: Fixed checker per case
-Each case SHALL be scored by one checker, Opus 5.5 at medium effort, against its answer key. The checker SHALL stay the same for every run of a case. Each result SHALL record the checker and the hashes of the checker brief and answer key. If the checker, checker brief, key or snapshot changes, or a setup hash no longer matches its setup id, the affected results SHALL be marked as not comparable.
+Each case SHALL be scored by one checker, Opus 5.5 at medium effort, named in the case's checker brief, against its answer key. The checker SHALL stay the same for every run of a case. Each result SHALL record the checker and the hashes of the checker brief and answer key. If the checker, checker brief, key or snapshot changes, or a setup hash no longer matches its setup id, the affected results SHALL be marked as not comparable.
 
 #### Scenario: Score a new run
 - **WHEN** a new model's report is ready

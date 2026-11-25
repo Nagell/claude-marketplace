@@ -9,13 +9,6 @@ The `models` option in the `usage` skill's mode question SHALL run the models mo
 - **WHEN** the user invokes `usage` and picks `models`
 - **THEN** the skill runs the models mode and does not offer `report` instead
 
-### Requirement: Benchmark sessions left out
-Report mode SHALL leave out sessions tagged as benchmark runs (session name starting with `bench-`), so benchmark spend does not show up as normal usage.
-
-#### Scenario: Benchmark transcript on disk
-- **WHEN** a `bench-` session from the models mode exists under `~/.claude/projects/`
-- **THEN** report mode does not count it in top skills, trends or outliers
-
 ## REMOVED Requirements
 
 ### Requirement: Models mode not available yet
