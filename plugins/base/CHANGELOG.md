@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.5.0...base-v2.5.1) (2026-11-25)
+
+
+### Documentation
+
+* **base:** rules template says when a section is worth filling ([7df55a3](https://github.com/Nagell/claude-marketplace/commit/7df55a3f113a489dffd4653c9e1f5bd6480adf3e))
+* **base:** rules template says when a section is worth filling ([1580f03](https://github.com/Nagell/claude-marketplace/commit/1580f03a119c883c7f8bf92c5c66344c48be7155))
+
 ## [2.5.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.4.1...base-v2.5.0) (2026-11-24)
 
 
