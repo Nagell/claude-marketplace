@@ -31,6 +31,7 @@ BENCH_DIR = os.path.join(SKILL_DIR, "references", "bench")
 OUT_ROOT = os.path.join(scan.config_dir(), "model-bench")
 GAP_S = 300
 REPEAT_WITHIN = 2
+MIN_BUDGET = 0.01  # the smallest --max-budget-usd a call gets; below it a role cannot start
 ROLE_LINES = {"slices": "Review slices", "refuters": "Review refuters", "fast": "Review with --fast"}
 FAMILIES = ("opus", "sonnet", "haiku", "fable", "mythos")
 
@@ -172,6 +173,33 @@ def estimate(model, runs, table):
     return {"usd": round(r["cost"] * ratio + refuter, 2), "from_run": r.get("id"), "price_ratio": round(ratio, 4)}
 
 
+def is_complete(r):
+    return r.get("status", "complete") != "incomplete"
+
+
+def history_runs(case_dir, results):
+    """Runs with no setup id in results.json, else the cost rows of RESULTS.md's history (latest first)."""
+    runs = [r for r in results.get("runs", []) if not r.get("setup_id") and is_complete(r)]
+    if runs:
+        return runs
+    path = os.path.join(case_dir, "RESULTS.md")
+    if not os.path.exists(path):
+        return []
+    out, date = [], None
+    with open(path, encoding="utf-8") as fh:
+        for line in fh:
+            d = re.search(r"^## .*\(added (\d{4}-\d{2}-\d{2})\)", line)
+            if d:
+                date = d.group(1)
+            m = re.match(r"\| ([A-Z]) \| ([^|]+) \|.*?\| \$(\d+\.\d+)(?:, \$(\d+\.\d+) with refuter)?", line)
+            name = model_from_name(m.group(2)) if m else None
+            if name:
+                cost = float(m.group(3))
+                out.append({"id": m.group(1), "model": name[0], "effort": name[1], "cost": cost,
+                            "cost_with_refuter": float(m.group(4)) if m.group(4) else cost, "date": date})
+    return out[::-1]
+
+
 # ---------- current model and plan ----------
 
 def model_from_name(text):
@@ -203,12 +231,12 @@ def current_model(results, sid, claude_md_texts=(), task="Review slices"):
             line = sec[task]
     if line and model_from_name(line):
         model, effort = model_from_name(line)
-        stored = [r for r in results.get("runs", []) if r.get("setup_id") == sid
+        stored = [r for r in results.get("runs", []) if r.get("setup_id") == sid and is_complete(r)
                   and r.get("model") == model and r.get("effort") == effort]
         best = max(stored, key=lambda r: r.get("caught_strict") or 0) if stored else None
         return {"model": model, "effort": effort, "source": "models line",
                 "caught_strict": best.get("caught_strict") if best else None, "run": best.get("id") if best else None}
-    ranked = ranked_runs([r for r in results.get("runs", []) if r.get("setup_id") == sid])
+    ranked = ranked_runs([r for r in results.get("runs", []) if r.get("setup_id") == sid and is_complete(r)])
     if not ranked:
         return None
     r = ranked[0]
@@ -238,7 +266,8 @@ def aa_pick(model, ext_rows):
     return min(rows, key=lambda r: r["value"])["effort"] if rows else None
 
 
-def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, table=None, claude_md_texts=()):
+def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, table=None, claude_md_texts=(),
+         fixed_effort=None):
     """Models without a result in the setup, at most 2 efforts each, with an estimate per run."""
     table = table or prices.PriceTable()
     results = load_json(os.path.join(case_dir, "results.json"))
@@ -252,7 +281,8 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
                 sid = s
                 break
         sid = sid or (sorted(all_setups)[-1] if all_setups else None)
-    in_setup = [r for r in runs if r.get("setup_id") == sid]
+    in_setup = [r for r in runs if r.get("setup_id") == sid and is_complete(r)]
+    history = history_runs(case_dir, results)
     done = {r.get("model") for r in in_setup}
     if models is None:
         models = sorted({r["model"] for r in ext_rows or [] if r.get("tag") == "anthropic"
@@ -261,8 +291,8 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
     for m in models:
         if m in done:
             continue
-        efforts = []
-        for why, e in (("lowest AA cost per index point", aa_pick(m, ext_rows)),
+        efforts = [{"effort": fixed_effort, "why": ["fixed by --effort"]}] if fixed_effort else []
+        for why, e in () if fixed_effort else (("lowest AA cost per index point", aa_pick(m, ext_rows)),
                        ("most used effort of the case's skill", usage_effort)):
             if not e:
                 continue
@@ -272,7 +302,12 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
             else:
                 efforts.append({"effort": e, "why": [why]})
         for x in efforts[:2]:
-            picks.append({"model": m, "effort": x["effort"], "why": x["why"], "estimate": estimate(m, in_setup, table)})
+            est = estimate(m, in_setup, table)
+            if est is None:
+                est = estimate(m, history, table)
+                if est:
+                    est["from_history"] = True
+            picks.append({"model": m, "effort": x["effort"], "why": x["why"], "estimate": est})
     total = sum(p["estimate"]["usd"] for p in picks if p["estimate"])
     return {"case": os.path.basename(case_dir), "skill": results.get("skill"), "setup_id": sid,
             "current": current_model(results, sid, claude_md_texts), "picks": picks,
@@ -395,12 +430,11 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
     """All agents of one planned pick, then the refuter and the checker. Returns the result entry."""
     name = os.path.basename(case_dir)
     folder = prepare_folder(case_dir)
-    spent = 0.0
-    agents = []
+    spent = reviewers = 0.0
+    agents, reports, reason, values = [], [], None, {}
     try:
         sdir = os.path.dirname(setup_path)
         slices = cut_slices(snapshot_files(folder["snap"]), setup["size_rule"])
-        reports = []
         common = {"snap": folder["snap"], "head_sha": folder["head"], "primary": folder["snap"],
                   "diff": folder["diff"], "target_branch": "base", "base_sha": folder["base"],
                   "title": f"Benchmark snapshot {name}", "description": "none", "run_tmp": folder["run_tmp"],
@@ -418,24 +452,46 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                                      if f["path"].endswith((".sh", ".json")) or "/scripts/" in f["path"])
                 jobs.append(("runit", render(os.path.join(sdir, setup["run_it_template"]),
                                              dict(common, runnable=runnable, report=report)), report))
-        for role, prompt, report in jobs:
-            r = agent(prompt, pick["model"], pick["effort"], budget_left - spent,
-                      f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir)
-            spent += r["cost"] or 0.0
-            agents.append(dict(r, role=role))
-            reports.append(report)
-        reviewers = spent
-        values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
-                  "key": os.path.join(case_dir, "answer-key.md")}
         ref = setup["refuter"]
         ref_report = os.path.join(out_dir, f"{run_id}-refute.md")
-        r = agent(render(os.path.join(case_dir, ref["brief"]), dict(values, key="")) + f"\n\nReport path: {ref_report}",
-                  ref["model"], ref["effort"], budget_left - spent, f"bench-{name}-{run_id}-refuter",
-                  folder["snap"], case_dir)
-        spent += r["cost"] or 0.0
-        agents.append(dict(r, role="refuter"))
+        jobs.append(("refuter", None, ref_report))
+        roles = [j[0] for j in jobs] + ["checker"]
+        for role, prompt, report in jobs:
+            if reason:
+                break
+            if budget_left - spent < MIN_BUDGET:
+                reason = f"cap reached before {role} could start"
+                break
+            if role == "refuter":
+                values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
+                          "key": os.path.join(case_dir, "answer-key.md")}
+                prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="")) + f"\n\nReport path: {report}"
+                model, effort = ref["model"], ref["effort"]
+            else:
+                model, effort = pick["model"], pick["effort"]
+                reports.append(report)
+            r = agent(prompt, model, effort, budget_left - spent, f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir)
+            spent += r["cost"] or 0.0
+            agents.append(dict(r, role=role))
+            if role != "refuter":
+                reviewers = spent
+            if r.get("error"):
+                reason = f"{role} stopped: {r['error']}"
     finally:
         shutil.rmtree(folder["root"], ignore_errors=True)
+
+    def incomplete(total):
+        finished = {a["role"] for a in agents if not a.get("error")}
+        entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid,
+                 "status": "incomplete", "reason": reason, "caught_strict": None, "caught_with_partials": None,
+                 "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
+                 "roles": {role: role in finished for role in roles}, "date": dt.date.today().isoformat()}
+        entry.update(case_hashes(case_dir))
+        return entry, total, agents
+    if not reason and budget_left - spent < MIN_BUDGET:
+        reason = "cap reached before checker could start"
+    if reason:
+        return incomplete(spent)
     # the checker needs the key, so it runs outside the agent folder and is not part of the run's cost
     chk = setup["checker"]
     check_report = os.path.join(out_dir, f"{run_id}-check.md")
@@ -446,6 +502,10 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
     finally:
         shutil.rmtree(check_dir, ignore_errors=True)
     checker_cost = c["cost"] or 0.0
+    if c.get("error"):
+        agents.append(dict(c, role="checker"))
+        reason = f"checker stopped: {c['error']}"
+        return incomplete(spent + checker_cost)
     text = c.get("result") or ""
     if os.path.exists(check_report):
         with open(check_report, encoding="utf-8") as fh:
@@ -453,7 +513,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
     strict, partial = parse_score(text)
     reqs = sum(a.get("requests") or 0 for a in agents)
     over = sum(a.get("over_100k") or 0 for a in agents)
-    entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid,
+    entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid, "status": "complete",
              "caught_strict": strict, "caught_with_partials": strict + partial / 2 if strict is not None else None,
              "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
              "slowest_agent_min": max((a["minutes"] for a in agents if a.get("minutes") is not None), default=None),
@@ -485,6 +545,14 @@ def store(case_dir, entry):
         end += 1
     def f(v, fmt="{}"):
         return "n/a" if v is None else fmt.format(v)
+    if entry.get("status") == "incomplete":
+        done = ", ".join(k for k, v in entry["roles"].items() if v) or "none"
+        lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
+                          f"incomplete: {entry['reason']}; finished: {done} | "
+                          f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}) | n/a | {entry['date']} |")
+        with open(md, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(lines))
+        return
     lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
                       f"{f(entry['caught_strict'])} / {f(entry['caught_with_partials'])} | "
                       f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}) | "
@@ -507,7 +575,7 @@ def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn
     remaining = float(cap)
     done, stopped = [], []
     for pick in the_plan["picks"]:
-        stored = {(r.get("model"), r.get("setup_id")) for r in results.get("runs", [])}
+        stored = {(r.get("model"), r.get("setup_id")) for r in results.get("runs", []) if is_complete(r)}
         if (pick["model"], sid) in stored:
             stopped.append({"pick": pick, "reason": "already has a result in this setup"})
             continue
@@ -522,7 +590,7 @@ def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn
         store_fn(case_dir, entry)
         results.setdefault("runs", []).append(entry)
         done.append({"entry": entry, "spent": round(spent, 4), "remaining_cap": round(remaining, 4),
-                     "repeat_proposed": propose_repeat(entry["caught_strict"], current),
+                     "status": entry["status"], "repeat_proposed": propose_repeat(entry["caught_strict"], current),
                      "agents": [{k: a.get(k) for k in ("role", "cost", "cli_cost", "minutes", "error")} for a in agents]})
     return {"runs": done, "not_run": stopped, "remaining_cap": round(remaining, 4), "current": current}
 
@@ -535,6 +603,7 @@ def main(argv=None):
     p.add_argument("--models", help="comma-separated model ids (default: Anthropic models in --external)")
     p.add_argument("--external", help="output of models.py --external")
     p.add_argument("--usage", help="output of models.py --usage, for the case skill's most used effort")
+    p.add_argument("--effort", help="with plan: one fixed effort per model instead of the AA and usage picks")
     p.add_argument("--plan", help="with run: output of bench.py plan")
     p.add_argument("--cap", type=float)
     p.add_argument("--claude-md", action="append", default=[], help="CLAUDE.md files with a ## Models section, in order")
@@ -553,7 +622,7 @@ def main(argv=None):
             effort = next((s["effort"] for s in load_json(a.usage)["skills"] if scan.skill_display(s["skill"]) == skill),
                           None)
         models = a.models.split(",") if a.models else None
-        out = plan(case_dir, a.setup, models, ext, effort, claude_md_texts=texts)
+        out = plan(case_dir, a.setup, models, ext, effort, claude_md_texts=texts, fixed_effort=a.effort)
     elif a.action == "run":
         if a.cap is None or not a.plan:
             p.error("run needs --plan and --cap")

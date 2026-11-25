@@ -110,7 +110,7 @@ Briefs SHALL be stored as templates with path placeholders, with no path to a se
 
 #### Scenario: Historical runs
 - **WHEN** the mode ranks results for the first case
-- **THEN** runs B to I are not ranked, and the baseline of setup `review-mr-v1` is its first stored run, not run I
+- **THEN** runs B to I are not ranked, and the baseline of setup `review-mr-v1` is its first complete stored run, not run I
 
 ### Requirement: Only new models run
 The models mode SHALL run the benchmark only for models that have no stored result in the chosen setup of that case. It SHALL compare them against the stored results of older models in that setup and SHALL NOT re-run those.

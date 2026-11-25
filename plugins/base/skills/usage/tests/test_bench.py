@@ -135,6 +135,26 @@ class Plan(CaseCopy):
         out = bench.plan(self.case, None, ["claude-haiku-5-5"], [aa("claude-haiku-5-5", "max", 9.0)], "max", self.table)
         self.assertEqual(out["picks"], [])
 
+    def test_estimate_falls_back_to_history_run_i(self):
+        self.results([])
+        out = bench.plan(self.case, None, ["claude-haiku-5-5"], None, None, self.table, fixed_effort="max")
+        est = out["picks"][0]["estimate"]
+        self.assertEqual((est["from_run"], est["usd"], est["from_history"]), ("I", 11.59, True))
+
+    def test_history_run_in_results_json_wins(self):
+        self.results([self.haiku_run(id="X", cost=2.0, cost_with_refuter=3.0, setup_id=None)])
+        out = bench.plan(self.case, self.sid, ["claude-haiku-5-5"], None, "max", self.table)
+        self.assertEqual(out["picks"][0]["estimate"]["from_run"], "X")
+
+    def test_no_estimate_without_any_history(self):
+        self.results([])
+        with open(os.path.join(self.case, "RESULTS.md"), "w") as fh:
+            fh.write("# x\n")
+        the_plan = bench.plan(self.case, self.sid, ["claude-haiku-5-5"], None, "max", self.table)
+        self.assertIsNone(the_plan["picks"][0]["estimate"])
+        out = bench.run(self.case, the_plan, 10.0, lambda *a: None, os.path.join(self.tmp, "out"), lambda c, e: None)
+        self.assertEqual(out["not_run"][0]["reason"], "no estimate")
+
     def test_gpt_reference_never_planned(self):
         self.results([self.haiku_run()])
         ext = [models.row("openai", "gpt-6", "high", "cost_per_index_point", 1.0, "u", "d", "aa-models-page")]
@@ -181,6 +201,52 @@ class Run(CaseCopy):
         self.assertEqual(stored[0]["caught_strict"], 10)
         self.assertEqual(stored[0]["caught_with_partials"], 11.0)
         self.assertEqual(stored[0]["setup_id"], self.sid)
+        self.assertEqual(stored[0]["status"], "complete")
+
+    def test_error_logs_incomplete_run(self):
+        self.results([])
+        stored = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            err = "error_max_budget_usd" if name.endswith("runit") else None
+            return {"cost": 1.5, "minutes": 2.0, "result": "x", "error": err}
+        picks = [{"model": "claude-haiku-5-5", "effort": "max", "estimate": {"usd": 5.0}}]
+        out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent,
+                        os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        e = stored[0]
+        self.assertEqual((e["status"], e["cost"], e["cost_with_refuter"]), ("incomplete", 3.0, 3.0))
+        self.assertIn("runit stopped", e["reason"])
+        self.assertEqual(e["roles"], {"slice-1": True, "runit": False, "refuter": False, "checker": False})
+        self.assertEqual(out["runs"][0]["status"], "incomplete")
+        # never ranked, never the baseline, and the model is planned again
+        results = {"runs": stored}
+        self.assertIsNone(bench.current_model(results, self.sid))
+        self.results(stored)
+        self.assertEqual(len(bench.plan(self.case, self.sid, ["claude-haiku-5-5"], None, "max", self.table)["picks"]), 1)
+
+    def test_cap_reached_before_refuter(self):
+        self.results([])
+        stored = []
+        agent = self.fake_agent({"1": 5.0, "runit": 5.0})
+        picks = [{"model": "claude-haiku-5-5", "effort": "max", "estimate": {"usd": 5.0}}]
+        bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent,
+                  os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual(stored[0]["reason"], "cap reached before refuter could start")
+        self.assertFalse(any(c["name"].endswith("refuter") for c in agent.calls))
+
+    def test_incomplete_line_in_results_md(self):
+        self.results([])
+        orig = bench.is_repo_checkout
+        bench.is_repo_checkout = lambda c: True
+        try:
+            bench.store(self.case, {"id": "J", "setup_id": self.sid, "model": "m", "effort": "max",
+                                    "status": "incomplete", "reason": "cap reached before refuter could start",
+                                    "cost": 3.0, "cost_with_refuter": 3.0, "date": "2026-11-25",
+                                    "roles": {"slice-1": True, "refuter": False}})
+        finally:
+            bench.is_repo_checkout = orig
+        self.assertIn("| J | " + self.sid + " | m max | incomplete: cap reached before refuter could start; "
+                      "finished: slice-1 | $3.00 ($3.00) | n/a | 2026-11-25 |", read(os.path.join(self.case, "RESULTS.md")))
 
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])
