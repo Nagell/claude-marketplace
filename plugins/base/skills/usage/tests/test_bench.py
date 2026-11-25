@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+import threading
 
 from helpers import SKILL_DIR, TempHome
 import bench
@@ -199,12 +200,40 @@ class Run(CaseCopy):
         self.assertEqual([r["entry"]["model"] for r in out["runs"]], ["claude-a", "claude-b"])
         self.assertIn("above the remaining cap", out["not_run"][0]["reason"])
         slice_calls = [c for c in agent.calls if c["name"].endswith("slice-1")]
-        self.assertEqual([c["budget"] for c in slice_calls], [10.0, 5.0])
+        # slice-1 and run-it share the remaining cap by load: half each
+        self.assertEqual([c["budget"] for c in slice_calls], [5.0, 2.5])
         self.assertEqual(out["remaining_cap"], 2.0)
         self.assertEqual(stored[0]["caught_strict"], 10)
         self.assertEqual(stored[0]["caught_with_partials"], 11.0)
         self.assertEqual(stored[0]["setup_id"], self.sid)
         self.assertEqual(stored[0]["status"], "complete")
+
+    def test_reviewers_start_together_within_the_cap(self):
+        for i in range(3):
+            with open(os.path.join(self.case, "snap", f"b{i}.md"), "w") as fh:
+                fh.write("x\n" * 300)
+        self.results([])
+        n = len(bench.cut_slices(bench.snapshot_files(os.path.join(self.case, "snap")),
+                                 bench.setups(self.case)[self.sid][0]["size_rule"])) + 1
+        barrier = threading.Barrier(n, timeout=5)
+        calls, stored = [], []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            calls.append((name, budget))
+            if "-slice-" in name or name.endswith("runit"):
+                barrier.wait()  # raises unless all reviewer calls run at the same time
+            res = "SCORE caught_strict=9 partial=0 missed=5" if name.endswith("checker") else "ok"
+            return {"cost": 0.1, "minutes": 3.0 if name.endswith("slice-1") else 1.0, "result": res}
+        picks = [{"model": "m", "effort": "max", "estimate": {"usd": 6.0, "reviewers": 4.0, "refuter": 2.0}}]
+        bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 8.0, agent,
+                  os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        reviewer_budgets = [b for name, b in calls if "-slice-" in name or name.endswith("runit")]
+        self.assertEqual(len(reviewer_budgets), n)
+        self.assertLessEqual(sum(reviewer_budgets), 8.0 + 1e-9)
+        e = stored[0]
+        self.assertEqual(e["status"], "complete")
+        self.assertEqual(e["phase_minutes"], {"reviewers": 3.0, "refuter": 1.0, "checker": 1.0})
+        self.assertEqual(e["run_minutes"], 5.0)
 
     def test_error_logs_incomplete_run(self):
         self.results([])
@@ -234,7 +263,7 @@ class Run(CaseCopy):
         picks = [{"model": "claude-haiku-5-5", "effort": "max", "estimate": {"usd": 5.0}}]
         bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent,
                   os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
-        self.assertEqual(stored[0]["reason"], "cap reached before refuter could start")
+        self.assertTrue(stored[0]["reason"].startswith("cap reached before refuter could start"))
         self.assertFalse(any(c["name"].endswith("refuter") for c in agent.calls))
 
     def test_incomplete_line_in_results_md(self):

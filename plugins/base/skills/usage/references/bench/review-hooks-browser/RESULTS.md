@@ -7,6 +7,7 @@ One line per run, written by `bench.py run`. Results are compared only within on
 | Run | Setup | Model / effort | Key caught (strict / with partials) | Real cost (with refuter) | Slowest agent | Date |
 |---|---|---|---|---|---|---|
 | J | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: slice reports were not saved (deny rule on model-bench), so the refuter had no input; finished: slice-1, slice-2, slice-3, slice-4, slice-5 | $1.89 ($1.89) | n/a | 2026-11-25 |
+| K | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: switching to parallel slices; finished: none | $0.00 ($0.00) | n/a | 2026-11-25 |
 
 ## History: runs B to I (not ranked)
 

@@ -30,6 +30,36 @@
    "checker_brief_hash": "e5e4570cc0ee",
    "key_hash": "2b280da57df3",
    "snapshot_hash": "8e44376c913b"
+  },
+  {
+   "id": "K",
+   "model": "claude-haiku-5-5",
+   "effort": "max",
+   "setup_id": "review-mr-v1-354ec1e3-c57ac89f",
+   "status": "incomplete",
+   "reason": "stopped by hand: switching to parallel slices",
+   "caught_strict": null,
+   "caught_with_partials": null,
+   "cost": 0.0043,
+   "cost_with_refuter": 0.0043,
+   "roles": {
+    "slice-1": false,
+    "slice-2": false,
+    "slice-3": false,
+    "slice-4": false,
+    "slice-5": false,
+    "slice-6": false,
+    "slice-7": false,
+    "slice-8": false,
+    "slice-9": false,
+    "runit": false,
+    "refuter": false,
+    "checker": false
+   },
+   "date": "2026-11-25",
+   "checker_brief_hash": "e5e4570cc0ee",
+   "key_hash": "2b280da57df3",
+   "snapshot_hash": "8e44376c913b"
   }
  ]
 }

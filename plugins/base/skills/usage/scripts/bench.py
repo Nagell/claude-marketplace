@@ -9,6 +9,7 @@ Prints JSON. Only `run` writes: run outputs to ~/.claude/model-bench/<case>/runs
 case's results.json and RESULTS.md, only in a repo checkout. Stdlib only, Python 3.9+.
 """
 import argparse
+import concurrent.futures
 import datetime as dt
 import glob
 import hashlib
@@ -170,7 +171,8 @@ def estimate(model, runs, table):
         return None
     _, r, ratio = best
     refuter = (r.get("cost_with_refuter") or r["cost"]) - r["cost"]
-    return {"usd": round(r["cost"] * ratio + refuter, 2), "from_run": r.get("id"), "price_ratio": round(ratio, 4)}
+    return {"usd": round(r["cost"] * ratio + refuter, 2), "reviewers": round(r["cost"] * ratio, 2),
+            "refuter": round(refuter, 2), "from_run": r.get("id"), "price_ratio": round(ratio, 4)}
 
 
 def is_complete(r):
@@ -433,6 +435,15 @@ def parse_score(text):
     return (int(m.group(1)), int(m.group(2))) if m else (None, None)
 
 
+def phase_times(agents):
+    """Slowest agent per phase and the run's wall time: phases run one after another, agents in a phase at once."""
+    phases = {}
+    for a in agents:
+        if a.get("minutes") is not None:
+            phases[a["phase"]] = max(phases.get(a["phase"], 0.0), a["minutes"])
+    return {"phase_minutes": phases, "run_minutes": round(sum(phases.values()), 2) if phases else None}
+
+
 def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id, out_dir):
     """All agents of one planned pick, then the refuter and the checker. Returns the result entry."""
     name = os.path.basename(case_dir)
@@ -451,40 +462,55 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
             files = ", ".join(f"{f['path']} ({f['lines']} lines)" for f in s["files"])
             report = os.path.join(out_dir, f"{run_id}-slice-{s['slice']}.md")
             jobs.append((f"slice-{s['slice']}", render(os.path.join(sdir, setup["brief_template"]),
-                                                       dict(common, slice_files=files, report=report)), report))
+                                                       dict(common, slice_files=files, report=report)), report,
+                         s["load"]))
+        mean_load = sum(s["load"] for s in slices) / len(slices) if slices else 1
         for extra in setup.get("extra_agents", []):
             if extra["role"] == "run-it":
                 report = os.path.join(out_dir, f"{run_id}-runit.md")
                 runnable = ", ".join(f["path"] for f in snapshot_files(folder["snap"])
                                      if f["path"].endswith((".sh", ".json")) or "/scripts/" in f["path"])
                 jobs.append(("runit", render(os.path.join(sdir, setup["run_it_template"]),
-                                             dict(common, runnable=runnable, report=report)), report))
-        ref = setup["refuter"]
-        ref_report = os.path.join(out_dir, f"{run_id}-refute.md")
-        jobs.append(("refuter", None, ref_report))
-        roles = [j[0] for j in jobs] + ["checker"]
-        for role, prompt, report in jobs:
-            if reason:
-                break
-            if budget_left - spent < MIN_BUDGET:
-                reason = f"cap reached before {role} could start"
-                break
-            if role == "refuter":
-                values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
-                          "key": os.path.join(case_dir, "answer-key.md")}
-                prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="")) + f"\n\nReport path: {report}"
-                model, effort = ref["model"], ref["effort"]
-            else:
-                model, effort = pick["model"], pick["effort"]
-                reports.append(report)
-            r = agent(prompt, model, effort, budget_left - spent, f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir)
+                                             dict(common, runnable=runnable, report=report)), report, mean_load))
+        roles = [j[0] for j in jobs] + ["refuter", "checker"]
+        est = pick.get("estimate") or {}
+        rev_est = est.get("reviewers", est.get("usd") or 0.0)
+        ref_est = est.get("refuter", 0.0)
+        # phase 1: every slice owner and the run-it agent at once, the cap split by estimated share (slice load)
+        if budget_left < max(rev_est, MIN_BUDGET * len(jobs)):
+            reason = f"cap ${budget_left:.2f} does not cover the reviewer phase estimate ${rev_est:.2f}"
+        else:
+            total_load = sum(j[3] for j in jobs) or 1
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(jobs), 1)) as pool:
+                futs = [(role, report, pool.submit(agent, prompt, pick["model"], pick["effort"],
+                                                   budget_left * load / total_load, f"bench-{name}-{run_id}-{role}",
+                                                   folder["snap"], case_dir))
+                        for role, prompt, report, load in jobs]
+                for role, report, fut in futs:
+                    r = fut.result()
+                    spent += r["cost"] or 0.0
+                    save_reply(report, r.get("result"))
+                    agents.append(dict(r, role=role, phase="reviewers"))
+                    reports.append(report)
+                    if r.get("error") and not reason:
+                        reason = f"{role} stopped: {r['error']}"
+            reviewers = spent
+        # phase 2: the refuter
+        if not reason and budget_left - spent < max(ref_est, MIN_BUDGET):
+            reason = f"cap reached before refuter could start (remaining ${budget_left - spent:.2f}, estimate ${ref_est:.2f})"
+        if not reason:
+            ref = setup["refuter"]
+            report = os.path.join(out_dir, f"{run_id}-refute.md")
+            values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
+                      "key": os.path.join(case_dir, "answer-key.md")}
+            prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="")) + f"\n\nReport path: {report}"
+            r = agent(prompt, ref["model"], ref["effort"], budget_left - spent, f"bench-{name}-{run_id}-refuter",
+                      folder["snap"], case_dir)
             spent += r["cost"] or 0.0
             save_reply(report, r.get("result"))
-            agents.append(dict(r, role=role))
-            if role != "refuter":
-                reviewers = spent
+            agents.append(dict(r, role="refuter", phase="refuter"))
             if r.get("error"):
-                reason = f"{role} stopped: {r['error']}"
+                reason = f"refuter stopped: {r['error']}"
     finally:
         shutil.rmtree(folder["root"], ignore_errors=True)
 
@@ -494,6 +520,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                  "status": "incomplete", "reason": reason, "caught_strict": None, "caught_with_partials": None,
                  "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
                  "roles": {role: role in finished for role in roles}, "date": dt.date.today().isoformat()}
+        entry.update(phase_times(agents))
         entry.update(case_hashes(case_dir))
         return entry, total, agents
     if not reason and budget_left - spent < MIN_BUDGET:
@@ -511,7 +538,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
         shutil.rmtree(check_dir, ignore_errors=True)
     checker_cost = c["cost"] or 0.0
     if c.get("error"):
-        agents.append(dict(c, role="checker"))
+        agents.append(dict(c, role="checker", phase="checker"))
         reason = f"checker stopped: {c['error']}"
         return incomplete(spent + checker_cost)
     text = c.get("result") or ""
@@ -528,8 +555,9 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
              "walltime_method": "active time, gaps over 5 min left out", "over_100k_share":
                  round(over / reqs, 4) if reqs else None,
              "checker": f"{chk['model']} {chk['effort']}", "date": dt.date.today().isoformat()}
+    agents.append(dict(c, role="checker", phase="checker"))
+    entry.update(phase_times(agents))
     entry.update(case_hashes(case_dir))
-    agents.append(dict(c, role="checker"))
     return entry, spent + checker_cost, agents
 
 
