@@ -1,0 +1,238 @@
+import json
+import os
+import re
+import shutil
+
+from helpers import SKILL_DIR, TempHome
+import bench
+import models
+
+CASE = os.path.join(SKILL_DIR, "references", "bench", "review-hooks-browser")
+REVIEW_MR = os.path.join(os.path.dirname(SKILL_DIR), "review-mr", "references")
+BACK = {"{snap}": "<reviews worktree path>", "{head_sha}": "<sha>", "{primary}": "<primary repo path>",
+        "{diff}": "<diff path>", "{target_branch}": "<target_branch>", "{base_sha}": "<base_sha>",
+        "{title}": "<title>", "{description}": "<the file refs --description-out wrote>",
+        "{run_tmp}": "<run temp dir>", "{slice_files}": "<the slice's files, with their line counts>",
+        "{lenses}": '<lens text, or "none">', "{conventions}": "<find_conventions.py entries for the slice: path, lines, changed>",
+        "{report}": "<report path>"}
+
+
+def read(path):
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
+class Case(TempHome):
+    def test_snapshot_size(self):
+        files = bench.snapshot_files(os.path.join(CASE, "snap"))
+        self.assertEqual((len(files), sum(f["lines"] for f in files)), (20, 2905))
+
+    def test_brief_template_matches_review_mr(self):
+        text = read(os.path.join(CASE, "setups", "review-mr-v1", "slice-brief.md"))
+        text = re.sub(r"^\{/?drop\}\n", "", text, flags=re.M)
+        for k, v in BACK.items():
+            text = text.replace(k, v)
+        self.assertEqual(text, read(os.path.join(REVIEW_MR, "agent-brief.md")))
+
+    def test_slices_under_hard_limit(self):
+        setup = json.loads(read(os.path.join(CASE, "setups", "review-mr-v1.json")))
+        slices = bench.cut_slices(bench.snapshot_files(os.path.join(CASE, "snap")), setup["size_rule"])
+        self.assertTrue(all(s["load"] < 700 for s in slices))
+        self.assertEqual(sum(len(s["files"]) for s in slices), 20)
+
+    def test_results_seeded_empty(self):
+        data = json.loads(read(os.path.join(CASE, "results.json")))
+        self.assertEqual(data, {"skill": "review-mr", "runs": []})
+
+    def test_answer_key_items_complete(self):
+        key = read(os.path.join(CASE, "answer-key.md"))
+        items = re.split(r"^### ", key, flags=re.M)[1:]
+        self.assertEqual(len(items), 14)
+        for item in items:
+            self.assertRegex(item, r"^[HSD]\d \((high|medium|low)\)")
+            self.assertIn("Mechanism:", item)
+            self.assertIn("```diff", item)
+            loc = re.search(r"`(snap/[^`:]+):(\d+)`", item)
+            lines = read(os.path.join(CASE, loc.group(1))).split("\n")
+            self.assertLessEqual(int(loc.group(2)), len(lines))
+            self.assertRegex(item, r"Fix: `[0-9a-f]{7}`")
+
+    def test_no_session_paths_in_case(self):
+        for root, _, files in os.walk(CASE):
+            for f in files:
+                text = read(os.path.join(root, f))
+                self.assertNotRegex(text, r"/tmp/claude-\d+/-home|scratchpad/exp2|\.claude/projects/-", f)
+
+    def test_templates_have_placeholders(self):
+        chk = read(os.path.join(CASE, "checker-brief.md"))
+        for k in ("{snap}", "{reports}", "{key}", "{report_count}"):
+            self.assertIn(k, chk)
+        self.assertIn("Opus 5.5 at medium", chk)
+        self.assertIn("{reports}", read(os.path.join(CASE, "refuter-brief.md")))
+
+
+class CaseCopy(TempHome):
+    """A temp copy of the case with synthetic results."""
+
+    def setUp(self):
+        super().setUp()
+        self.case = os.path.join(self.tmp, "review-hooks-browser")
+        shutil.copytree(CASE, self.case, ignore=shutil.ignore_patterns("snap"))
+        os.makedirs(os.path.join(self.case, "snap"))
+        with open(os.path.join(self.case, "snap", "a.sh"), "w") as fh:
+            fh.write("echo hi\n")
+        self.sid = sorted(bench.setups(self.case))[0]
+
+    def results(self, runs):
+        h = bench.case_hashes(self.case)
+        for r in runs:
+            r.setdefault("setup_id", self.sid)
+            for k, v in h.items():
+                r.setdefault(k, v)
+        with open(os.path.join(self.case, "results.json"), "w") as fh:
+            json.dump({"skill": "review-mr", "runs": runs}, fh)
+
+    def haiku_run(self, **kw):
+        r = {"id": "J", "model": "claude-haiku-5-5", "effort": "max", "caught_strict": 12, "cost": 4.0,
+             "cost_with_refuter": 7.0, "over_100k_share": 0.0, "date": "2026-11-25", "slowest_agent_min": 20}
+        r.update(kw)
+        return r
+
+    def double_haiku(self):
+        """A fixture model priced at twice Haiku 5.5, both tiers."""
+        h = self.table.models["claude-haiku-5-5"]
+        new = {k: v * 2 for k, v in h.items() if k != "long_prompt"}
+        new["long_prompt"] = {k: (v * 2 if k != "threshold" else v) for k, v in h["long_prompt"].items()}
+        self.table.models["claude-haiku-6"] = new
+
+
+def aa(model, effort, value):
+    return models.row("anthropic", model, effort, "cost_per_index_point", value, "u", "d", "aa-models-page")
+
+
+class Plan(CaseCopy):
+    def test_new_model_two_picks_and_estimate(self):
+        self.results([self.haiku_run()])
+        self.double_haiku()
+        ext = [aa("claude-haiku-6", "max", 9.0), aa("claude-haiku-6", "high", 5.0), aa("claude-haiku-5-5", "max", 9.0)]
+        out = bench.plan(self.case, None, ["claude-haiku-6", "claude-haiku-5-5"], ext, "medium", self.table)
+        self.assertEqual(out["setup_id"], self.sid)
+        self.assertEqual([(p["model"], p["effort"]) for p in out["picks"]],
+                         [("claude-haiku-6", "high"), ("claude-haiku-6", "medium")])
+        # reviewers $4 scaled x2 plus a $3 refuter unchanged
+        self.assertEqual(out["picks"][0]["estimate"]["usd"], 11.0)
+        self.assertEqual(out["total_estimate_usd"], 22.0)
+
+    def test_equal_picks_collapse(self):
+        self.results([self.haiku_run()])
+        self.double_haiku()
+        out = bench.plan(self.case, None, ["claude-haiku-6"], [aa("claude-haiku-6", "high", 5.0)], "high", self.table)
+        self.assertEqual(len(out["picks"]), 1)
+        self.assertEqual(len(out["picks"][0]["why"]), 2)
+
+    def test_no_new_model(self):
+        self.results([self.haiku_run()])
+        out = bench.plan(self.case, None, ["claude-haiku-5-5"], [aa("claude-haiku-5-5", "max", 9.0)], "max", self.table)
+        self.assertEqual(out["picks"], [])
+
+    def test_gpt_reference_never_planned(self):
+        self.results([self.haiku_run()])
+        ext = [models.row("openai", "gpt-6", "high", "cost_per_index_point", 1.0, "u", "d", "aa-models-page")]
+        out = bench.plan(self.case, None, None, ext, "high", self.table)
+        self.assertEqual(out["picks"], [])
+
+
+class Run(CaseCopy):
+    def fake_agent(self, costs):
+        calls = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            calls.append({"name": name, "budget": budget, "model": model})
+            role = name.rsplit("-", 1)[-1]
+            cost = costs.get(role, 0.0)
+            if role == "checker":
+                return {"cost": 0.0, "minutes": 1.0, "result": "SCORE caught_strict=10 partial=2 missed=2 real_extra=0 false=0"}
+            return {"cost": cost, "minutes": 2.0, "result": "ok", "requests": 1, "over_100k": 0}
+        agent.calls = calls
+        return agent
+
+    def test_cap_stops_third_run_and_passes_remaining_cap(self):
+        self.results([])
+        picks = [{"model": m, "effort": "high", "estimate": {"usd": e}}
+                 for m, e in (("claude-a", 5.0), ("claude-b", 3.0), ("claude-c", 5.0))]
+        stored = []
+        # each run spends its estimate: $5 on its one slice agent, nothing else
+        agent = self.fake_agent({"1": 5.0})
+        costs = iter([5.0, 3.0])
+
+        def agent2(prompt, model, effort, budget, name, cwd, case_dir):
+            if name.endswith("slice-1"):
+                agent.calls.append({"name": name, "budget": budget})
+                return {"cost": next(costs), "minutes": 2.0, "result": "ok", "requests": 1, "over_100k": 0}
+            return agent(prompt, model, effort, budget, name, cwd, case_dir)
+
+        out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent2,
+                        os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual([r["entry"]["model"] for r in out["runs"]], ["claude-a", "claude-b"])
+        self.assertIn("above the remaining cap", out["not_run"][0]["reason"])
+        slice_calls = [c for c in agent.calls if c["name"].endswith("slice-1")]
+        self.assertEqual([c["budget"] for c in slice_calls], [10.0, 5.0])
+        self.assertEqual(out["remaining_cap"], 2.0)
+        self.assertEqual(stored[0]["caught_strict"], 10)
+        self.assertEqual(stored[0]["caught_with_partials"], 11.0)
+        self.assertEqual(stored[0]["setup_id"], self.sid)
+
+    def test_stored_run_never_planned_again(self):
+        self.results([self.haiku_run()])
+        picks = [{"model": "claude-haiku-5-5", "effort": "high", "estimate": {"usd": 1.0}}]
+        out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, self.fake_agent({}),
+                        os.path.join(self.tmp, "out"), lambda c, e: None)
+        self.assertEqual(out["runs"], [])
+        self.assertIn("already has a result", out["not_run"][0]["reason"])
+
+    def test_temp_folder_is_a_git_snapshot_and_removed(self):
+        folder = bench.prepare_folder(self.case, self.tmp)
+        self.assertTrue(os.path.exists(os.path.join(folder["snap"], "a.sh")))
+        self.assertFalse(os.path.exists(os.path.join(folder["root"], "answer-key.md")))
+        self.assertIn("+echo hi", read(folder["diff"]))
+        shutil.rmtree(folder["root"])
+
+    def test_store_refuses_installed_copy(self):
+        with self.assertRaises(RuntimeError):
+            bench.store(self.case, {"id": "J"})  # temp copy is not a repo checkout
+
+
+class Repeat(CaseCopy):
+    def test_one_behind_repeats_seven_behind_does_not(self):
+        cur = {"caught_strict": 13}
+        self.assertTrue(bench.propose_repeat(12, cur))
+        self.assertFalse(bench.propose_repeat(6, cur))
+
+    def test_current_from_models_line(self):
+        self.results([self.haiku_run(), self.haiku_run(id="K", model="claude-sonnet-5-5", effort="high",
+                                                        caught_strict=13, cost_with_refuter=50.0)])
+        md = "# x\n\n## Models\n\n- Coding: Opus 5.5 medium\n- Review slices: Sonnet 5.5 high (about 7 agents)\n\n## Other\n"
+        cur = bench.current_model(bench.load_json(os.path.join(self.case, "results.json")), self.sid, [md])
+        self.assertEqual((cur["model"], cur["effort"], cur["source"], cur["caught_strict"]),
+                         ("claude-sonnet-5-5", "high", "models line", 13))
+
+    def test_current_from_results_without_line(self):
+        self.results([self.haiku_run(), self.haiku_run(id="K", model="claude-sonnet-5-5", effort="high",
+                                                        caught_strict=13, cost_with_refuter=50.0)])
+        cur = bench.current_model(bench.load_json(os.path.join(self.case, "results.json")), self.sid, ["# no section\n"])
+        self.assertEqual((cur["model"], cur["source"]), ("claude-haiku-5-5", "best stored result"))
+
+    def test_changed_checker_brief_marks_case(self):
+        self.results([self.haiku_run()])
+        with open(os.path.join(self.case, "checker-brief.md"), "a") as fh:
+            fh.write("\nchanged\n")
+        out = bench.comparability(bench.load_json(os.path.join(self.case, "results.json")), self.case)
+        self.assertEqual(out["case_not_comparable"], ["checker_brief"])
+
+    def test_changed_brief_marks_setup(self):
+        self.results([self.haiku_run()])
+        with open(os.path.join(self.case, "setups", "review-mr-v1", "slice-brief.md"), "a") as fh:
+            fh.write("\nchanged\n")
+        out = bench.comparability(bench.load_json(os.path.join(self.case, "results.json")), self.case)
+        self.assertEqual(out["case_not_comparable"], [])
+        self.assertEqual(out["runs_not_comparable"][0]["reasons"], ["setup changed"])

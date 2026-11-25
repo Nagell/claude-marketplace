@@ -1,6 +1,6 @@
 ---
 name: usage
-description: Show what your most used skills and their agents cost on this machine, from Claude Code's local transcripts, read on demand. Ranks skills by estimated spend in a window, shows script-built trends per skill (cost per run, per agent role, per model and effort, share of prompts over 100k, per month), reads the recent and outlier runs, and names agent roles to drop or to strengthen. Labels review-mr agents by role and slice from its run.json. Checks transcript retention and offers 180 days. Prints only; changes nothing without your yes. Invoke only via /base:usage.
+description: Show what your most used skills and their agents cost on this machine, from Claude Code's local transcripts, read on demand. Ranks skills by estimated spend in a window, shows script-built trends per skill (cost per run, per agent role, per model and effort, share of prompts over 100k, per month), reads the recent and outlier runs, and names agent roles to drop or to strengthen. Labels review-mr agents by role and slice from its run.json. Checks transcript retention and offers 180 days. A models mode checks prices, reads Artificial Analysis, benchmarks new models under a cost cap you set and proposes a `## Models` rule list. Changes nothing without your yes. Invoke only via /base:usage.
 argument-hint: "[--days N] [--top N] [--runs N]"
 disable-model-invocation: true
 dependencies:
@@ -112,6 +112,49 @@ AA_API_KEY='<pasted key>' python3 $SKILL_DIR/scripts/models.py --external   # or
 ```
 
 Say which `path` was used (`free API` or `page`). A Pro+ endpoint answering 403 is reported in `notes` as `free tier`; that is expected, not an error. Name every entry in `skipped` (a source that did not answer) and go on without it. Show `effort_coverage` notes ("Effort not listed: ...") for the models you discuss. Rows tagged `reference` (other vendors) are context only: never benchmark them and never put them in the rule list. Credit Artificial Analysis when you show its numbers (`attribution`). Raw fetches with their hashes are under `~/.claude/model-bench/external/<date>/`; when a hash differs from the last run and the rows look wrong, say the page layout may have changed.
+
+### M4. Benchmark plan
+
+Save the outputs of M1 and M3 to files in `<scratchpad>`, then per case:
+
+```bash
+python3 $SKILL_DIR/scripts/bench.py plan <case> --external '<scratchpad>/external.json' --usage '<scratchpad>/usage.json' \
+  --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md > '<scratchpad>/plan.json'
+```
+
+It plans only models with no stored result in the setup (`setup_id`; default: the setup of the current model's result), at most 2 efforts each (`why`: lowest Artificial Analysis cost per index point, most used effort of the case's skill), and estimates each run from the closest stored run in the same setup. Show every pick with its estimate and the total, `current` (the `## Models` line, else the best stored result) and anything in `comparability` (a changed checker brief, key, snapshot or setup makes those results not comparable: say so and let the user decide). A pick in `unestimated` has no stored run to scale from; say that its cost is unknown. Nothing planned: say so and go to M6.
+
+### M5. Approval, cap and runs
+
+Ask one AskUserQuestion with the plan and its total: `Run with a cap of $<total, rounded up> (Recommended)`, `Run with another cap` (the user types it) or `Skip the benchmark`. Run nothing without a yes. A cap is required. Then, from a repo checkout of this marketplace (results are written only there, never to the installed plugin copy):
+
+```bash
+python3 $SKILL_DIR/scripts/bench.py run <case> --plan '<scratchpad>/plan.json' --cap <usd> --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md
+```
+
+Run it in the background; it takes as long as one review per pick. Each agent is a `claude -p` call in a fresh temp folder with the snapshot and no key, `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, deny rules for every key copy, `-n bench-<case>-<run>` (so both modes leave it out) and `--max-budget-usd` set to the remaining cap. A pick whose estimate is above the remaining cap is not started: show its `reason`. After the runs, show per run: key bugs caught (strict and with partials), real cost with and without the refuter, slowest agent, and `repeat_proposed`. A repeat (within 2 key bugs of the current model) needs the same approval and cap as a first run. Results go to the case's `results.json` and `RESULTS.md`; commit them on a branch when the user wants them kept.
+
+### M6. Case suggestions
+
+From report mode's top skills (`python3 $SKILL_DIR/scripts/report.py --days <N> --top <N>`), list the skills that have no case under `references/bench/` as suggestions, in one line each. Add a case only after the user's yes, and only from a merged fix: the snapshot is the fix commit's parent, the key is the bugs that fix closed (each with id, severity, mechanism, snapshot file and line, fixing commit and fix hunk, as in `review-hooks-browser/answer-key.md`). When the user says yes but no merged fix exists to build a key from, add nothing and say why.
+
+### M7. Ranking
+
+```bash
+python3 $SKILL_DIR/scripts/models.py --rank <case> --external-json '<scratchpad>/external.json'
+```
+
+`local` ranks runs within one setup by cost per caught key bug, then slowest-agent time; never rank across setups. `external` holds pairs without a local result by Artificial Analysis cost per index point (the cost of the whole index run, not a cost per task) and time per task, as a separate group. Token price is only a column.
+
+### M8. Rule list and diff
+
+Write the proposal as a `## Models` list, one line per task in the form `- <task>: <model> <effort>`, a short note in brackets where the setup matters, for example `- Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)`. Give a line only to tasks with evidence (a local result or external data, named in one line under the list); other tasks keep their current line. Never name another vendor's model. No report file, no table. Save it to `<scratchpad>/models.md` and run:
+
+```bash
+python3 $SKILL_DIR/scripts/models.py --rules '<scratchpad>/models.md' --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md
+```
+
+Show `diff` (both `## Models` sections, kept identical, and the rows of review-mr's fallback role table in `plugins/base/skills/review-mr/SKILL.md` step 4 that the `- Review` lines cover) and ask one AskUserQuestion: `Apply (Recommended)` or `Leave the files`. On yes rerun with `--write`; it replaces an existing `## Models` section or appends one, and changes nothing else. On no, none of the three files changes.
 
 ## Tests
 

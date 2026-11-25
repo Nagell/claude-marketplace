@@ -228,3 +228,58 @@ class Ranking(TempHome):
         # haiku max has a local result, so only sonnet max is external; GPT never appears
         self.assertEqual([(r["model"], r["effort"]) for r in ext], [("claude-sonnet-5-5", "max")])
         self.assertIn("cost per index point", ext[0])
+
+
+class Rules(TempHome):
+    PROPOSAL = """## Models
+
+- Coding: Opus 5.5 medium
+- Review slices: Sonnet 5.5 high (about 7 agents, ~400 lines each)
+- Review refuters: Opus 5.5 medium (every severity)
+- Review with --fast: Opus 5.5 high slices (faster, finds less)
+- Review slices cheap: GPT-6 high (reference)
+"""
+
+    def setUp(self):
+        super().setUp()
+        self.user = os.path.join(self.tmp, "user-CLAUDE.md")
+        self.repo = os.path.join(self.tmp, "repo-CLAUDE.md")
+        self.skill = os.path.join(self.tmp, "SKILL.md")
+        with open(self.user, "w") as fh:
+            fh.write("# Global\n\n## Models\n\n- Coding: Old 1 low\n\n## Commits\n\n- keep me\n")
+        with open(self.repo, "w") as fh:
+            fh.write("# Repo\n\nNo section yet.\n")
+        real = os.path.join(os.path.dirname(models.SKILL_DIR), "review-mr", "SKILL.md")
+        with open(real, encoding="utf-8") as fh:
+            self.skill_text = fh.read()
+        with open(self.skill, "w") as fh:
+            fh.write(self.skill_text)
+
+    def apply(self, write):
+        return models.apply_models(self.PROPOSAL, [self.user, self.repo], self.skill, write)
+
+    def section(self, path):
+        with open(path) as fh:
+            text = fh.read()
+        return text[text.index("## Models"):].split("\n## ")[0].rstrip()
+
+    def test_approve_writes_identical_sections_and_table(self):
+        out = self.apply(True)
+        self.assertEqual(self.section(self.user), self.section(self.repo))
+        self.assertNotIn("GPT", self.section(self.user))
+        self.assertEqual(out["dropped"], ["- Review slices cheap: GPT-6 high (reference)"])
+        with open(self.user) as fh:
+            self.assertIn("## Commits\n\n- keep me\n", fh.read())
+        with open(self.skill) as fh:
+            new = fh.read()
+        self.assertIn("| wave 1 slice owners                    | sonnet, high  | opus, high     |", new)
+        self.assertIn("| refuters (step 5)                      | opus, medium  | opus, medium   |", new)
+        changed = [l for l in new.split("\n") if l not in self.skill_text.split("\n")]
+        self.assertTrue(all(l.startswith("| ") for l in changed))
+        self.assertEqual(len(changed), 7)
+
+    def test_decline_changes_nothing(self):
+        before = [open(p).read() for p in (self.user, self.repo, self.skill)]
+        out = self.apply(False)
+        self.assertTrue(out["diff"])
+        self.assertEqual([open(p).read() for p in (self.user, self.repo, self.skill)], before)

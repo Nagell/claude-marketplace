@@ -5,8 +5,10 @@
     python3 models.py --prices [--write] [--page FILE]
     AA_API_KEY=... python3 models.py --external
     python3 models.py --rank <case>
+    python3 models.py --rules FILE [--write] [--claude-md FILE ...] [--review-skill FILE]
 
-Prints JSON. Only `--prices --write` writes, and only ~/.claude/usage/prices.json. Raw external fetches
+Prints JSON. Only --write writes: with --prices only ~/.claude/usage/prices.json; with --rules only the
+`## Models` sections of the CLAUDE.md files and review-mr's role table. Raw external fetches
 go to ~/.claude/model-bench/external/<date>/. Stdlib only, Python 3.9+.
 """
 import argparse
@@ -427,6 +429,91 @@ def rank(results, ext_rows=None, table=None):
                                                   "not per task)", "rows": external_rows}}
 
 
+# ---------- rule list ----------
+
+CLAUDE_FAMILIES = ("opus", "sonnet", "haiku", "fable", "mythos")
+SLICE_ROLES_EXCLUDED = ("refuters", "thread validation")
+
+
+def parse_lines(text):
+    """'- Task: Model effort (note)' lines. Lines that name no Claude model are dropped (other vendors are reference only)."""
+    keep, dropped = [], []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("- ") or ":" not in line:
+            continue
+        task, _, rest = line[2:].partition(":")
+        word = rest.strip().split(" ", 1)[0].lower()
+        (keep if word in CLAUDE_FAMILIES else dropped).append(line)
+    return keep, dropped
+
+
+def replace_section(text, lines):
+    section = "## Models\n\n" + "\n".join(lines) + "\n"
+    m = re.search(r"^## Models[ \t]*\n.*?(?=^## |\Z)", text, re.M | re.S)
+    if m:
+        tail = text[m.end():]
+        return text[:m.start()] + section + ("\n" if tail else "") + tail
+    return text.rstrip("\n") + "\n\n" + section
+
+
+def alias_effort(rest):
+    """'Haiku 5.5 max (about 7 agents)' -> 'haiku, max'."""
+    m = re.match(r"\s*(Opus|Sonnet|Haiku|Fable|Mythos)\s+[0-9.]+\s+(low|medium|high|xhigh|max)\b", rest, re.I)
+    return f"{m.group(1).lower()}, {m.group(2).lower()}" if m else None
+
+
+def update_role_table(text, lines):
+    """Rows of review-mr's step-4 role table that the `- Review` lines cover; other rows unchanged."""
+    by_task = {l[2:].partition(":")[0].strip(): alias_effort(l[2:].partition(":")[2]) for l in lines}
+    out = []
+    in_table = False
+    for row in text.split("\n"):
+        if row.startswith("| role"):
+            in_table = True
+            out.append(row)
+            continue
+        if in_table and not row.startswith("|"):
+            in_table = False
+        if in_table and not row.startswith("| --"):
+            cells = row.split("|")[1:-1]
+            role = cells[0].strip()
+            refuter = role.startswith(SLICE_ROLES_EXCLUDED)
+            main = by_task.get("Review refuters" if refuter else "Review slices")
+            fast = by_task.get("Review refuters" if refuter else "Review with --fast")
+            vals = [cells[0], main or cells[1].strip(), fast or cells[2].strip()]
+            row = "|" + "|".join([vals[0]] + [" " + v.ljust(len(c) - 1) for v, c in zip(vals[1:], cells[1:])]) + "|"
+        out.append(row)
+    return "\n".join(out)
+
+
+def apply_models(proposal, claude_mds, review_skill, write=False):
+    """One diff over the `## Models` sections and review-mr's role table; files change only with write=True."""
+    import difflib
+    lines, dropped = parse_lines(proposal)
+    diff, new_texts = [], {}
+    targets = [(p, lambda t: replace_section(t, lines)) for p in claude_mds]
+    if any(l.startswith("- Review") for l in lines):
+        targets.append((review_skill, lambda t: update_role_table(t, [l for l in lines if l.startswith("- Review")])))
+    for path, fn in targets:
+        old = ""
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as fh:
+                old = fh.read()
+        new = fn(old)
+        if new != old:
+            new_texts[path] = new
+            diff += difflib.unified_diff(old.splitlines(True), new.splitlines(True), path, path)
+    if write:
+        for path, new in new_texts.items():
+            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".models.")
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(new)
+            os.replace(tmp, path)
+    return {"lines": lines, "dropped": dropped, "diff": "".join(diff), "changed": sorted(new_texts),
+            "written": bool(write and new_texts)}
+
+
 def load_results(case, bench_dir=BENCH_DIR):
     with open(os.path.join(bench_dir, case, "results.json"), encoding="utf-8") as fh:
         return json.load(fh)
@@ -439,13 +526,17 @@ def main(argv=None):
     g.add_argument("--prices", action="store_true")
     g.add_argument("--external", action="store_true")
     g.add_argument("--rank", metavar="CASE")
+    g.add_argument("--rules", metavar="FILE", help="proposed ## Models lines; prints the diff, --write applies it")
     p.add_argument("--days", type=report_mod.positive_int, default=30)
     p.add_argument("--top", type=report_mod.positive_int, default=5)
     p.add_argument("--projects-dir", default=scan.PROJECTS_DIR)
     p.add_argument("--page", help="read the pricing page from this file instead of fetching it")
-    p.add_argument("--write", action="store_true", help="with --prices: write added and changed models to the override")
+    p.add_argument("--write", action="store_true", help="with --prices or --rules: apply the change")
     p.add_argument("--override", default=prices.OVERRIDE_PATH)
     p.add_argument("--external-json", help="with --rank: output of --external")
+    p.add_argument("--claude-md", action="append", help="with --rules: CLAUDE.md files (default: ~/.claude/CLAUDE.md and "
+                                                       "plugins/base/CLAUDE.md of this checkout)")
+    p.add_argument("--review-skill", default=os.path.join(os.path.dirname(SKILL_DIR), "review-mr", "SKILL.md"))
     a = p.parse_args(argv)
     table = prices.PriceTable(prices.SEED_PATH, a.override)
     if a.usage:
@@ -466,6 +557,12 @@ def main(argv=None):
                                             a.override)
     elif a.external:
         out = external(os.environ.get("AA_API_KEY") or None)
+    elif a.rules:
+        with open(a.rules, encoding="utf-8") as fh:
+            proposal = fh.read()
+        mds = a.claude_md or [os.path.join(scan.config_dir(), "CLAUDE.md"),
+                              os.path.join(os.path.dirname(os.path.dirname(SKILL_DIR)), "CLAUDE.md")]
+        out = apply_models(proposal, mds, a.review_skill, a.write)
     else:
         ext = None
         if a.external_json:
