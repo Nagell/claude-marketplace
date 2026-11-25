@@ -200,8 +200,8 @@ class Run(CaseCopy):
         self.assertEqual([r["entry"]["model"] for r in out["runs"]], ["claude-a", "claude-b"])
         self.assertIn("above the remaining cap", out["not_run"][0]["reason"])
         slice_calls = [c for c in agent.calls if c["name"].endswith("slice-1")]
-        # slice-1 and run-it share the remaining cap by load: half each
-        self.assertEqual([c["budget"] for c in slice_calls], [5.0, 2.5])
+        # each reviewer call may use the whole phase cap (no refuter estimate here, so the remaining cap)
+        self.assertEqual([c["budget"] for c in slice_calls], [10.0, 5.0])
         self.assertEqual(out["remaining_cap"], 2.0)
         self.assertEqual(stored[0]["caught_strict"], 10)
         self.assertEqual(stored[0]["caught_with_partials"], 11.0)
@@ -229,11 +229,46 @@ class Run(CaseCopy):
                   os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
         reviewer_budgets = [b for name, b in calls if "-slice-" in name or name.endswith("runit")]
         self.assertEqual(len(reviewer_budgets), n)
-        self.assertLessEqual(sum(reviewer_budgets), 8.0 + 1e-9)
+        self.assertEqual(set(reviewer_budgets), {6.0})  # phase cap: $8 minus the $2 refuter estimate
         e = stored[0]
         self.assertEqual(e["status"], "complete")
         self.assertEqual(e["phase_minutes"], {"reviewers": 3.0, "refuter": 1.0, "checker": 1.0})
         self.assertEqual(e["run_minutes"], 5.0)
+
+    def test_phase_over_its_cap_stops_before_refuter(self):
+        self.results([])
+        stored = []
+        agent = self.fake_agent({"1": 4.0, "runit": 3.0})
+        picks = [{"model": "m", "effort": "max", "estimate": {"usd": 6.0, "reviewers": 4.0, "refuter": 2.0}}]
+        bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 8.0, agent,
+                  os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertTrue(stored[0]["reason"].startswith("reviewer phase spent $7.00, above its cap $6.00"))
+        self.assertFalse(any(c["name"].endswith("refuter") for c in agent.calls))
+
+    def test_resume_reruns_only_unfinished_roles(self):
+        prior = {"id": "M", "model": "m", "effort": "max", "status": "incomplete", "reason": "x", "cost": 5.0,
+                 "cost_with_refuter": 5.0, "roles": {"slice-1": False, "runit": True, "refuter": False, "checker": False},
+                 "phase_minutes": {"reviewers": 20.0}, "date": "2026-11-25"}
+        self.results([prior])
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(os.path.join(out_dir, "review-hooks-browser", "runs"))
+        with open(os.path.join(out_dir, "review-hooks-browser", "runs", "M-runit.md"), "w") as fh:
+            fh.write("old run-it report")
+        agent, prompts, stored = self.fake_agent({"1": 1.0, "refuter": 2.0}), {}, []
+
+        def spy(prompt, model, effort, budget, name, cwd, case_dir):
+            prompts[name.rsplit("-", 1)[-1]] = prompt
+            return agent(prompt, model, effort, budget, name, cwd, case_dir)
+        picks = [{"model": "m", "effort": "max", "estimate": {"usd": 8.0, "reviewers": 6.0, "refuter": 2.0}}]
+        out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 7.0, spy, out_dir,
+                        lambda c, e: stored.append(e), resume="M")
+        self.assertEqual([c["name"].rsplit("-", 1)[-1] for c in agent.calls], ["1", "refuter", "checker"])
+        self.assertIn("M-runit.md", prompts["refuter"])
+        e = stored[0]
+        self.assertEqual((e["id"], e["status"], e["cost"], e["cost_with_refuter"]), ("M", "complete", 6.0, 8.0))
+        self.assertEqual(e["resumed"], "resumed: slice-1 rerun")
+        self.assertEqual(e["phase_minutes"]["reviewers"], 20.0)
+        self.assertEqual(len(out["runs"]), 1)
 
     def test_error_logs_incomplete_run(self):
         self.results([])

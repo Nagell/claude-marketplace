@@ -463,12 +463,15 @@ def phase_times(agents):
     return {"phase_minutes": phases, "run_minutes": round(sum(phases.values()), 2) if phases else None}
 
 
-def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id, out_dir):
-    """All agents of one planned pick, then the refuter and the checker. Returns the result entry."""
+def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id, out_dir, prior=None):
+    """All agents of one planned pick, then the refuter and the checker. Returns the result entry.
+    With prior (an incomplete entry of the same run), only the roles it did not finish run again;
+    the finished ones' reports and costs are reused."""
+    prior_done = {k for k, v in (prior or {}).get("roles", {}).items() if v and k not in ("refuter", "checker")}
     name = os.path.basename(case_dir)
     folder = prepare_folder(case_dir)
     spent = reviewers = 0.0
-    agents, reports, reason, values = [], [], None, {}
+    agents, reports, reason, values, todo = [], [], None, {}, []
     try:
         sdir = os.path.dirname(setup_path)
         slices = cut_slices(snapshot_files(folder["snap"]), setup["size_rule"])
@@ -492,19 +495,21 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                 jobs.append(("runit", render(os.path.join(sdir, setup["run_it_template"]),
                                              dict(common, runnable=runnable, report=report)), report, mean_load))
         roles = [j[0] for j in jobs] + ["refuter", "checker"]
+        reports = [j[2] for j in jobs if j[0] in prior_done]
+        todo = [j for j in jobs if j[0] not in prior_done]
         est = pick.get("estimate") or {}
-        rev_est = est.get("reviewers", est.get("usd") or 0.0)
+        rev_est = est.get("reviewers", est.get("usd") or 0.0) * len(todo) / max(len(jobs), 1)
         ref_est = est.get("refuter", 0.0)
-        # phase 1: every slice owner and the run-it agent at once, the cap split by estimated share (slice load)
-        if budget_left < max(rev_est, MIN_BUDGET * len(jobs)):
-            reason = f"cap ${budget_left:.2f} does not cover the reviewer phase estimate ${rev_est:.2f}"
-        else:
-            total_load = sum(j[3] for j in jobs) or 1
-            with concurrent.futures.ThreadPoolExecutor(max_workers=max(len(jobs), 1)) as pool:
-                futs = [(role, report, pool.submit(agent, prompt, pick["model"], pick["effort"],
-                                                   budget_left * load / total_load, f"bench-{name}-{run_id}-{role}",
-                                                   folder["snap"], case_dir))
-                        for role, prompt, report, load in jobs]
+        # phase 1: every slice owner and the run-it agent at once; each call may use the whole phase cap
+        # (the cap minus the refuter's estimate), and the run stops after the phase if the total passed it
+        phase_cap = budget_left - ref_est
+        if phase_cap < max(rev_est, MIN_BUDGET):
+            reason = f"cap ${budget_left:.2f} does not cover the reviewer phase estimate ${rev_est:.2f} plus the refuter's"
+        elif todo:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(todo)) as pool:
+                futs = [(role, report, pool.submit(agent, prompt, pick["model"], pick["effort"], phase_cap,
+                                                   f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir))
+                        for role, prompt, report, _ in todo]
                 for role, report, fut in futs:
                     r = fut.result()
                     spent += r["cost"] or 0.0
@@ -514,6 +519,8 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                     if r.get("error") and not reason:
                         reason = f"{role} stopped: {r['error']}"
             reviewers = spent
+            if not reason and spent > phase_cap:
+                reason = f"reviewer phase spent ${spent:.2f}, above its cap ${phase_cap:.2f}"
         # phase 2: the refuter
         if not reason and budget_left - spent < max(ref_est, MIN_BUDGET):
             reason = f"cap reached before refuter could start (remaining ${budget_left - spent:.2f}, estimate ${ref_est:.2f})"
@@ -533,15 +540,31 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
     finally:
         shutil.rmtree(folder["root"], ignore_errors=True)
 
+    base_rev = (prior or {}).get("cost") or 0.0
+
+    def merged(entry):
+        """Adds the prior part of a resumed run: its reviewer cost and its slowest reviewer."""
+        entry.update(phase_times(agents))
+        if prior:
+            entry["cost"] = round(entry["cost"] + base_rev, 4)
+            entry["cost_with_refuter"] = round(entry["cost_with_refuter"] + base_rev, 4)
+            old = (prior.get("phase_minutes") or {}).get("reviewers")
+            if old is not None:
+                entry["phase_minutes"]["reviewers"] = max(old, entry["phase_minutes"].get("reviewers", 0.0))
+                entry["run_minutes"] = round(sum(entry["phase_minutes"].values()), 2)
+                if entry.get("status") == "complete":
+                    entry["slowest_agent_min"] = max(old, entry.get("slowest_agent_min") or 0.0)
+            entry["resumed"] = f"resumed: {', '.join(j[0] for j in todo) or 'no reviewer'} rerun"
+        entry.update(case_hashes(case_dir))
+        return entry
+
     def incomplete(total):
-        finished = {a["role"] for a in agents if not a.get("error")}
+        finished = {a["role"] for a in agents if not a.get("error")} | prior_done
         entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid,
                  "status": "incomplete", "reason": reason, "caught_strict": None, "caught_with_partials": None,
                  "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
                  "roles": {role: role in finished for role in roles}, "date": dt.date.today().isoformat()}
-        entry.update(phase_times(agents))
-        entry.update(case_hashes(case_dir))
-        return entry, total, agents
+        return merged(entry), total, agents
     if not reason and budget_left - spent < MIN_BUDGET:
         reason = "cap reached before checker could start"
     if reason:
@@ -575,9 +598,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                  round(over / reqs, 4) if reqs else None,
              "checker": f"{chk['model']} {chk['effort']}", "date": dt.date.today().isoformat()}
     agents.append(dict(c, role="checker", phase="checker"))
-    entry.update(phase_times(agents))
-    entry.update(case_hashes(case_dir))
-    return entry, spent + checker_cost, agents
+    return merged(entry), spent + checker_cost, agents
 
 
 def store(case_dir, entry):
@@ -585,7 +606,7 @@ def store(case_dir, entry):
         raise RuntimeError(f"{case_dir} is not a repo checkout; results are written only there")
     path = os.path.join(case_dir, "results.json")
     data = load_json(path)
-    data.setdefault("runs", []).append(entry)
+    data["runs"] = [r for r in data.get("runs", []) if r.get("id") != entry["id"]] + [entry]
     fd, tmp = tempfile.mkstemp(dir=case_dir, prefix=".results.")
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
         json.dump(data, fh, indent=1)
@@ -593,30 +614,32 @@ def store(case_dir, entry):
     os.replace(tmp, path)
     md = os.path.join(case_dir, "RESULTS.md")
     with open(md, encoding="utf-8") as fh:
-        lines = fh.read().split("\n")
+        lines = [l for l in fh.read().split("\n") if not l.startswith(f"| {entry['id']} | {entry['setup_id']} |")]
     head = next(i for i, l in enumerate(lines) if l.startswith("| Run | Setup | Model"))
     end = head + 2
     while end < len(lines) and lines[end].startswith("|"):
         end += 1
     def f(v, fmt="{}"):
         return "n/a" if v is None else fmt.format(v)
+    note = f"; {entry['resumed']}" if entry.get("resumed") else ""
     if entry.get("status") == "incomplete":
         done = ", ".join(k for k, v in entry["roles"].items() if v) or "none"
         lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
-                          f"incomplete: {entry['reason']}; finished: {done} | "
+                          f"incomplete: {entry['reason']}; finished: {done}{note} | "
                           f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}) | n/a | {entry['date']} |")
         with open(md, "w", encoding="utf-8") as fh:
             fh.write("\n".join(lines))
         return
     lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
-                      f"{f(entry['caught_strict'])} / {f(entry['caught_with_partials'])} | "
+                      f"{f(entry['caught_strict'])} / {f(entry['caught_with_partials'])}{note} | "
                       f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}) | "
                       f"{f(entry['slowest_agent_min'], '{:.1f} min')} | {entry['date']} |")
     with open(md, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines))
 
 
-def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn=store, claude_md_texts=()):
+def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn=store, claude_md_texts=(),
+        resume=None):
     """Runs each pick once while its estimate fits the remaining cap; every call gets the remaining cap as budget."""
     results = load_json(os.path.join(case_dir, "results.json"))
     all_setups = setups(case_dir)
@@ -629,21 +652,30 @@ def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn
     os.makedirs(out_dir, exist_ok=True)
     remaining = float(cap)
     done, stopped = [], []
+    prior = None
+    if resume:
+        prior = next((r for r in results.get("runs", []) if r.get("id") == resume), None)
+        if not prior or is_complete(prior) or prior.get("setup_id") != sid:
+            raise RuntimeError(f"run {resume} is not an incomplete run of setup {sid}")
     for pick in the_plan["picks"]:
+        if prior and (pick["model"], pick["effort"]) != (prior["model"], prior["effort"]):
+            continue
         stored = {(r.get("model"), r.get("setup_id")) for r in results.get("runs", []) if is_complete(r)}
         if (pick["model"], sid) in stored:
             stopped.append({"pick": pick, "reason": "already has a result in this setup"})
             continue
         est = (pick.get("estimate") or {}).get("usd")
+        if prior and est is not None:  # only the unfinished part runs again
+            est = est - (prior.get("cost") or 0.0)
         if est is None or est > remaining:
             stopped.append({"pick": pick, "reason": "no estimate" if est is None else
                             f"estimate ${est:.2f} is above the remaining cap ${remaining:.2f}"})
             continue
-        run_id = next_run_id(results)
-        entry, spent, agents = run_pick(case_dir, setup, setup_path, sid, pick, remaining, agent, run_id, out_dir)
+        run_id = prior["id"] if prior else next_run_id(results)
+        entry, spent, agents = run_pick(case_dir, setup, setup_path, sid, pick, remaining, agent, run_id, out_dir, prior)
         remaining -= spent
         store_fn(case_dir, entry)
-        results.setdefault("runs", []).append(entry)
+        results["runs"] = [r for r in results.get("runs", []) if r.get("id") != run_id] + [entry]
         done.append({"entry": entry, "spent": round(spent, 4), "remaining_cap": round(remaining, 4),
                      "status": entry["status"], "repeat_proposed": propose_repeat(entry["caught_strict"], current),
                      "agents": [{k: a.get(k) for k in ("role", "cost", "cli_cost", "minutes", "error")} for a in agents]})
@@ -661,6 +693,7 @@ def main(argv=None):
     p.add_argument("--effort", help="with plan: one fixed effort per model instead of the AA and usage picks")
     p.add_argument("--plan", help="with run: output of bench.py plan")
     p.add_argument("--cap", type=float)
+    p.add_argument("--resume", help="with run: id of an incomplete run; reruns only its unfinished agents")
     p.add_argument("--claude-md", action="append", default=[], help="CLAUDE.md files with a ## Models section, in order")
     a = p.parse_args(argv)
     case_dir = os.path.join(BENCH_DIR, a.case) if not os.path.isdir(a.case) else os.path.abspath(a.case)
@@ -681,7 +714,7 @@ def main(argv=None):
     elif a.action == "run":
         if a.cap is None or not a.plan:
             p.error("run needs --plan and --cap")
-        out = run(case_dir, load_json(a.plan), a.cap, claude_md_texts=texts)
+        out = run(case_dir, load_json(a.plan), a.cap, claude_md_texts=texts, resume=a.resume)
     else:
         results = load_json(os.path.join(case_dir, "results.json"))
         out = {"setups": sorted(setups(case_dir)), "comparability": comparability(results, case_dir),
