@@ -306,10 +306,22 @@ def deny_rules(case_dir):
             "Bash(*references/bench*)", "Bash(*model-bench*)", "Bash(*answer-key*)"]
 
 
+def trim_flags(settings_path=None):
+    """No MCP servers and no plugin but base, so the start context is close to a real review subagent's.
+    Every other plugin enabled in the user's settings is switched off for this call only."""
+    path = settings_path or os.path.expanduser("~/.claude/settings.json")
+    try:
+        enabled = load_json(path).get("enabledPlugins") or {}
+    except (OSError, ValueError):
+        enabled = {}
+    off = {k: False for k, v in enabled.items() if v and k.split("@")[0] != "base"}
+    return ["--strict-mcp-config", "--settings", json.dumps({"enabledPlugins": off})]
+
+
 def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
     """One `claude -p` call. Returns cost and minutes from its transcript, the CLI's cost as a cross-check."""
     cmd = ["claude", "-p", "--model", model, "--effort", effort, "--output-format", "json",
-           "--tools", "Read,Grep,Glob,Bash", "--permission-mode", "dontAsk",
+           "--tools", "Read,Grep,Glob,Bash", "--permission-mode", "dontAsk", *trim_flags(),
            *(["--disallowedTools", *deny_rules(case_dir)] if case_dir else []), "-n", name, "--max-budget-usd", f"{max(budget, 0.01):.2f}",
            prompt]
     proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)

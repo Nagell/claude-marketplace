@@ -236,3 +236,16 @@ class Repeat(CaseCopy):
         out = bench.comparability(bench.load_json(os.path.join(self.case, "results.json")), self.case)
         self.assertEqual(out["case_not_comparable"], [])
         self.assertEqual(out["runs_not_comparable"][0]["reasons"], ["setup changed"])
+
+
+class Trim(TempHome):
+    def test_only_base_plugin_and_no_mcp(self):
+        path = os.path.join(self.tmp, "settings.json")
+        with open(path, "w") as fh:
+            json.dump({"enabledPlugins": {"base@m": True, "extras@m": True, "ctx@x": True, "old@x": False}}, fh)
+        flags = bench.trim_flags(path)
+        self.assertEqual(flags[0], "--strict-mcp-config")
+        self.assertEqual(json.loads(flags[2]), {"enabledPlugins": {"extras@m": False, "ctx@x": False}})
+
+    def test_missing_settings(self):
+        self.assertEqual(json.loads(bench.trim_flags("/nonexistent/x.json")[2]), {"enabledPlugins": {}})
