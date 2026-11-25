@@ -398,9 +398,16 @@ def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
             "over_100k": s["over_100k"] if s else None, "requests": s["requests"] if s else None}
 
 
-def save_reply(report, result):
-    """Agents cannot write under model-bench (deny rules), so the reply is saved as the report."""
-    if report and result and not os.path.exists(report):
+def work_path(run_tmp, report):
+    """Agents cannot read or write under model-bench (deny rules), so they work on a copy in the run's temp folder."""
+    return os.path.join(run_tmp, os.path.basename(report))
+
+
+def save_reply(report, result, work=None):
+    """Keeps the agent's report file from the temp folder, or else its reply, as the report."""
+    if work and os.path.exists(work):
+        shutil.copyfile(work, report)
+    elif report and result and not os.path.exists(report):
         with open(report, "w", encoding="utf-8") as fh:
             fh.write(result)
 
@@ -484,7 +491,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
             files = ", ".join(f"{f['path']} ({f['lines']} lines)" for f in s["files"])
             report = os.path.join(out_dir, f"{run_id}-slice-{s['slice']}.md")
             jobs.append((f"slice-{s['slice']}", render(os.path.join(sdir, setup["brief_template"]),
-                                                       dict(common, slice_files=files, report=report)), report,
+                                                       dict(common, slice_files=files, report=work_path(folder["run_tmp"], report))), report,
                          s["load"]))
         mean_load = sum(s["load"] for s in slices) / len(slices) if slices else 1
         for extra in setup.get("extra_agents", []):
@@ -493,7 +500,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                 runnable = ", ".join(f["path"] for f in snapshot_files(folder["snap"])
                                      if f["path"].endswith((".sh", ".json")) or "/scripts/" in f["path"])
                 jobs.append(("runit", render(os.path.join(sdir, setup["run_it_template"]),
-                                             dict(common, runnable=runnable, report=report)), report, mean_load))
+                                             dict(common, runnable=runnable, report=work_path(folder["run_tmp"], report))), report, mean_load))
         roles = [j[0] for j in jobs] + ["refuter", "checker"]
         reports = [j[2] for j in jobs if j[0] in prior_done]
         todo = [j for j in jobs if j[0] not in prior_done]
@@ -513,7 +520,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                 for role, report, fut in futs:
                     r = fut.result()
                     spent += r["cost"] or 0.0
-                    save_reply(report, r.get("result"))
+                    save_reply(report, r.get("result"), work_path(folder["run_tmp"], report))
                     agents.append(dict(r, role=role, phase="reviewers"))
                     reports.append(report)
                     if r.get("error") and not reason:
@@ -527,13 +534,18 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
         if not reason:
             ref = setup["refuter"]
             report = os.path.join(out_dir, f"{run_id}-refute.md")
+            work = [work_path(folder["run_tmp"], x) for x in reports]
+            for src, dst in zip(reports, work):
+                if os.path.exists(src) and not os.path.exists(dst):
+                    shutil.copyfile(src, dst)
             values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
-                      "key": os.path.join(case_dir, "answer-key.md")}
-            prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="")) + f"\n\nReport path: {report}"
+                      "key": os.path.join(case_dir, "answer-key.md")}  # the checker reads the kept copies
+            prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="", reports=", ".join(work))) + \
+                f"\n\nReport path: {work_path(folder['run_tmp'], report)}"
             r = agent(prompt, ref["model"], ref["effort"], budget_left - spent, f"bench-{name}-{run_id}-refuter",
                       folder["snap"], case_dir)
             spent += r["cost"] or 0.0
-            save_reply(report, r.get("result"))
+            save_reply(report, r.get("result"), work_path(folder["run_tmp"], report))
             agents.append(dict(r, role="refuter", phase="refuter"))
             if r.get("error"):
                 reason = f"refuter stopped: {r['error']}"

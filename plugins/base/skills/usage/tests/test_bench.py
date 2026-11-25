@@ -263,7 +263,7 @@ class Run(CaseCopy):
         out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 7.0, spy, out_dir,
                         lambda c, e: stored.append(e), resume="M")
         self.assertEqual([c["name"].rsplit("-", 1)[-1] for c in agent.calls], ["1", "refuter", "checker"])
-        self.assertIn("M-runit.md", prompts["refuter"])
+        self.assertIn("run-tmp/M-runit.md", prompts["refuter"])  # the refuter cannot read model-bench
         e = stored[0]
         self.assertEqual((e["id"], e["status"], e["cost"], e["cost_with_refuter"]), ("M", "complete", 6.0, 8.0))
         self.assertEqual(e["resumed"], "resumed: slice-1 rerun")
@@ -327,6 +327,23 @@ class Run(CaseCopy):
         bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]},
                   10.0, spy, out_dir, lambda c, e: None)
         self.assertEqual(read(os.path.join(out_dir, "review-hooks-browser", "runs", "J-slice-1.md")), "ok")
+
+    def test_report_file_kept_from_temp_folder(self):
+        self.results([])
+        out_dir = os.path.join(self.tmp, "out")
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            m = re.search(r"(\S*run-tmp/J-slice-1\.md)", prompt)
+            if m:
+                with open(m.group(1).strip("`"), "w") as fh:
+                    fh.write("file report")
+            res = "SCORE caught_strict=1 partial=0 missed=13" if name.endswith("checker") else "reply"
+            return {"cost": 0.0, "minutes": 1.0, "result": res}
+        bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]},
+                  10.0, agent, out_dir, lambda c, e: None)
+        runs = os.path.join(out_dir, "review-hooks-browser", "runs")
+        self.assertEqual(read(os.path.join(runs, "J-slice-1.md")), "file report")
+        self.assertEqual(read(os.path.join(runs, "J-runit.md")), "reply")
 
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])
