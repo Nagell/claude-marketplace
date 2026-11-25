@@ -1,0 +1,53 @@
+{
+  "sources": [
+    {
+      "id": "anthropic-pricing",
+      "name": "Anthropic pricing",
+      "url": "https://platform.claude.com/docs/en/about-claude/pricing.md",
+      "contributes": "Token prices per model",
+      "read": "Markdown fetch, first table under '## Model pricing'",
+      "stability": "Stable",
+      "verified": "2026-11-25"
+    },
+    {
+      "id": "aa-models-api",
+      "name": "Artificial Analysis models API (free)",
+      "url": "https://artificialanalysis.ai/api/v2/language/models/free",
+      "contributes": "Intelligence Index and cost to run the index per model and effort, all vendors",
+      "read": "JSON with x-api-key (AA_API_KEY), paged; attribution required, 100 requests per 24 hours. 401 without a key",
+      "stability": "API versioned",
+      "verified": "2026-11-25"
+    },
+    {
+      "id": "aa-models-page",
+      "name": "Artificial Analysis models",
+      "url": "https://artificialanalysis.ai/models",
+      "contributes": "Intelligence Index, cost to run the index and time per task per model and effort",
+      "read": "Page embedded data (Next.js flight chunks). Used for time per task, and for everything without a key",
+      "stability": "Layout can change; raw fetch hash shows it. Static page lists Anthropic models only at max",
+      "verified": "2026-11-25"
+    },
+    {
+      "id": "aa-coding-agents",
+      "name": "Artificial Analysis Coding Agent Index",
+      "url": "https://artificialanalysis.ai/agents/coding",
+      "contributes": "One row per agent, model and effort: index score, cost and wall time per task; Terminal-Bench 4.0 is a component",
+      "read": "Page embedded data. API /api/v2/language/agents/coding is Pro+ only",
+      "stability": "New; verify per run",
+      "verified": "2026-11-25"
+    },
+    {
+      "id": "tbench-leaderboard",
+      "name": "Terminal-Bench leaderboard",
+      "url": "https://www.tbench.ai/leaderboard",
+      "contributes": "Model with effort, resolution rate, tokens and cost",
+      "read": "Page embedded data (leaderboard rows)",
+      "stability": "Stable, no key; mostly max effort",
+      "verified": "2026-11-25"
+    }
+  ],
+  "pro_endpoints": [
+    "https://artificialanalysis.ai/api/v2/language/models",
+    "https://artificialanalysis.ai/api/v2/language/agents/coding"
+  ]
+}

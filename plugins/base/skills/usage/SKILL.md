@@ -16,8 +16,9 @@ Estimated API-equivalent cost of your skill runs, from the transcripts Claude Co
 ## Rules
 
 - Every number you show comes from the script output. Never compute, estimate or round a cost yourself beyond formatting, and never read transcripts to count tokens.
-- Write nothing into the working tree or any repository. The report is printed in the session.
-- The only file this skill may change is `~/.claude/settings.json`, through `report.py --set-retention`, and only after the user said yes in this run.
+- Report mode writes nothing into the working tree or any repository. The report is printed in the session.
+- Report mode may change only `~/.claude/settings.json`, through `report.py --set-retention`, and only after the user said yes in this run.
+- Models mode may change only these, each after the user's yes in this run: `~/.claude/usage/prices.json` (through `models.py --prices --write`), the case's `results.json` and `RESULTS.md` in a repo checkout (through `bench.py run`), and the `## Models` sections and the review-mr role table (step M8). It never edits the plugin's `prices.json` seed.
 - Recommendations are output only. Never edit a skill, an agent brief or a setting to apply one: applying it goes through an OpenSpec change and a benchmark check.
 - Costs are estimates at API prices, not plan usage. Say "estimate" with the totals.
 
@@ -41,9 +42,9 @@ On yes, run `python3 $SKILL_DIR/scripts/report.py --set-retention 180` and confi
 One AskUserQuestion call, with the retention question when there is one:
 
 - `report (Recommended)` - top skills, trends, drop and strengthen candidates.
-- `models (not available yet)` - model and effort advice per task; a later change adds it.
+- `models` - model and effort advice per task: prices, external data, a small local benchmark of new models, and a `## Models` rule list. Follow [Models mode](#models-mode).
 
-When the user picks `models`, say it is not available yet and offer to run `report` instead.
+When the user picks `models`, skip steps 3 to 5.
 
 ### 3. Report data
 
@@ -74,6 +75,28 @@ Per top skill:
 4. **Drop candidates**: roles that add nothing the others do not. For `review-mr` with `run.json`, a role with repeated but no unique surviving findings in `findings_by_role`; otherwise what the final replies show. Cite the runs.
 
 Say plainly when there is nothing to recommend. End with one line: applying a candidate goes through an OpenSpec change and a benchmark check; nothing was changed.
+
+## Models mode
+
+Scripts print JSON; you read footnotes, pick tasks and write the rule list. Every number still comes from a script. `<case>` is a folder under `$SKILL_DIR/references/bench/` (the first is `review-hooks-browser`, which belongs to `review-mr`).
+
+### M1. Usage
+
+```bash
+python3 $SKILL_DIR/scripts/models.py --usage --days <N> --top <N>
+```
+
+Show one line per top skill: runs, the model and effort used most, cost per run (mean). Benchmark sessions (custom title `bench-...`) are already left out.
+
+### M2. Prices
+
+```bash
+python3 $SKILL_DIR/scripts/models.py --prices
+```
+
+It fetches Anthropic's pricing page (URL in `sources.json`), maps display names to model ids and diffs them against the active table (seed plus override). Read `footnotes` yourself: a tier such as "for prompts over 100,000 tokens" is already a `long_prompt` entry; say which models are `retired`. Then invoke the `claude-api` skill once and cross-check the mapped ids and the prices of `added` and `changed` against it. The page wins; show every difference between the page, the skill and the table as old and new price.
+
+When `added` or `changed` is not empty, ask one AskUserQuestion: `Update ~/.claude/usage/prices.json (Recommended)` or `Keep the current table`. On yes run `python3 $SKILL_DIR/scripts/models.py --prices --write` (atomic; only those models change, other keys are kept) and confirm in one line. On no, nothing is written and the run uses the current table.
 
 ## Tests
 

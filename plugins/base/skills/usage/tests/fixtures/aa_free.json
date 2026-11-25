@@ -1,0 +1,57 @@
+{
+ "tier": "free",
+ "intelligence_index_version": 5,
+ "pagination": {
+  "page": 1,
+  "page_size": 200,
+  "total_pages": 1,
+  "has_more": false
+ },
+ "data": [
+  {
+   "id": "a",
+   "name": "Claude Opus 5.5 (Max)",
+   "slug": "claude-opus-5-5",
+   "model_creator": {
+    "id": "c",
+    "name": "Anthropic"
+   },
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 59.1
+   },
+   "artificial_analysis_intelligence_index_cost": {
+    "total_cost": 8909.7
+   }
+  },
+  {
+   "id": "b",
+   "name": "Claude Haiku 5.5 (Max)",
+   "slug": "claude-haiku-5-5",
+   "model_creator": {
+    "id": "c",
+    "name": "Anthropic"
+   },
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 36.5
+   },
+   "artificial_analysis_intelligence_index_cost": {
+    "total_cost": 339.5
+   }
+  },
+  {
+   "id": "g",
+   "name": "GPT-6 (High)",
+   "slug": "gpt-6",
+   "model_creator": {
+    "id": "o",
+    "name": "OpenAI"
+   },
+   "evaluations": {
+    "artificial_analysis_intelligence_index": 60.0
+   },
+   "artificial_analysis_intelligence_index_cost": {
+    "total_cost": 300.0
+   }
+  }
+ ]
+}
