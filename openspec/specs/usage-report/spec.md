@@ -13,13 +13,6 @@ The `usage` skill in plugin `base` SHALL run only when the user invokes it. It S
 - **WHEN** the user invokes `usage`
 - **THEN** the skill asks for the mode with `report (Recommended)` as the first option
 
-### Requirement: Models mode not available yet
-Until a later change adds it, the `models` option SHALL say in its label or description that it is not available yet. When the user picks it, the skill SHALL say so and offer `report` instead.
-
-#### Scenario: User picks models
-- **WHEN** the user picks `models`
-- **THEN** the skill says the mode is not available yet and offers to run `report`
-
 ### Requirement: Top skills by spend
 The `report` mode SHALL rank skills by estimated spend in a window and report the top ones, each with its agents. Defaults are a 30-day window and the top 5 skills. The user SHALL be able to change both. All skills count, not only review skills.
 
@@ -119,3 +112,10 @@ Every run SHALL read `cleanupPeriodDays` from `~/.claude/settings.json`. When it
 #### Scenario: Retention already long
 - **WHEN** `cleanupPeriodDays` is 180 or more
 - **THEN** the skill does not offer a change
+
+### Requirement: Models mode available
+The `models` option in the `usage` skill's mode question SHALL run the models mode. It SHALL stay second, after `report (Recommended)`, and SHALL no longer say that it is not available.
+
+#### Scenario: User picks models
+- **WHEN** the user invokes `usage` and picks `models`
+- **THEN** the skill runs the models mode and does not offer `report` instead

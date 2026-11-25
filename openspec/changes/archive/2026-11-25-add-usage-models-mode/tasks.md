@@ -38,7 +38,7 @@ Prerequisites, both met: `add-usage-skill` was merged and archived (`2026-11-24-
 
 ## 6. Pull request
 
-- [ ] 6.1 Open the PR with all work, including the archived plan (`openspec-archive-change`). Verify: the PR contains the code, docs and the archived change.
+- [x] 6.1 Open the PR with all work, including the archived plan (`openspec-archive-change`). Verify: the PR contains the code, docs and the archived change.
 
 ## 7. v1 baseline (after the PR is open, before merge)
 
