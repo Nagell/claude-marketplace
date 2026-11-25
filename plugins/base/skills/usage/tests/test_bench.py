@@ -40,9 +40,12 @@ class Case(TempHome):
         self.assertTrue(all(s["load"] < 700 for s in slices))
         self.assertEqual(sum(len(s["files"]) for s in slices), 20)
 
-    def test_results_seeded_empty(self):
+    def test_results_only_setup_runs(self):
         data = json.loads(read(os.path.join(CASE, "results.json")))
-        self.assertEqual(data, {"skill": "review-mr", "runs": []})
+        self.assertEqual(data["skill"], "review-mr")
+        for r in data["runs"]:  # only setup runs; history B to I stays in RESULTS.md
+            self.assertTrue(r["setup_id"].startswith("review-mr-v1-"))
+            self.assertIn(r["status"], ("complete", "incomplete"))
 
     def test_answer_key_items_complete(self):
         key = read(os.path.join(CASE, "answer-key.md"))
@@ -247,6 +250,19 @@ class Run(CaseCopy):
             bench.is_repo_checkout = orig
         self.assertIn("| J | " + self.sid + " | m max | incomplete: cap reached before refuter could start; "
                       "finished: slice-1 | $3.00 ($3.00) | n/a | 2026-11-25 |", read(os.path.join(self.case, "RESULTS.md")))
+
+    def test_replies_saved_as_reports(self):
+        self.results([])
+        prompts = []
+        agent = self.fake_agent({})
+
+        def spy(prompt, *rest):
+            prompts.append(prompt)
+            return agent(prompt, *rest)
+        out_dir = os.path.join(self.tmp, "out")
+        bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]},
+                  10.0, spy, out_dir, lambda c, e: None)
+        self.assertEqual(read(os.path.join(out_dir, "review-hooks-browser", "runs", "J-slice-1.md")), "ok")
 
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])

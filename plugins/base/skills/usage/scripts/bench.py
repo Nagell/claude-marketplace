@@ -377,6 +377,13 @@ def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
             "over_100k": s["over_100k"] if s else None, "requests": s["requests"] if s else None}
 
 
+def save_reply(report, result):
+    """Agents cannot write under model-bench (deny rules), so the reply is saved as the report."""
+    if report and result and not os.path.exists(report):
+        with open(report, "w", encoding="utf-8") as fh:
+            fh.write(result)
+
+
 def render(template_path, values):
     with open(template_path, encoding="utf-8") as fh:
         text = fh.read()
@@ -472,6 +479,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                 reports.append(report)
             r = agent(prompt, model, effort, budget_left - spent, f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir)
             spent += r["cost"] or 0.0
+            save_reply(report, r.get("result"))
             agents.append(dict(r, role=role))
             if role != "refuter":
                 reviewers = spent
