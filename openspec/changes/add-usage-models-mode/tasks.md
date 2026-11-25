@@ -33,8 +33,8 @@ Prerequisites, both met: `add-usage-skill` was merged and archived (`2026-11-24-
 
 ## 5. Docs and release
 
-- [ ] 5.1 Update `plugins/base/README.md`: the `usage` section describes the models mode, the free `AA_API_KEY` and where to get it, and the benchmark cost, and replace the sentence "A `models` mode is planned." (line 214). Verify: a reader can run the mode from the README alone.
-- [ ] 5.2 Run `python3 -m unittest discover -s tests` from the skill folder and `openspec validate add-usage-models-mode --strict`. Verify: both pass. Commit as `feat(base): add models mode to usage skill`.
+- [x] 5.1 Update `plugins/base/README.md`: the `usage` section describes the models mode, the free `AA_API_KEY` and where to get it, and the benchmark cost, and replace the sentence "A `models` mode is planned." (line 214). Verify: a reader can run the mode from the README alone.
+- [x] 5.2 Run `python3 -m unittest discover -s tests` from the skill folder and `openspec validate add-usage-models-mode --strict`. Verify: both pass. Commit as `feat(base): add models mode to usage skill`.
 
 ## 6. Pull request
 
