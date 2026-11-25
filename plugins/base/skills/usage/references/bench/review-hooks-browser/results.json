@@ -60,6 +60,40 @@
    "checker_brief_hash": "e5e4570cc0ee",
    "key_hash": "2b280da57df3",
    "snapshot_hash": "8e44376c913b"
+  },
+  {
+   "id": "L",
+   "model": "claude-haiku-5-5",
+   "effort": "max",
+   "setup_id": "review-mr-v1-354ec1e3-c57ac89f",
+   "status": "incomplete",
+   "reason": "slice-4, slice-8, slice-9 hit the 5-hour usage limit (logged as 'success'); Bash was denied in dontAsk mode in every call",
+   "caught_strict": null,
+   "caught_with_partials": null,
+   "cost": 2.7393,
+   "cost_with_refuter": 2.7393,
+   "roles": {
+    "slice-1": true,
+    "slice-2": true,
+    "slice-3": true,
+    "slice-4": false,
+    "slice-5": true,
+    "slice-6": true,
+    "slice-7": true,
+    "slice-8": false,
+    "slice-9": false,
+    "runit": true,
+    "refuter": false,
+    "checker": false
+   },
+   "date": "2026-11-25",
+   "phase_minutes": {
+    "reviewers": 10.56
+   },
+   "run_minutes": 10.56,
+   "checker_brief_hash": "e5e4570cc0ee",
+   "key_hash": "2b280da57df3",
+   "snapshot_hash": "8e44376c913b"
   }
  ]
 }

@@ -355,12 +355,31 @@ def trim_flags(settings_path=None):
     return ["--strict-mcp-config", "--settings", json.dumps({"enabledPlugins": off})]
 
 
+TOOLS = "Read,Grep,Glob,Bash"
+
+
+def agent_cmd(prompt, model, effort, budget, name, case_dir, settings_path=None):
+    """dontAsk denies every tool not allowed up front, so the tools are allowed too; the deny rules still win."""
+    return ["claude", "-p", "--model", model, "--effort", effort, "--output-format", "json",
+            "--tools", TOOLS, "--allowedTools", TOOLS, "--permission-mode", "dontAsk", *trim_flags(settings_path),
+            *(["--disallowedTools", *deny_rules(case_dir)] if case_dir else []), "-n", name,
+            "--max-budget-usd", f"{max(budget, MIN_BUDGET):.2f}", prompt]
+
+
+def call_error(out):
+    """The error of a `claude -p` result, or None. A usage-limit stop comes back as is_error with subtype
+    "success", so the result text is the reason then."""
+    if not out.get("is_error"):
+        return None
+    sub = out.get("subtype")
+    if sub and sub != "success":
+        return sub
+    return (out.get("result") or "error").strip()[:200]
+
+
 def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
     """One `claude -p` call. Returns cost and minutes from its transcript, the CLI's cost as a cross-check."""
-    cmd = ["claude", "-p", "--model", model, "--effort", effort, "--output-format", "json",
-           "--tools", "Read,Grep,Glob,Bash", "--permission-mode", "dontAsk", *trim_flags(),
-           *(["--disallowedTools", *deny_rules(case_dir)] if case_dir else []), "-n", name, "--max-budget-usd", f"{max(budget, 0.01):.2f}",
-           prompt]
+    cmd = agent_cmd(prompt, model, effort, budget, name, case_dir)
     proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     try:
         out = json.loads(proc.stdout)
@@ -375,7 +394,7 @@ def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
         minutes = active_minutes([path] + glob.glob(os.path.join(path[:-6], "subagents", "**", "*.jsonl"),
                                                    recursive=True))
     return {"cost": cost, "cli_cost": out.get("total_cost_usd"), "minutes": minutes, "result": out.get("result"),
-            "error": out.get("subtype") if out.get("is_error") else None, "transcript": path,
+            "error": call_error(out), "transcript": path,
             "over_100k": s["over_100k"] if s else None, "requests": s["requests"] if s else None}
 
 

@@ -349,6 +349,19 @@ class Repeat(CaseCopy):
         self.assertEqual(out["runs_not_comparable"][0]["reasons"], ["setup changed"])
 
 
+class Call(TempHome):
+    def test_usage_limit_is_the_reason_not_success(self):
+        out = {"is_error": True, "subtype": "success", "result": "You've hit your 5-hour limit · resets 8:20am"}
+        self.assertEqual(bench.call_error(out), "You've hit your 5-hour limit · resets 8:20am")
+        self.assertEqual(bench.call_error({"is_error": True, "subtype": "error_max_budget_usd"}), "error_max_budget_usd")
+        self.assertIsNone(bench.call_error({"is_error": False, "subtype": "success", "result": "ok"}))
+
+    def test_tools_allowed_in_dont_ask_mode(self):
+        cmd = bench.agent_cmd("p", "m", "max", 1.0, "n", "/case", "/nonexistent/x.json")
+        self.assertEqual(cmd[cmd.index("--allowedTools") + 1], "Read,Grep,Glob,Bash")
+        self.assertIn("Read(//case/**)", cmd)
+
+
 class Trim(TempHome):
     def test_only_base_plugin_and_no_mcp(self):
         path = os.path.join(self.tmp, "settings.json")
