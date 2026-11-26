@@ -100,27 +100,54 @@
    "model": "claude-haiku-5-5",
    "effort": "max",
    "setup_id": "review-mr-v1-354ec1e3-c57ac89f",
-   "status": "complete",
-   "caught_strict": 10,
-   "caught_with_partials": 11.5,
+   "status": "incomplete",
+   "caught_strict": null,
+   "caught_with_partials": null,
    "cost": 11.0928,
-   "cost_with_refuter": 14.0501,
-   "slowest_agent_min": 22.45,
+   "cost_with_refuter": 11.0928,
    "walltime_method": "active time, gaps over 5 min left out",
    "over_100k_share": 0.6071,
    "checker": "claude-opus-5-5 medium",
    "date": "2026-11-26",
    "phase_minutes": {
-    "reviewers": 22.45,
-    "refuter": 8.27,
-    "checker": 4.86
+    "reviewers": 16.19
    },
-   "run_minutes": 35.58,
+   "run_minutes": 16.19,
    "resumed": "resumed twice: slice-1, slice-2, slice-4 rerun",
    "checker_brief_hash": "e5e4570cc0ee",
    "key_hash": "2b280da57df3",
    "snapshot_hash": "8e44376c913b",
-   "checker_cost": 1.7107
+   "attempt_1_score": {
+    "caught_strict": 10,
+    "caught_with_partials": 11.5,
+    "cost": 11.0928,
+    "cost_with_refuter": 14.0501,
+    "checker_cost": 1.7107,
+    "phase_minutes": {
+     "reviewers": 22.45,
+     "refuter": 8.27,
+     "checker": 4.86
+    },
+    "run_minutes": 35.58,
+    "slowest_agent_min": 22.45,
+    "over_100k_share": 0.6071,
+    "superseded": "7 reports condensed by write denial (slices 3, 5-9 and run-it)"
+   },
+   "reason": "superseded: 7 reports condensed by write denial; slices 3, 5-9 and run-it rerun",
+   "roles": {
+    "slice-1": true,
+    "slice-2": true,
+    "slice-3": false,
+    "slice-4": true,
+    "slice-5": false,
+    "slice-6": false,
+    "slice-7": false,
+    "slice-8": false,
+    "slice-9": false,
+    "runit": false,
+    "refuter": false,
+    "checker": false
+   }
   }
  ]
 }

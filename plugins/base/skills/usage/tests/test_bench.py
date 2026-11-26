@@ -352,6 +352,23 @@ class Run(CaseCopy):
         bench.save_reply(path, "new reply", os.path.join(self.tmp, "missing.md"))
         self.assertEqual(read(path), "new reply")
 
+    def test_denied_write_reply_is_not_finished(self):
+        self.results([])
+        stored = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            res = ("Report not saved. The Bash write to runs/J-slice-1.md was denied.\n\nFindings: ..."
+                   if name.endswith("slice-1") else "### 1. Coverage ledger\nfull report")
+            return {"cost": 0.5, "minutes": 1.0, "result": res}
+        picks = [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]
+        bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent,
+                  os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        e = stored[0]
+        self.assertEqual(e["status"], "incomplete")
+        self.assertFalse(e["roles"]["slice-1"])
+        self.assertTrue(e["roles"]["runit"])
+        self.assertFalse(e["roles"]["refuter"])
+
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])
         picks = [{"model": "claude-haiku-5-5", "effort": "high", "estimate": {"usd": 1.0}}]

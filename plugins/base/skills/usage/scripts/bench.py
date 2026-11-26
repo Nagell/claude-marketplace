@@ -412,6 +412,19 @@ def save_reply(report, result, work=None):
             fh.write(result)
 
 
+DENIED = re.compile(r"report (is |was )?not (saved|written)|could(n't| not) (save|write)|"
+                    r"write[^\n]{0,120}(was )?(denied|refused)|(denied|refused)[^\n]{0,60}\bwrite", re.I)
+
+
+def write_denied(report):
+    """True when the report is only the agent saying its report write was denied: the start of the
+    report says so, so a condensed reply never reaches the refuter as a finished report."""
+    if not os.path.exists(report):
+        return True
+    with open(report, encoding="utf-8", errors="replace") as fh:
+        return bool(DENIED.search(fh.read(600)))
+
+
 def render(template_path, values):
     with open(template_path, encoding="utf-8") as fh:
         text = fh.read()
@@ -521,6 +534,8 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                     r = fut.result()
                     spent += r["cost"] or 0.0
                     save_reply(report, r.get("result"), work_path(folder["run_tmp"], report))
+                    if not r.get("error") and write_denied(report):
+                        r = dict(r, error="report write denied")
                     agents.append(dict(r, role=role, phase="reviewers"))
                     reports.append(report)
                     if r.get("error") and not reason:
@@ -528,7 +543,10 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
             reviewers = spent
             if not reason and spent > phase_cap:
                 reason = f"reviewer phase spent ${spent:.2f}, above its cap ${phase_cap:.2f}"
-        # phase 2: the refuter
+        # phase 2: the refuter, only on full reports (reused ones included)
+        bad = [os.path.basename(x) for x in reports if write_denied(x)]
+        if not reason and bad:
+            reason = f"reports not saved, write denied: {', '.join(bad)}"
         if not reason and budget_left - spent < max(ref_est, MIN_BUDGET):
             reason = f"cap reached before refuter could start (remaining ${budget_left - spent:.2f}, estimate ${ref_est:.2f})"
         if not reason:
