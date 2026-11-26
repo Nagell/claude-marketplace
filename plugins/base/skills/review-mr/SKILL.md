@@ -474,13 +474,15 @@ report reads it to price the run by role and slice, so it is not optional.
 
 `$RUN_DIR` is `<root>/<project dir>/<session id>/<run id>/`, kept after the
 session ends. `<root>` is `$XDG_DATA_HOME/review-runs`, or
-`$HOME/.local/share/review-runs` when that is unset; `<project dir>` and
+`$HOME/.local/share/review-runs` when that is unset or not an absolute path
+(the XDG rule, which `/base:usage` follows too); `<project dir>` and
 `<session id>` are the two folder names above `$SCRATCH` (see below); `<run id>`
 is the UTC start time, the platform and the MR iid. Print it once, with
 `<project dir>`, `<session id>`, `gitlab` or `github` and the iid filled in:
 
 ```bash
-echo "${XDG_DATA_HOME:-$HOME/.local/share}/review-runs/<project dir>/<session id>/$(date -u +%Y%m%dT%H%M%SZ)-<platform>-<iid>"
+d="${XDG_DATA_HOME:-}"; case "$d" in /*) ;; *) d="$HOME/.local/share" ;; esac
+echo "$d/review-runs/<project dir>/<session id>/$(date -u +%Y%m%dT%H%M%SZ)-<platform>-<iid>"
 ```
 
 Note the printed path (for example

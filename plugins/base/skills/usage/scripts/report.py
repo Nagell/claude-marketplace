@@ -32,7 +32,10 @@ def default_scratch_root():
 
 
 def default_runs_root():
-    data_home = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    # The XDG spec says a relative value is invalid and must be ignored; review-mr's writer does the same.
+    if not os.path.isabs(data_home):
+        data_home = os.path.join(os.path.expanduser("~"), ".local", "share")
     return os.path.join(data_home, "review-runs")
 
 

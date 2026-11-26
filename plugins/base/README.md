@@ -149,7 +149,7 @@ Finish mode is offered on a re-review where only a couple of mediums and some lo
 
 ### Run history
 
-Each run keeps `run.json` (which agent ran on what, which findings survived and who found them first) and every agent report in a folder of its own: `~/.local/share/review-runs/<project>/<session>/<run>/`, or `$XDG_DATA_HOME/review-runs/...` when that is set. `<run>` is the UTC start time, the platform and the MR number, for example `20261126T101540Z-gitlab-19660`. `/base:usage` reads these folders to show what each review agent added.
+Each run keeps `run.json` (which agent ran on what, which findings survived and who found them first) and every agent report in a folder of its own: `~/.local/share/review-runs/<project>/<session>/<run>/`, or `$XDG_DATA_HOME/review-runs/...` when that is set to an absolute path. `<run>` is the UTC start time, the platform and the MR number, for example `20261126T101540Z-gitlab-19660`. `/base:usage` reads these folders to show what each review agent added.
 
 Nothing deletes them: not the review, not `/base:cleanup`, not Claude Code's transcript cleanup. Delete old runs by hand. The reports quote code from the repos you reviewed.
 

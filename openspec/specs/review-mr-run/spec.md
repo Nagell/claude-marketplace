@@ -265,7 +265,7 @@ The main session SHALL record each review worktree the run creates (the counterp
 - **THEN** no review worktree is removed
 
 ### Requirement: Run folder kept after the session
-At its start each run SHALL create its own folder at `~/.local/share/review-runs/<project dir>/<session id>/<run id>/` (`$XDG_DATA_HOME/review-runs/…` when that is set) and write `run.json` there with the Write tool, keeping it current for the whole run. `<run id>` SHALL be unique within the session and SHALL start with the run's UTC start time. The skill SHALL NOT delete run folders, and SHALL NOT write `run.json` to the session scratchpad.
+At its start each run SHALL create its own folder at `~/.local/share/review-runs/<project dir>/<session id>/<run id>/` (`$XDG_DATA_HOME/review-runs/…` when that is set to an absolute path) and write `run.json` there with the Write tool, keeping it current for the whole run. `<run id>` SHALL be unique within the session and SHALL start with the run's UTC start time. The skill SHALL NOT delete run folders, and SHALL NOT write `run.json` to the session scratchpad.
 
 #### Scenario: Two reviews in one session
 - **WHEN** a session runs `review-mr` twice

@@ -1,4 +1,6 @@
+import contextlib
 import datetime as dt
+import io
 import json
 import os
 
@@ -290,14 +292,44 @@ class RunFolders(ReportBase):
 
     def test_default_runs_root_follows_xdg_data_home(self):
         old = os.environ.get("XDG_DATA_HOME")
+        fallback = os.path.join(os.path.expanduser("~"), ".local", "share", "review-runs")
         os.environ["XDG_DATA_HOME"] = "/x/data"
         try:
             self.assertEqual(report.default_runs_root(), "/x/data/review-runs")
+            os.environ["XDG_DATA_HOME"] = "rel-data"
+            self.assertEqual(report.default_runs_root(), fallback)
             del os.environ["XDG_DATA_HOME"]
-            self.assertEqual(report.default_runs_root(), os.path.join(os.path.expanduser("~"), ".local", "share", "review-runs"))
+            self.assertEqual(report.default_runs_root(), fallback)
         finally:
             if old is not None:
                 os.environ["XDG_DATA_HOME"] = old
+
+    def test_broken_run_json_in_a_folder_is_reported_and_labels_nothing(self):
+        self.three_runs()
+        path = os.path.join(self.runs_root, "-home-u-proj", "s1", "20261120T100005Z-gitlab-1", "run.json")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("{not json")
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertTrue(out["review_run_json"]["errors"][0].startswith(path + ": "))
+
+    def test_folder_name_without_a_time_and_without_agents_is_reported(self):
+        self.three_runs()
+        self.write_folder("manual-run", {"agents": []})
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertIn("no review run in this session matches", out["review_run_json"]["errors"][0])
+
+    def test_runs_root_option_reaches_the_report(self):
+        self.three_runs()
+        self.write_folder("20261120T100005Z-gitlab-1", {"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            report.main(["--days", "36500", "--projects-dir", self.projects, "--scratch-root", self.scratch,
+                         "--runs-root", self.runs_root])
+        coverage = json.loads(buf.getvalue())["review_run_json"]
+        self.assertEqual((coverage["runs_root"], coverage["with_run_json"]), (self.runs_root, 1))
 
 
 class Renamed(ReportBase):
