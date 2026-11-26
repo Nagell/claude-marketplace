@@ -1,4 +1,6 @@
+import contextlib
 import datetime as dt
+import io
 import json
 import os
 
@@ -13,9 +15,11 @@ class ReportBase(TempHome):
     def setUp(self):
         super().setUp()
         self.scratch = os.path.join(self.tmp, "scratch")
+        self.runs_root = os.path.join(self.tmp, "review-runs")
 
     def report(self, **kw):
-        return report.report(projects_dir=self.projects, scratch_root=self.scratch, table=self.table, now=NOW, **kw)
+        return report.report(projects_dir=self.projects, scratch_root=self.scratch, table=self.table, now=NOW,
+                             runs_root=self.runs_root, **kw)
 
     def skill_runs(self, skill, n, sid="s1", cost_tokens=None, start=0):
         """n runs of one skill in one session, each with one request."""
@@ -167,6 +171,165 @@ class RunJson(ReportBase):
         self.assertIsNone(codex["cost"])
         self.assertEqual(run["role_costs"]["slice-owner"]["unpriced"], 1)
         self.assertEqual(run["role_costs"]["codex"]["unpriced"], 1)
+
+
+class RunFolders(ReportBase):
+    """review-mr runs labelled from their own folders under the runs root, the scratchpad as fallback."""
+
+    def three_runs(self):
+        # run 1 at 10:00:00 spawns a1, run 2 at 10:01:40 spawns a2, run 3 at 10:03:20 spawns no agent
+        entries = [human(0), skill_load(0), agent_call("c1", 1, "tu1", skill=RM),
+                   human(100), skill_load(100), agent_call("c2", 101, "tu2", skill=RM),
+                   human(200), skill_load(200), asst("r3", 201, skill=RM)]
+        self.session("s1", entries)
+        self.agent("s1", "a1", [asst("am1", 2, model="claude-haiku-5-5")], {"toolUseId": "tu1", "spawnDepth": 1})
+        self.agent("s1", "a2", [asst("am2", 102, model="claude-haiku-5-5")], {"toolUseId": "tu2", "spawnDepth": 1})
+
+    def write_folder(self, name, data):
+        path = os.path.join(self.runs_root, "-home-u-proj", "s1", name, "run.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+
+    def write_scratch(self, data):
+        path = os.path.join(self.scratch, "-home-u-proj", "s1", "scratchpad", "run.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh)
+
+    def runs(self, out):
+        return sorted(out["skills"][0]["runs"], key=lambda r: r["start"])
+
+    def labels(self, run):
+        return sorted(a["label"] for a in run["agents"])
+
+    def test_two_runs_in_one_session_each_get_their_folder(self):
+        self.three_runs()
+        self.write_folder("20261120T100005Z-gitlab-1", {"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        self.write_folder("20261120T100145Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "refuter"}]})
+        out = self.report()
+        r1, r2, r3 = self.runs(out)
+        self.assertEqual(self.labels(r1), ["slice-owner slice-1"])
+        self.assertEqual(self.labels(r2), ["refuter"])
+        self.assertFalse(r3["run_json"])
+        self.assertEqual(out["review_run_json"]["with_run_json"], 2)
+        self.assertEqual(out["review_run_json"]["runs_root"], self.runs_root)
+
+    def test_run_without_agents_matched_by_folder_time(self):
+        self.three_runs()
+        self.write_folder("20261120T100330Z-gitlab-3", {"agents": [], "findings": [
+            {"source": "slice-1", "duplicates": [], "survived": True}]})
+        r1, r2, r3 = self.runs(self.report())
+        self.assertEqual((r1["run_json"], r2["run_json"], r3["run_json"]), (False, False, True))
+        self.assertEqual(r3["findings_by_role"], {"slice-1": {"unique": 1, "repeated": 0}})
+
+    def test_folder_before_every_run_is_reported_not_guessed(self):
+        self.three_runs()
+        self.write_folder("20261120T095900Z-gitlab-0", {"agents": []})
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertIn("no review run in this session matches", out["review_run_json"]["errors"][0])
+
+    def test_older_run_falls_back_to_the_scratchpad(self):
+        self.three_runs()
+        self.write_folder("20261120T100145Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "refuter"}]})
+        self.write_scratch({"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        r1, r2, _ = self.runs(self.report())
+        self.assertEqual(self.labels(r1), ["slice-owner slice-1"])
+        self.assertEqual(self.labels(r2), ["refuter"])
+
+    def test_scratchpad_never_relabels_a_run_its_folder_labelled(self):
+        self.three_runs()
+        self.write_folder("20261120T100005Z-gitlab-1", {"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        self.write_scratch({"agents": [{"agent_id": "a1", "role": "contract"}]})
+        out = self.report()
+        r1, r2, r3 = self.runs(out)
+        self.assertEqual(self.labels(r1), ["slice-owner slice-1"])
+        self.assertEqual((r2["run_json"], r3["run_json"]), (False, False))
+        self.assertEqual(out["review_run_json"]["with_run_json"], 1)
+
+    def test_second_folder_of_a_labelled_run_is_reported_not_given_to_an_earlier_run(self):
+        self.three_runs()
+        self.write_folder("20261120T100145Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "refuter"}]})
+        self.write_folder("20261120T100150Z-gitlab-2", {"agents": []})
+        self.write_folder("20261120T100155Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "contract"}]})
+        out = self.report()
+        r1, r2, _ = self.runs(out)
+        self.assertEqual(self.labels(r2), ["refuter"])
+        self.assertFalse(r1["run_json"])
+        self.assertEqual(out["review_run_json"]["with_run_json"], 1)
+        self.assertIn("a second folder for run", out["review_run_json"]["errors"][0])
+
+    def test_folder_with_agents_beats_an_earlier_empty_folder_of_the_same_run(self):
+        self.three_runs()
+        self.write_folder("20261120T100145Z-gitlab-2", {"agents": []})
+        self.write_folder("20261120T100400Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "refuter"}]})
+        out = self.report()
+        _, r2, r3 = self.runs(out)
+        self.assertEqual(self.labels(r2), ["refuter"])
+        self.assertFalse(r3["run_json"])
+        self.assertIn("a second folder for run", out["review_run_json"]["errors"][0])
+
+    def test_folder_older_than_the_window_is_skipped_silently(self):
+        self.three_runs()
+        self.write_folder("20261001T090000Z-gitlab-0", {"agents": []})
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertNotIn("errors", out["review_run_json"])
+
+    def test_neither_folder_nor_scratchpad_keeps_meta_labels(self):
+        self.three_runs()
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertEqual({a["label"] for r in self.runs(out) for a in r["agents"]}, {"unknown"})
+
+    def test_run_start_with_a_fraction_matches_a_folder_from_the_same_second(self):
+        self.assertEqual(report.parse_iso("2026-11-20T10:03:20.673Z"), report.folder_time("20261120T100320Z-gitlab-3"))
+
+    def test_parse_iso_converts_an_offset_to_the_same_instant(self):
+        self.assertEqual(report.parse_iso("2026-11-20T12:00:00.5+02:00"), report.parse_iso("2026-11-20T10:00:00Z"))
+        self.assertIsNone(report.parse_iso(None))
+
+    def test_default_runs_root_follows_xdg_data_home(self):
+        old = os.environ.get("XDG_DATA_HOME")
+        fallback = os.path.join(os.path.expanduser("~"), ".local", "share", "review-runs")
+        os.environ["XDG_DATA_HOME"] = "/x/data"
+        try:
+            self.assertEqual(report.default_runs_root(), "/x/data/review-runs")
+            os.environ["XDG_DATA_HOME"] = "rel-data"
+            self.assertEqual(report.default_runs_root(), fallback)
+            del os.environ["XDG_DATA_HOME"]
+            self.assertEqual(report.default_runs_root(), fallback)
+        finally:
+            if old is not None:
+                os.environ["XDG_DATA_HOME"] = old
+
+    def test_broken_run_json_in_a_folder_is_reported_and_labels_nothing(self):
+        self.three_runs()
+        path = os.path.join(self.runs_root, "-home-u-proj", "s1", "20261120T100005Z-gitlab-1", "run.json")
+        os.makedirs(os.path.dirname(path))
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("{not json")
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertTrue(out["review_run_json"]["errors"][0].startswith(path + ": "))
+
+    def test_folder_name_without_a_time_and_without_agents_is_reported(self):
+        self.three_runs()
+        self.write_folder("manual-run", {"agents": []})
+        out = self.report()
+        self.assertEqual(out["review_run_json"]["with_run_json"], 0)
+        self.assertIn("no review run in this session matches", out["review_run_json"]["errors"][0])
+
+    def test_runs_root_option_reaches_the_report(self):
+        self.three_runs()
+        self.write_folder("20261120T100005Z-gitlab-1", {"agents": [{"agent_id": "a1", "role": "slice-owner", "slice": "slice-1"}]})
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            report.main(["--days", "36500", "--projects-dir", self.projects, "--scratch-root", self.scratch,
+                         "--runs-root", self.runs_root])
+        coverage = json.loads(buf.getvalue())["review_run_json"]
+        self.assertEqual((coverage["runs_root"], coverage["with_run_json"]), (self.runs_root, 1))
 
 
 class Renamed(ReportBase):

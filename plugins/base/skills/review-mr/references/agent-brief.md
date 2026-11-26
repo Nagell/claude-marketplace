@@ -184,8 +184,9 @@ up.
 
 ## What you report
 
-Write your report to `<report path>` and reply with **only that path**.
-Writing this one report file is required, and it is allowed: it is the only
+Write your report to `<report path>` with the Write tool and reply with **only
+that path**. A shell redirect or `cp` there is refused by the sandbox, so use
+Write. Writing this one report file is required, and it is allowed: it is the only
 file you write outside your temp folder, and the read-only rule above does not
 forbid it. A long reply gets truncated in transit and the tail is lost
 silently, so the file is the deliverable and the path is the message.
