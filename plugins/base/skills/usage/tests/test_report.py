@@ -250,6 +250,7 @@ class RunFolders(ReportBase):
         self.three_runs()
         self.write_folder("20261120T100145Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "refuter"}]})
         self.write_folder("20261120T100150Z-gitlab-2", {"agents": []})
+        self.write_folder("20261120T100155Z-gitlab-2", {"agents": [{"agent_id": "a2", "role": "contract"}]})
         out = self.report()
         r1, r2, _ = self.runs(out)
         self.assertEqual(self.labels(r2), ["refuter"])
@@ -279,6 +280,13 @@ class RunFolders(ReportBase):
         out = self.report()
         self.assertEqual(out["review_run_json"]["with_run_json"], 0)
         self.assertEqual({a["label"] for r in self.runs(out) for a in r["agents"]}, {"unknown"})
+
+    def test_run_start_with_a_fraction_matches_a_folder_from_the_same_second(self):
+        self.assertEqual(report.parse_iso("2026-11-20T10:03:20.673Z"), report.folder_time("20261120T100320Z-gitlab-3"))
+
+    def test_parse_iso_converts_an_offset_to_the_same_instant(self):
+        self.assertEqual(report.parse_iso("2026-11-20T12:00:00.5+02:00"), report.parse_iso("2026-11-20T10:00:00Z"))
+        self.assertIsNone(report.parse_iso(None))
 
     def test_default_runs_root_follows_xdg_data_home(self):
         old = os.environ.get("XDG_DATA_HOME")

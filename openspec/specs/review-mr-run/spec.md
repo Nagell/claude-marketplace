@@ -280,8 +280,12 @@ At its start each run SHALL create its own folder at `~/.local/share/review-runs
 - **THEN** the run folder and everything in it are still there
 
 ### Requirement: Run folder not writable
-When the run folder cannot be created or written, the main session SHALL stop before any agent starts and say which path failed, and SHALL NOT fall back to the session scratchpad.
+When the first write of `run.json` into the run folder fails, the main session SHALL stop before any agent starts and say which path failed. When a later write there fails, the run SHALL go on and its final message SHALL name the missing file. It SHALL NOT fall back to the session scratchpad.
 
 #### Scenario: Write refused
 - **WHEN** writing `run.json` into `~/.local/share/review-runs/<project dir>/<session id>/<run id>/` is refused
 - **THEN** the run stops and names that path, and no agent has started
+
+#### Scenario: Later write refused
+- **WHEN** saving an agent's report into the run folder is refused after the agents started
+- **THEN** the run goes on and its final message names the report that is missing

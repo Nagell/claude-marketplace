@@ -135,8 +135,9 @@ def folder_time(name):
 
 
 def parse_iso(value):
-    """A UTC time from scan's ISO strings (2026-11-20T10:00:00Z or with a fraction), or None."""
-    return _parse_time((value or "").split(".")[0].rstrip("Z"), "%Y-%m-%dT%H:%M:%S")
+    """A time from scan's ISO strings, any offset, cut to whole seconds like a run folder's name; or None."""
+    t = scan.parse_ts(value)
+    return t.replace(microsecond=0) if t else None
 
 
 def run_start(run):

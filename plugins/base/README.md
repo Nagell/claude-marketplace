@@ -153,13 +153,13 @@ Each run keeps `run.json` (which agent ran on what, which findings survived and 
 
 Nothing deletes them: not the review, not `/base:cleanup`, not Claude Code's transcript cleanup. Delete old runs by hand. The reports quote code from the repos you reviewed.
 
-The run writes there with the Write tool. In bypass mode that needs nothing. In other permission modes, allow it once in your settings, or each review asks at its start and again for every agent report, and stops if you decline the first:
+The run writes there with the Write tool. In bypass mode that needs nothing. In other permission modes, allow it once in your settings, or Claude Code asks before writing there, and the review stops if you decline the first write:
 
 ```json
 { "permissions": { "allow": ["Edit(//Users/<you>/.local/share/review-runs/**)"] } }
 ```
 
-On Linux the path starts with `//home/<you>/`; with `XDG_DATA_HOME` set, use `Edit(/<value of XDG_DATA_HOME>/review-runs/**)`, which starts with `//` because the value is an absolute path. File-write rules are `Edit(...)` rules; a `Write(...)` rule is not matched. A folder under `~/.claude/` would not work here: outside bypass mode Claude Code refuses writes there even with an allow rule.
+On Linux the path starts with `//home/<you>/`. With `XDG_DATA_HOME` set, the rule uses that path instead: `XDG_DATA_HOME=/home/me/.data` needs `Edit(//home/me/.data/review-runs/**)`. File-write rules are `Edit(...)` rules; Claude Code warns that a `Write(...)` rule is not matched. A folder under `~/.claude/` would not work here: outside bypass mode Claude Code asks before every write there (and refuses it in `-p` runs), and an allow rule does not change that.
 
 ### Project rules
 

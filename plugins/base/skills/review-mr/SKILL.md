@@ -497,8 +497,9 @@ write there. Reading it from Bash is fine. Never delete anything in
 fails, stop the run before any agent starts: name the path that failed, point
 to the allow rule in the plugin README, then run step 8's sweep with the
 `RUN_TMP` path printed in step 1 and the review worktree step 1 created, since
-there is no `run.json` to read them from. Never fall back to `$SCRATCH`: a run
-kept there is lost on the next review or reboot.
+there is no `run.json` to read them from. When a later write to `$RUN_DIR` is
+refused, go on and name the missing file in the final message. Never fall back
+to `$SCRATCH`: a run kept there is lost on the next review or reboot.
 
 ```json
 {
@@ -846,8 +847,8 @@ Each agent writes its report with the Write tool to `$RUN_DIR/wave1-<slice>.txt`
 brief, and replies with the path. A long reply truncates in transit
 and the tail is lost silently. Some subagents are refused the report write by
 their Write tool and reply with the report text instead: when a reply is not a
-path, save it to that agent's report path yourself and go on, without asking
-the agent again.
+path, save it to that agent's report path yourself with the Write tool and go
+on, without asking the agent again.
 
 ### Wave 2: the gap hunt
 
@@ -1453,7 +1454,9 @@ Run this once the drafts are submitted, and also when the user stopped the
 run or it failed after step 1.
 
 **Sweep.** Touch only the run's own paths. Every command below uses the
-literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
+literal paths from `run.json` (`run_tmp`), or, when the run stopped before
+`run.json` was written, the `RUN_TMP` printed in step 1 and the worktree step 1
+created, and the scratchpad, never a shell
 variable set in an earlier call, which is empty by now. Each command starts
 with a guard that refuses to run when its path is empty, so an empty value
 can never widen what it matches or deletes. `$RUN_DIR` (`run_dir` in
@@ -1545,4 +1548,4 @@ report.
 
 The final line names what was removed and what stayed: "Removed
 `<base>/reviews` and the run temp dir; kept `<cp base>/reviews` (existed
-before the run)."
+before the run); run record kept in `<run_dir>`."

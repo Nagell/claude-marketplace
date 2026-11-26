@@ -26,7 +26,7 @@ The root is `$XDG_DATA_HOME/review-runs` when `XDG_DATA_HOME` is set, else `~/.l
 
 Rejected:
 - Transcripts as the source (script extracts `run.json` and reports from tool calls). Ties the data to `cleanupPeriodDays`, which a different machine or a company policy can shorten; the user wants the history independent of it.
-- `~/.claude/review-runs/`. Measured on 2026-11-26: in `default` and `acceptEdits` modes Claude Code refuses every Write under `~/.claude/` as a sensitive file, the main session's included, and an `Edit(...)` allow rule does not lift it. Only bypass mode could write there.
+- `~/.claude/review-runs/`. Measured on 2026-11-26 with headless `claude -p`: in `default` and `acceptEdits` modes every Write under `~/.claude/` was refused as a sensitive file, the main session's included, with or without an `Edit(...)` allow rule. Claude Code's docs list `.claude` as a protected path: interactive sessions ask before every write there, `-p` and `dontAsk` runs refuse it, and allow rules do not pre-approve it. Only bypass mode writes there without asking.
 - Inside `~/.claude/projects/<project dir>/<session id>/`. Same refusal, and Claude Code's transcript sweep owns that tree.
 
 ### 2. Write in place from the start, no copy at the end
