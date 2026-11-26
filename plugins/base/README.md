@@ -147,6 +147,20 @@ Finish mode is offered on a re-review where only a couple of mediums and some lo
 9. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
 10. Deletes its temp folders, asks before deleting any new untracked file in your checkout and removes the review worktrees it created.
 
+### Run history
+
+Each run keeps `run.json` (which agent ran on what, which findings survived and who found them first) and every agent report in a folder of its own: `~/.local/share/review-runs/<project>/<session>/<run>/`, or `$XDG_DATA_HOME/review-runs/...` when that is set. `<run>` is the UTC start time, the platform and the MR number, for example `20261126T101540Z-gitlab-19660`. `/base:usage` reads these folders to show what each review agent added.
+
+Nothing deletes them: not the review, not `/base:cleanup`, not Claude Code's transcript cleanup. Delete old runs by hand. The reports quote code from the repos you reviewed.
+
+The run writes there with the Write tool. In bypass mode that needs nothing. In other permission modes, allow it once in your settings, or each review asks at its start and again for every agent report, and stops if you decline the first:
+
+```json
+{ "permissions": { "allow": ["Edit(//Users/<you>/.local/share/review-runs/**)"] } }
+```
+
+On Linux the path starts with `//home/<you>/`; with `XDG_DATA_HOME` set, use `Edit(/<value of XDG_DATA_HOME>/review-runs/**)`, which starts with `//` because the value is an absolute path. File-write rules are `Edit(...)` rules; a `Write(...)` rule is not matched. A folder under `~/.claude/` would not work here: outside bypass mode Claude Code refuses writes there even with an allow rule.
+
 ### Project rules
 
 Anything specific to one repo or product lives outside the skill, in `~/.claude/review-rules/`:

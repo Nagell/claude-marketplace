@@ -69,7 +69,8 @@ re-review, not a first look, so step 3 happens before any reviewing at all.
 `$SKILL_DIR` below is the directory this SKILL.md was loaded from,
 `$SCRIPT` is `$SKILL_DIR/scripts/gitlab_comments.py` or
 `$SKILL_DIR/scripts/github_comments.py` for the MR's platform (step 0a), and
-`$SCRATCH` is this session's scratchpad directory. Both scripts take
+`$SCRATCH` is this session's scratchpad directory, and `$RUN_DIR` is this
+run's folder that outlives the session (step 2a). Both scripts take
 `--project` (GitLab: numeric id or URL-encoded path; GitHub: `owner/repo`) and
 `--iid` (the MR iid or PR number), and offer the same subcommands, so every
 command below reads the same on both platforms.
@@ -467,9 +468,37 @@ small slices caught 13 of 14 for $0.39 per caught bug against $0.47. Wider
 slices grow each agent's context and miss more. On PR #238 one agent on a
 small scope found what eleven lens and slice agents missed.
 
-Start `$SCRATCH/run.json` now and keep it current for the whole run. It is how
+Start `$RUN_DIR/run.json` now and keep it current for the whole run. It is how
 a later run can tell whether these settings found more, and the `usage`
-report reads it to price the run by role and slice, so it is not optional:
+report reads it to price the run by role and slice, so it is not optional.
+
+`$RUN_DIR` is `<root>/<project dir>/<session id>/<run id>/`, kept after the
+session ends. `<root>` is `$XDG_DATA_HOME/review-runs`, or
+`$HOME/.local/share/review-runs` when that is unset; `<project dir>` and
+`<session id>` are the two folder names above `$SCRATCH` (see below); `<run id>`
+is the UTC start time, the platform and the MR iid. Print it once, with
+`<project dir>`, `<session id>`, `gitlab` or `github` and the iid filled in:
+
+```bash
+echo "${XDG_DATA_HOME:-$HOME/.local/share}/review-runs/<project dir>/<session id>/$(date -u +%Y%m%dT%H%M%SZ)-<platform>-<iid>"
+```
+
+Note the printed path (for example
+`/Users/me/.local/share/review-runs/-Users-me-dev/5811…/20261126T101540Z-gitlab-19660`):
+it is `run_dir` in `run.json`. Use that literal path for every later write and
+every brief, and never run `date` for it again; a second folder for the same
+run is reported as an error by the `usage` report.
+
+Create the folder by writing `run.json` with the Write tool, which makes the
+parent folders. Write every later change to `run.json` and every report in
+`$RUN_DIR` with Write or Edit too, never from Bash: the Bash sandbox cannot
+write there. Reading it from Bash is fine. Never delete anything in
+`$RUN_DIR`; the user deletes old runs by hand. When the Write of `run.json`
+fails, stop the run before any agent starts: name the path that failed, point
+to the allow rule in the plugin README, then run step 8's sweep with the
+`RUN_TMP` path printed in step 1 and the review worktree step 1 created, since
+there is no `run.json` to read them from. Never fall back to `$SCRATCH`: a run
+kept there is lost on the next review or reboot.
 
 ```json
 {
@@ -479,13 +508,14 @@ report reads it to price the run by role and slice, so it is not optional:
   "session_id": "<session id>",
   "transcript_dir": "~/.claude/projects/<project dir>/<session id>/subagents",
   "run_tmp": "<RUN_TMP>",
+  "run_dir": "<RUN_DIR>",
   "worktrees_created": ["<base>/reviews"],
   "agents": [
     {"agent_id": "<id the Agent call returned>", "role": "slice-owner",
      "slice": "slice-2", "model": "haiku", "effort": "max",
      "model_name": "Haiku 5.5", "model_source": "user",
      "files": ["hooks/guard.sh", "hooks/hooks.json"],
-     "report": "$SCRATCH/wave1-slice-2.txt"}
+     "report": "<RUN_DIR>/wave1-slice-2.txt"}
   ],
   "findings": [
     {"id": "slice-2-1", "draft_id": "H1", "source": "slice-2",
@@ -592,9 +622,9 @@ checked out at `head_sha`.
   What differs from the Claude agents:
   - A task runs read-only without network: no platform CLI, `curl` or file
     writes. Its report comes back as its reply; collect it with
-    `node "$CODEX" result <job>` and save it to `$SCRATCH/wave<n>-<slice>.txt`
-    yourself. Tell it so in the brief, and that claims it cannot measure are
-    derived.
+    `node "$CODEX" result <job>` and save it to `$RUN_DIR/wave<n>-<slice>.txt`
+    yourself with the Write tool, not a shell redirect. Tell it so in the
+    brief, and that claims it cannot measure are derived.
   - The harness does not track the jobs. Watch them from the main session with a
     background loop over `node "$CODEX" status --json` that exits when none is
     running, and check its first poll returned a real count. Never from a
@@ -811,8 +841,9 @@ hand the relevant file to the slice owners whose files it covers. It is how
 that repo wants its MRs read, and it is more specific than anything an agent
 brings from general knowledge.
 
-Each agent writes its report to `$SCRATCH/wave1-<slice>.txt` (`wave1-contract.txt`,
-`wave1-runit.txt`) and replies with the path. A long reply truncates in transit
+Each agent writes its report with the Write tool to `$RUN_DIR/wave1-<slice>.txt`
+(`wave1-contract.txt`, `wave1-runit.txt`), given as an absolute path in its
+brief, and replies with the path. A long reply truncates in transit
 and the tail is lost silently. Some subagents are refused the report write by
 their Write tool and reply with the report text instead: when a reply is not a
 path, save it to that agent's report path yourself and go on, without asking
@@ -845,7 +876,8 @@ on the same ground found it as a live defect. The fresh agents also caught that
 their headline finding was pre-existing, which the reused ones asserted the
 opposite of. That error is the expensive one, so fresh wins.
 
-Reports go to `$SCRATCH/wave2-<area>.txt`, same rule about replying with the path.
+Reports go to `$RUN_DIR/wave2-<area>.txt`, same rules about the Write tool and
+replying with the path.
 
 ### When an agent goes quiet
 
@@ -936,7 +968,7 @@ the user passed `--no-checks`, saying why in one line.
 
 Give it the "Where you are" part of `references/agent-brief.md` with
 `RUN_TMP`, then `references/run-it-brief.md` with the list of runnable things
-filled in. Its report is `$SCRATCH/wave1-runit.txt`, with a "promises versus
+filled in. Its report is `$RUN_DIR/wave1-runit.txt`, with a "promises versus
 behaviour" table. Each mismatch is a measured finding (`runit-<n>`), and it
 still goes through refutation, since a stub can mislead.
 
@@ -1424,7 +1456,10 @@ run or it failed after step 1.
 literal paths from `run.json` (`run_tmp`) and the scratchpad, never a shell
 variable set in an earlier call, which is empty by now. Each command starts
 with a guard that refuses to run when its path is empty, so an empty value
-can never widen what it matches or deletes:
+can never widen what it matches or deletes. `$RUN_DIR` (`run_dir` in
+`run.json`) is not part of the sweep: nothing here stops, moves or deletes
+anything in it, because it is the run's record for later runs and the `usage`
+report.
 
 1. Read the `Leftovers:` line of every report. Note each path it names.
 2. Stop any process still running with the run temp dir in its command line,
