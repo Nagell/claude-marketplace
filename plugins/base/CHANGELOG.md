@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.6.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.5.1...base-v2.6.0) (2026-11-26)
+
+
+### Features
+
+* **base:** keep each review run's history in its own folder ([ca0b5a3](https://github.com/Nagell/claude-marketplace/commit/ca0b5a34eb27480ad06607b297e73a254fdd795c))
+* **base:** review-mr keeps each run in its own folder ([c5f46d1](https://github.com/Nagell/claude-marketplace/commit/c5f46d1133f3ded5c7d3ca3f42b4cbc8eb1b8cc4))
+* **base:** usage labels review runs from their run folders ([c1c0a15](https://github.com/Nagell/claude-marketplace/commit/c1c0a1511e9bb6f2208d9fbdfda1d3ef5cb11101))
+
+
+### Bug Fixes
+
+* **base:** close gaps the review of run folders found ([a55db2c](https://github.com/Nagell/claude-marketplace/commit/a55db2c3abc7393859c41152de74bc8167c1e2da))
+* **base:** ignore a relative XDG_DATA_HOME for review run folders ([0dc3502](https://github.com/Nagell/claude-marketplace/commit/0dc3502fd0581192906e631307b25d55de54351b))
+* **base:** resolve-review replies are the commit link alone ([f04c08b](https://github.com/Nagell/claude-marketplace/commit/f04c08b5f45fe77a805abe30af39b0e536b1b1fd))
+* **base:** resolve-review replies are the commit link alone ([cdebb18](https://github.com/Nagell/claude-marketplace/commit/cdebb180e9d8f8bd28cbfb69a1ff4fc5ef184406))
+
 ## [2.5.1](https://github.com/Nagell/claude-marketplace/compare/base-v2.5.0...base-v2.5.1) (2026-11-25)
 
 
