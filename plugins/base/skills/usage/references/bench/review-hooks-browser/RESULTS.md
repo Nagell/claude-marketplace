@@ -9,7 +9,7 @@ One line per run, written by `bench.py run`. Results are compared only within on
 | J | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: slice reports were not saved (deny rule on model-bench), so the refuter had no input; finished: slice-1, slice-2, slice-3, slice-4, slice-5 | $1.89 ($1.89) | n/a | 2026-11-25 |
 | K | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: switching to parallel slices; finished: none | $0.00 ($0.00) | n/a | 2026-11-25 |
 | L | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: slice-4, slice-8, slice-9 hit the 5-hour usage limit (logged as 'success'); Bash was denied in dontAsk mode in every call; finished: slice-1, slice-2, slice-3, slice-5, slice-6, slice-7, runit | $2.74 ($2.74) | n/a | 2026-11-25 |
-| M | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: slice-2 stopped: error_max_budget_usd; finished: slice-1, slice-3, slice-4, slice-5, slice-6, slice-7, slice-8, slice-9, runit | $6.56 ($6.56) | n/a | 2026-11-25 |
+| M | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: slice-2 stopped: You've hit your 5-hour limit · resets 3:10am (Europe/Berlin) · out of usage credits; finished: slice-1, slice-3, slice-5, slice-6, slice-7, slice-8, slice-9, runit; resumed: slice-1, slice-2, slice-4 rerun | $8.86 ($8.86) | n/a | 2026-11-25 |
 
 ## History: runs B to I (not ranked)
 
