@@ -9,7 +9,7 @@ One line per run, written by `bench.py run`. Results are compared only within on
 | J | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: slice reports were not saved (deny rule on model-bench), so the refuter had no input; finished: slice-1, slice-2, slice-3, slice-4, slice-5 | $1.89 ($1.89) | n/a | 2026-11-25 |
 | K | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: stopped by hand: switching to parallel slices; finished: none | $0.00 ($0.00) | n/a | 2026-11-25 |
 | L | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | incomplete: slice-4, slice-8, slice-9 hit the 5-hour usage limit (logged as 'success'); Bash was denied in dontAsk mode in every call; finished: slice-1, slice-2, slice-3, slice-5, slice-6, slice-7, runit | $2.74 ($2.74) | n/a | 2026-11-25 |
-| M | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | superseded 10 / 11.5: 7 reports condensed by write denial; rerun pending | $11.09 ($14.05) | 22.4 min | 2026-11-26 |
+| M | review-mr-v1-354ec1e3-c57ac89f | claude-haiku-5-5 max | 11 / 12.0; resumed: slice-3, slice-5, slice-6, slice-7, slice-8, slice-9, runit rerun | $8.40 ($11.19); spent $25.85 with broken attempts | 29.2 min | 2026-11-26 |
 
 ## History: runs B to I (not ranked)
 
