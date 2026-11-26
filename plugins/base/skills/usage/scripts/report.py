@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Top skills by spend, trends, recent runs and outliers, and the transcript retention check.
 
-    python3 report.py [--days 30] [--top 5] [--runs 5] [--scratch-root DIR]
+    python3 report.py [--days 30] [--top 5] [--runs 5] [--scratch-root DIR] [--runs-root DIR]
     python3 report.py --retention
     python3 report.py --set-retention 180
 
@@ -31,11 +31,15 @@ def default_scratch_root():
     return f"/tmp/claude-{getuid()}" if getuid else os.path.join(tempfile.gettempdir(), "claude")
 
 
+def default_runs_root():
+    data_home = os.environ.get("XDG_DATA_HOME") or os.path.join(os.path.expanduser("~"), ".local", "share")
+    return os.path.join(data_home, "review-runs")
+
+
 # ---------- review-mr run.json ----------
 
-def load_run_json(scratch_root, project, session):
-    """The session's run.json and an error string; (None, None) when there is none."""
-    path = os.path.join(scratch_root, project, session, "scratchpad", "run.json")
+def load_run_json(path):
+    """The run.json at path and an error string; (None, None) when there is none."""
     if not os.path.exists(path):
         return None, None
     try:
@@ -118,7 +122,111 @@ def apply_run_json(run, agents, findings, skipped):
         run["run_json_skipped_entries"] = skipped
 
 
-def label_agents(runs, scratch_root):
+def _parse_time(value, fmt):
+    try:
+        return dt.datetime.strptime(value, fmt).replace(tzinfo=dt.timezone.utc)
+    except (TypeError, ValueError):
+        return None
+
+
+def folder_time(name):
+    """The UTC start time a run folder's name begins with (20261126T101540Z-...), or None."""
+    return _parse_time(name.split("-", 1)[0], "%Y%m%dT%H%M%SZ")
+
+
+def parse_iso(value):
+    """A UTC time from scan's ISO strings (2026-11-20T10:00:00Z or with a fraction), or None."""
+    return _parse_time((value or "").split(".")[0].rstrip("Z"), "%Y-%m-%dT%H:%M:%S")
+
+
+def run_start(run):
+    return parse_iso(run.get("start"))
+
+
+def owner_by_agents(session_runs, agents):
+    """The run that spawned any agent the file lists, taken or not, or None."""
+    ids = {e["agent_id"] for e in agents}
+    owners = [r for r in session_runs if any(a["agent_id"] in ids for a in r["agents"])]
+    return owners[-1] if owners else None
+
+
+def owner_by_time(session_runs, when):
+    """The latest run that started at or before the folder's time: a run creates its folder after it starts."""
+    if when is None:
+        return None
+    started = [(run_start(r), r) for r in session_runs]
+    started = [(s, r) for s, r in started if s is not None and s <= when]
+    return max(started, key=lambda sr: sr[0])[1] if started else None
+
+
+def read_run_folders(runs_root, project, session, since, errors):
+    """(path, folder time, cleaned run.json) for each run folder of the session not older than the window."""
+    folders = []
+    pattern = os.path.join(glob.escape(os.path.join(runs_root, project, session)), "*", "run.json")
+    for path in sorted(glob.glob(pattern)):
+        when = folder_time(os.path.basename(os.path.dirname(path)))
+        if since is not None and when is not None and when < since:
+            continue
+        data, error = load_run_json(path)
+        if error:
+            errors.append(error)
+        if data is not None:
+            folders.append((path, when, clean_run_json(data)))
+    return folders
+
+
+def claim(path, target, cleaned, taken, errors):
+    """Label target from one folder's run.json unless another folder already labelled it."""
+    if target is None:
+        errors.append(f"{path}: no review run in this session matches its agents or its start time")
+        return 0
+    if id(target) in taken:
+        errors.append(f"{path}: a second folder for run {target['run_id']}, which another folder already labelled")
+        return 0
+    apply_run_json(target, *cleaned)
+    taken.add(id(target))
+    return 1
+
+
+def label_from_run_folders(runs_root, project, session, session_runs, since, taken, errors):
+    """Label review runs from their folders: folders that name agents first, then the rest by start time."""
+    folders = read_run_folders(runs_root, project, session, since, errors)
+    labelled = 0
+    by_time = []
+    for path, when, cleaned in folders:
+        target = owner_by_agents(session_runs, cleaned[0])
+        if target is None:
+            by_time.append((path, when, cleaned))
+        else:
+            labelled += claim(path, target, cleaned, taken, errors)
+    for path, when, cleaned in by_time:
+        labelled += claim(path, owner_by_time(session_runs, when), cleaned, taken, errors)
+    return labelled
+
+
+def label_from_scratchpad(scratch_root, project, session, session_runs, taken, errors):
+    """Runs from before run folders: one run.json per session, given to the run whose agents it lists, else the latest.
+
+    A file whose agents belong to a run a folder already labelled is a stray copy and is ignored.
+    """
+    data, error = load_run_json(os.path.join(scratch_root, project, session, "scratchpad", "run.json"))
+    if error:
+        errors.append(error)
+    if data is None:
+        return 0
+    agents, findings, skipped = clean_run_json(data)
+    target = owner_by_agents(session_runs, agents)
+    if target is None:
+        left = [r for r in session_runs if id(r) not in taken]
+        target = max(left, key=lambda r: r["start"] or "") if left else None
+    if target is None or id(target) in taken:
+        return 0
+    apply_run_json(target, agents, findings, skipped)
+    taken.add(id(target))
+    return 1
+
+
+def label_agents(runs, scratch_root, runs_root, since=None):
     review_runs = with_json = 0
     errors = []
     sessions = collections.OrderedDict()
@@ -132,20 +240,12 @@ def label_agents(runs, scratch_root):
             review_runs += 1
             sessions.setdefault((run["project"], run["session"]), []).append(run)
     for (project, session), session_runs in sessions.items():
-        data, error = load_run_json(scratch_root, project, session)
-        if error:
-            errors.append(error)
-        if data is None:
-            continue
-        agents, findings, skipped = clean_run_json(data)
-        # one run.json per session: give it to the review run whose agents it lists, else to the latest one
-        ids = {e["agent_id"] for e in agents}
-        owners = [r for r in session_runs if any(a["agent_id"] in ids for a in r["agents"])]
-        target = owners[-1] if owners else max(session_runs, key=lambda r: r["start"] or "")
-        apply_run_json(target, agents, findings, skipped)
-        with_json += 1
-    out = {"review_runs": review_runs, "with_run_json": with_json,
-           "note": "one run.json per session, the latest review's; a reboot or /base:cleanup removes older ones"}
+        taken = set()
+        with_json += label_from_run_folders(runs_root, project, session, session_runs, since, taken, errors)
+        with_json += label_from_scratchpad(scratch_root, project, session, session_runs, taken, errors)
+    out = {"review_runs": review_runs, "with_run_json": with_json, "runs_root": runs_root,
+           "note": "run.json comes from each run's folder under runs_root, kept until you delete it; "
+                   "runs from before run folders fall back to the session scratchpad, which a reboot clears"}
     if errors:
         out["errors"] = errors
     return out
@@ -249,10 +349,12 @@ def run_detail(run):
     }
 
 
-def report(days=30, top=5, n_runs=5, projects_dir=scan.PROJECTS_DIR, scratch_root=None, table=None, now=None):
+def report(days=30, top=5, n_runs=5, projects_dir=scan.PROJECTS_DIR, scratch_root=None, table=None, now=None,
+           runs_root=None):
     data = scan.scan(days, projects_dir, table, now)
     runs = data["runs"]
-    coverage = label_agents(runs, scratch_root or default_scratch_root())
+    since = parse_iso(data["window"]["since"])
+    coverage = label_agents(runs, scratch_root or default_scratch_root(), runs_root or default_runs_root(), since)
     # group by the name without the plugin prefix, so a skill whose plugin was renamed stays one row
     by_skill = collections.defaultdict(list)
     for r in runs:
@@ -416,6 +518,8 @@ def main(argv=None):
     p.add_argument("--runs", type=positive_int, default=5)
     p.add_argument("--projects-dir", default=scan.PROJECTS_DIR)
     p.add_argument("--scratch-root", default=None, help="Claude scratch root (default /tmp/claude-<uid>)")
+    p.add_argument("--runs-root", default=None,
+                   help="review-mr run folders (default $XDG_DATA_HOME/review-runs or ~/.local/share/review-runs)")
     p.add_argument("--settings", default=SETTINGS_PATH)
     p.add_argument("--prices", default=prices.SEED_PATH)
     p.add_argument("--override", default=prices.OVERRIDE_PATH)
@@ -432,7 +536,8 @@ def main(argv=None):
     elif a.retention:
         out = retention(a.settings, a.projects_dir, os.getcwd())
     else:
-        out = report(a.days, a.top, a.runs, a.projects_dir, a.scratch_root, prices.PriceTable(a.prices, a.override))
+        out = report(a.days, a.top, a.runs, a.projects_dir, a.scratch_root, prices.PriceTable(a.prices, a.override),
+                     runs_root=a.runs_root)
     json.dump(out, sys.stdout, indent=1)
     sys.stdout.write("\n")
 
