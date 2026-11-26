@@ -345,6 +345,13 @@ class Run(CaseCopy):
         self.assertEqual(read(os.path.join(runs, "J-slice-1.md")), "file report")
         self.assertEqual(read(os.path.join(runs, "J-runit.md")), "reply")
 
+    def test_rerun_reply_replaces_old_report(self):
+        path = os.path.join(self.tmp, "r.md")
+        with open(path, "w") as fh:
+            fh.write("old stub")
+        bench.save_reply(path, "new reply", os.path.join(self.tmp, "missing.md"))
+        self.assertEqual(read(path), "new reply")
+
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])
         picks = [{"model": "claude-haiku-5-5", "effort": "high", "estimate": {"usd": 1.0}}]

@@ -407,7 +407,7 @@ def save_reply(report, result, work=None):
     """Keeps the agent's report file from the temp folder, or else its reply, as the report."""
     if work and os.path.exists(work):
         shutil.copyfile(work, report)
-    elif report and result and not os.path.exists(report):
+    elif report and result:  # a rerun replaces the earlier attempt's reply
         with open(report, "w", encoding="utf-8") as fh:
             fh.write(result)
 
