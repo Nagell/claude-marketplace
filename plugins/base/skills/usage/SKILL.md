@@ -56,7 +56,7 @@ Defaults: `--days 30 --top 5 --runs 5`; take the user's values from the argument
 
 - `skills`: the top skills by spend, each with `trends` and `runs` (the last N runs plus outliers, each with `picked_because` and per-agent details, including `path`, the agent's transcript).
 - `skills_in_window`: when it is below `--top`, say only that many skills ran.
-- `review_run_json`: `review_runs` and `with_run_json`, how many `review-mr` runs still had their `run.json` (labels by role and slice, `findings_by_role`). A session keeps only its latest review's file and `/tmp` is cleared on reboot, so older runs often have none; say how many, and show any entry in `errors` (a broken file).
+- `review_run_json`: `review_runs` and `with_run_json`, how many `review-mr` runs had a `run.json` (labels by role and slice, `findings_by_role`). Each run keeps its own in a folder under `runs_root`, which nothing deletes; runs from before those folders fall back to the session scratchpad, which keeps only the latest review's file until a reboot, so older runs often have none. Say how many, and show any entry in `errors` (a broken file, a folder no run matched, or a second folder for one run).
 - `prices` (with `override_notes` or `override_error`), `unpriced_models`, `warnings`, `api_errors`, `skipped_lines`, `spend_no_skill`: mention each one that is not empty or zero, in one line. A skill's `notes` say when unpriced requests make its cost too low.
 
 ### 4. Deep read

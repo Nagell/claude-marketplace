@@ -109,9 +109,9 @@ to a file in `$R/out`, and you `tail` or `grep` that file.
 
 ## What you report
 
-Write the report to `<report path>` and reply with only that path. Writing
-this one report file is required, and it is allowed: it is the only file you
-write outside `$R`.
+Write the report to `<report path>` with the Write tool (the sandbox refuses a
+shell redirect there) and reply with only that path. Writing this one report
+file is required, and it is allowed: it is the only file you write outside `$R`.
 
 ### 1. Promises versus behaviour
 

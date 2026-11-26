@@ -173,27 +173,34 @@ open the thread.>
 (`scripts/client.py:891`).
 **Planned change.** None.
 **Draft reply.**
-> Fixed in 🔖 [`0dc4655`](<commit url>).
+> 🔖 [`0dc4655`](<commit url>)
 ```
 
 Above the threads, one line of totals per verdict. Where no reply is planned
 (already answered, or the user's own thread with nothing to add), the draft
 reply says `none` and why.
 
-**Draft replies.** They go out in the user's name, so write them the way the
-user writes: run them through **writing-style-guide** (which pulls in
-**humanizer**) when installed. Without them:
+**Draft replies.** They go out in the user's name. These rules hold whether
+or not the style skills below are installed:
 
 - **Addressed or Fix** - the commit link, with 🔖 right before every commit
-  sha (as in the example above), and a `file:line` when the fix sits
-  somewhere the reviewer would not look. Nothing else: the reviewer opens the
-  commit faster than they read about it.
+  sha (as in the example above), and nothing else. No thanks, no agreement,
+  no restating what the reviewer asked or what changed: the reviewer opens
+  the commit faster than they read about it.
+- Sentences only where the link alone leaves the reviewer guessing: pushback,
+  or a fix done differently from what the reviewer asked (say why in a
+  sentence or two); the problem could not be reproduced; the fix is
+  deliberately left for a later MR; nothing changed for some other reason
+  (name it).
 - **Disagree** - two or three sentences with the reason from the code, and room
   for them to push back. No apology, no "great point".
 - **Answer** - the answer first, then the `file:line` that shows it.
 - A reply never claims a fix the reviewer cannot see. A fix made in this run, or
   sitting in an unpushed commit, gets its commit link only once it is pushed
   (step 6).
+
+Run every reply that carries sentences through **writing-style-guide** (which
+pulls in **humanizer**) when installed, so it reads the way the user writes.
 
 Then ask, in the same turn as the printed plan, with **AskUserQuestion**. The
 dialog can hide what sits above it, so put the plan (or, when it is too long,

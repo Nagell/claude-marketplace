@@ -147,6 +147,20 @@ Finish mode is offered on a re-review where only a couple of mediums and some lo
 9. Shows every draft and thread action in plain English for acceptance, then posts them as one review: drafts first, then one submit with a verdict.
 10. Deletes its temp folders, asks before deleting any new untracked file in your checkout and removes the review worktrees it created.
 
+### Run history
+
+Each run keeps `run.json` (which agent ran on what, which findings survived and who found them first) and every agent report in a folder of its own: `~/.local/share/review-runs/<project>/<session>/<run>/`, or `$XDG_DATA_HOME/review-runs/...` when that is set to an absolute path. `<run>` is the UTC start time, the platform and the MR number, for example `20261126T101540Z-gitlab-19660`. `/base:usage` reads these folders to show what each review agent added.
+
+Nothing deletes them: not the review, not `/base:cleanup`, not Claude Code's transcript cleanup. Delete old runs by hand. The reports quote code from the repos you reviewed.
+
+The run writes there with the Write tool. In bypass mode that needs nothing. In other permission modes, allow it once in your settings, or Claude Code asks before writing there, and the review stops if you decline the first write:
+
+```json
+{ "permissions": { "allow": ["Edit(//Users/<you>/.local/share/review-runs/**)"] } }
+```
+
+On Linux the path starts with `//home/<you>/`. With `XDG_DATA_HOME` set, the rule uses that path instead: `XDG_DATA_HOME=/home/me/.data` needs `Edit(//home/me/.data/review-runs/**)`. File-write rules are `Edit(...)` rules; Claude Code warns that a `Write(...)` rule is not matched. A folder under `~/.claude/` would not work here: outside bypass mode Claude Code asks before every write there (and refuses it in `-p` runs), and an allow rule does not change that.
+
 ### Project rules
 
 Anything specific to one repo or product lives outside the skill, in `~/.claude/review-rules/`:
@@ -220,7 +234,7 @@ The `models` mode (pick `models` at the mode question) tells you which model and
 
 Costs are **estimates** at API prices, not your plan usage. Only assistant lines are priced; side calls and the compaction request have none, so totals run low (0.87 to 1.00 of Claude Code's own figure in the sessions checked). Fast mode (`/fast`) is priced at twice the standard rate; US-only inference and web search at standard rates, and a model missing from the price table counts as $0, which the report flags per skill.
 
-- **Review runs:** for `review-mr`, the report labels agents by role and slice and counts surviving findings per role from the run's `run.json` in the session scratchpad (`/tmp/claude-<uid>/...`). A session keeps only its latest review's `run.json`, and a reboot or `/base:cleanup` removes it, so older runs keep the generic labels.
+- **Review runs:** for `review-mr`, the report labels agents by role and slice and counts surviving findings per role from the `run.json` in each run's folder (see [Run history](#run-history)). Runs from before those folders fall back to the session scratchpad (`/tmp/claude-<uid>/...`), which keeps only the latest review's `run.json` until a reboot or `/base:cleanup`; runs with neither keep the generic labels.
 - **Prices:** a seed table ships in `skills/usage/prices.json`. A file at `~/.claude/usage/prices.json` with the same shape overrides it per model id, so it may list only the models you want to change. An entry replaces that model's prices; when it leaves out Haiku 5.5's `long_prompt` tier, the seed's tier is kept and the report says so. An invalid file is reported and the seed is used.
 - **Retention:** Claude Code deletes transcripts after `cleanupPeriodDays` (30 when unset). When it is under 180, the skill shows the average transcript size per day with writes and the estimate at 180 days, and offers to set 180; it writes `~/.claude/settings.json` only after you agree, keeping every other key. A value from managed (organisation) or project settings wins over yours, so the skill then only says where it comes from and offers nothing.
 
