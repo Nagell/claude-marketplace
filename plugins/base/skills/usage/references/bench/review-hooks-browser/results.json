@@ -147,7 +147,13 @@
     "runit": false,
     "refuter": false,
     "checker": false
-   }
+   },
+   "role_costs": {
+    "slice-1": 0.669,
+    "slice-2": 0.5739,
+    "slice-4": 0.992
+   },
+   "spent_total": 15.7608
   }
  ]
 }

@@ -270,6 +270,24 @@ class Run(CaseCopy):
         self.assertEqual(e["phase_minutes"]["reviewers"], 20.0)
         self.assertEqual(len(out["runs"]), 1)
 
+    def test_clean_cost_counts_only_good_attempts(self):
+        prior = {"id": "M", "model": "m", "effort": "max", "status": "incomplete", "reason": "x", "cost": 9.0,
+                 "cost_with_refuter": 9.0, "spent_total": 12.0, "role_costs": {"runit": 0.5, "slice-1": 4.0},
+                 "roles": {"slice-1": False, "runit": True, "refuter": False, "checker": False}, "date": "2026-11-25"}
+        self.results([prior])
+        out_dir = os.path.join(self.tmp, "out")
+        os.makedirs(os.path.join(out_dir, "review-hooks-browser", "runs"))
+        with open(os.path.join(out_dir, "review-hooks-browser", "runs", "M-runit.md"), "w") as fh:
+            fh.write("### 1. Coverage ledger")
+        stored = []
+        picks = [{"model": "m", "effort": "max", "estimate": {"usd": 12.0, "reviewers": 6.0, "refuter": 2.0}}]
+        bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 9.0, self.fake_agent({"1": 1.0, "refuter": 2.0}),
+                  out_dir, lambda c, e: stored.append(e), resume="M")
+        e = stored[0]
+        # clean: run-it's good $0.5 + the rerun slice-1 $1 + refuter $2; the broken slice-1 $4 only in spent_total
+        self.assertEqual((e["cost"], e["cost_with_refuter"], e["spent_total"]), (1.5, 3.5, 15.0))
+        self.assertEqual(e["role_costs"], {"runit": 0.5, "slice-1": 1.0, "refuter": 2.0, "checker": 0.0})
+
     def test_error_logs_incomplete_run(self):
         self.results([])
         stored = []

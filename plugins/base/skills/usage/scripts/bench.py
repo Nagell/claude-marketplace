@@ -572,12 +572,19 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
 
     base_rev = (prior or {}).get("cost") or 0.0
 
-    def merged(entry):
-        """Adds the prior part of a resumed run: its reviewer cost and its slowest reviewer."""
+    def merged(entry, total):
+        """Per-role cost of each finished role's good attempt; cost fields count only those (the clean run),
+        spent_total counts every call of every attempt. A resumed run adds the prior part: the reused roles'
+        costs and its slowest reviewer."""
         entry.update(phase_times(agents))
+        role_costs = {a["role"]: round(a.get("cost") or 0.0, 4) for a in agents if not a.get("error")}
+        reused = {k: v for k, v in (prior or {}).get("role_costs", {}).items() if k in prior_done}
+        entry["role_costs"] = dict(reused, **role_costs)
+        entry["spent_total"] = round(total + ((prior or {}).get("spent_total") or 0.0), 4)
         if prior:
-            entry["cost"] = round(entry["cost"] + base_rev, 4)
-            entry["cost_with_refuter"] = round(entry["cost_with_refuter"] + base_rev, 4)
+            add = sum(reused.values()) if prior.get("role_costs") else base_rev
+            entry["cost"] = round(entry["cost"] + add, 4)
+            entry["cost_with_refuter"] = round(entry["cost_with_refuter"] + add, 4)
             old = (prior.get("phase_minutes") or {}).get("reviewers")
             if old is not None:
                 entry["phase_minutes"]["reviewers"] = max(old, entry["phase_minutes"].get("reviewers", 0.0))
@@ -594,7 +601,7 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                  "status": "incomplete", "reason": reason, "caught_strict": None, "caught_with_partials": None,
                  "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
                  "roles": {role: role in finished for role in roles}, "date": dt.date.today().isoformat()}
-        return merged(entry), total, agents
+        return merged(entry, total), total, agents
     if not reason and budget_left - spent < MIN_BUDGET:
         reason = "cap reached before checker could start"
     if reason:
@@ -628,7 +635,8 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                  round(over / reqs, 4) if reqs else None,
              "checker": f"{chk['model']} {chk['effort']}", "date": dt.date.today().isoformat()}
     agents.append(dict(c, role="checker", phase="checker"))
-    return merged(entry), spent + checker_cost, agents
+    entry["checker_cost"] = round(checker_cost, 4)
+    return merged(entry, spent + checker_cost), spent + checker_cost, agents
 
 
 def store(case_dir, entry):
@@ -652,6 +660,9 @@ def store(case_dir, entry):
     def f(v, fmt="{}"):
         return "n/a" if v is None else fmt.format(v)
     note = f"; {entry['resumed']}" if entry.get("resumed") else ""
+    spent = (f"; spent ${entry['spent_total']:.2f} with broken attempts"
+             if entry.get("spent_total") and entry["spent_total"] - entry["cost_with_refuter"] - (entry.get("checker_cost") or 0) > 0.005
+             else "")
     if entry.get("status") == "incomplete":
         done = ", ".join(k for k, v in entry["roles"].items() if v) or "none"
         lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
@@ -662,7 +673,7 @@ def store(case_dir, entry):
         return
     lines.insert(end, f"| {entry['id']} | {entry['setup_id']} | {entry['model']} {entry['effort']} | "
                       f"{f(entry['caught_strict'])} / {f(entry['caught_with_partials'])}{note} | "
-                      f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}) | "
+                      f"${entry['cost']:.2f} (${entry['cost_with_refuter']:.2f}){spent} | "
                       f"{f(entry['slowest_agent_min'], '{:.1f} min')} | {entry['date']} |")
     with open(md, "w", encoding="utf-8") as fh:
         fh.write("\n".join(lines))
