@@ -19,7 +19,6 @@ import json
 import os
 import re
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 
@@ -154,17 +153,7 @@ def write_override(entries, path=prices.OVERRIDE_PATH, version=None):
             raise ValueError(f"{path}: no 'models' object")
     data["models"].update(entries)
     data["version"] = version or dt.date.today().isoformat()
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".prices.")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=1)
-            fh.write("\n")
-        os.replace(tmp, path)
-    except BaseException:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
-        raise
+    prices.write_atomic(path, json.dumps(data, indent=1) + "\n")
     return sorted(entries)
 
 
@@ -431,26 +420,55 @@ def rank(results, ext_rows=None, table=None):
 
 # ---------- rule list ----------
 
-CLAUDE_FAMILIES = ("opus", "sonnet", "haiku", "fable", "mythos")
 SLICE_ROLES_EXCLUDED = ("refuters", "thread validation")
+MODELS_SECTION = re.compile(r"^## Models[ \t]*\n.*?(?=^## |\Z)", re.M | re.S)
+DEFAULT_EFFORT = "medium"  # review-mr's step-0 effort when the user keeps the default; the table calls it "base"
 
 
 def parse_lines(text):
-    """'- Task: Model effort (note)' lines. Lines that name no Claude model are dropped (other vendors are reference only)."""
+    """'- Task: Model effort (note)' lines, an optional 'Claude ' before the model dropped. A bullet with no
+    task, or whose model and effort do not parse, goes to `dropped` (other vendors are reference only)."""
     keep, dropped = [], []
     for line in text.splitlines():
         line = line.strip()
-        if not line.startswith("- ") or ":" not in line:
+        if not line.startswith("- "):
             continue
-        task, _, rest = line[2:].partition(":")
-        word = rest.strip().split(" ", 1)[0].lower()
-        (keep if word in CLAUDE_FAMILIES else dropped).append(line)
+        task, colon, rest = line[2:].partition(":")
+        rest = re.sub(r"^\s*Claude\s+", "", rest, flags=re.I).strip()
+        if not colon or not task.strip() or not alias_effort(rest):
+            dropped.append(line)
+            continue
+        keep.append(f"- {task.strip()}: {rest}")
     return keep, dropped
+
+
+def task_of(line):
+    return line[2:].partition(":")[0].strip()
+
+
+def section_lines(text):
+    """The '- Task: ...' lines of the `## Models` section, [] without one."""
+    m = MODELS_SECTION.search(text)
+    if not m:
+        return []
+    return [l.strip() for l in m.group(0).splitlines()[1:] if l.strip().startswith("- ") and ":" in l]
+
+
+def merged_lines(texts, lines):
+    """The current lines of every file (later files win), with the proposed tasks replaced or added.
+    A task the proposal does not name keeps its current line."""
+    by_task = {}
+    for text in texts:
+        for l in section_lines(text):
+            by_task[task_of(l)] = l
+    for l in lines:
+        by_task[task_of(l)] = l
+    return list(by_task.values())
 
 
 def replace_section(text, lines):
     section = "## Models\n\n" + "\n".join(lines) + "\n"
-    m = re.search(r"^## Models[ \t]*\n.*?(?=^## |\Z)", text, re.M | re.S)
+    m = MODELS_SECTION.search(text)
     if m:
         tail = text[m.end():]
         return text[:m.start()] + section + ("\n" if tail else "") + tail
@@ -463,9 +481,21 @@ def alias_effort(rest):
     return f"{m.group(1).lower()}, {m.group(2).lower()}" if m else None
 
 
+def table_cell(new, old):
+    """The new 'alias, effort' cell. A cell at 'base' (step 0's effort) stays 'base' when the new effort
+    is the default, so the user's step-0 choice keeps working."""
+    old = old.strip()
+    if not new:
+        return old
+    alias, _, effort = new.partition(", ")
+    if effort == DEFAULT_EFFORT and old == f"{alias}, base":
+        return old
+    return new
+
+
 def update_role_table(text, lines):
     """Rows of review-mr's step-4 role table that the `- Review` lines cover; other rows unchanged."""
-    by_task = {l[2:].partition(":")[0].strip(): alias_effort(l[2:].partition(":")[2]) for l in lines}
+    by_task = {task_of(l): alias_effort(l[2:].partition(":")[2]) for l in lines}
     out = []
     in_table = False
     for row in text.split("\n"):
@@ -481,37 +511,43 @@ def update_role_table(text, lines):
             refuter = role.startswith(SLICE_ROLES_EXCLUDED)
             main = by_task.get("Review refuters" if refuter else "Review slices")
             fast = by_task.get("Review refuters" if refuter else "Review with --fast")
-            vals = [cells[0], main or cells[1].strip(), fast or cells[2].strip()]
+            vals = [cells[0], table_cell(main, cells[1]), table_cell(fast, cells[2])]
             row = "|" + "|".join([vals[0]] + [" " + v.ljust(len(c) - 1) for v, c in zip(vals[1:], cells[1:])]) + "|"
         out.append(row)
     return "\n".join(out)
 
 
+def read_text(path):
+    if not os.path.exists(path):
+        return ""
+    with open(path, encoding="utf-8") as fh:
+        return fh.read()
+
+
 def apply_models(proposal, claude_mds, review_skill, write=False):
-    """One diff over the `## Models` sections and review-mr's role table; files change only with write=True."""
+    """One diff over the `## Models` sections and review-mr's role table; files change only with write=True.
+    An empty proposal (no line names a Claude model and effort) changes nothing and sets `error`."""
     import difflib
     lines, dropped = parse_lines(proposal)
+    if not lines:
+        return {"lines": [], "dropped": dropped, "diff": "", "changed": [], "written": False,
+                "error": "no line names a Claude model and effort; nothing changes"}
+    old = {p: read_text(p) for p in list(claude_mds) + [review_skill]}
+    section = merged_lines([old[p] for p in claude_mds], lines)
+    targets = [(p, replace_section(old[p], section)) for p in claude_mds]
+    review = [l for l in lines if l.startswith("- Review")]
+    if review:
+        targets.append((review_skill, update_role_table(old[review_skill], review)))
     diff, new_texts = [], {}
-    targets = [(p, lambda t: replace_section(t, lines)) for p in claude_mds]
-    if any(l.startswith("- Review") for l in lines):
-        targets.append((review_skill, lambda t: update_role_table(t, [l for l in lines if l.startswith("- Review")])))
-    for path, fn in targets:
-        old = ""
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as fh:
-                old = fh.read()
-        new = fn(old)
-        if new != old:
+    for path, new in targets:
+        if new != old[path]:
             new_texts[path] = new
-            diff += difflib.unified_diff(old.splitlines(True), new.splitlines(True), path, path)
+            diff += difflib.unified_diff(old[path].splitlines(True), new.splitlines(True), path, path)
     if write:
         for path, new in new_texts.items():
-            fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".models.")
-            with os.fdopen(fd, "w", encoding="utf-8") as fh:
-                fh.write(new)
-            os.replace(tmp, path)
-    return {"lines": lines, "dropped": dropped, "diff": "".join(diff), "changed": sorted(new_texts),
-            "written": bool(write and new_texts)}
+            prices.write_atomic(path, new)
+    return {"lines": lines, "section": section, "dropped": dropped, "diff": "".join(diff),
+            "changed": sorted(new_texts), "written": bool(write and new_texts)}
 
 
 def load_results(case, bench_dir=BENCH_DIR):
@@ -563,6 +599,10 @@ def main(argv=None):
         mds = a.claude_md or [os.path.join(scan.config_dir(), "CLAUDE.md"),
                               os.path.join(os.path.dirname(os.path.dirname(SKILL_DIR)), "CLAUDE.md")]
         out = apply_models(proposal, mds, a.review_skill, a.write)
+        if out.get("error"):
+            json.dump(out, sys.stdout, indent=1)
+            sys.stdout.write("\n")
+            sys.exit(1)
     else:
         ext = None
         if a.external_json:

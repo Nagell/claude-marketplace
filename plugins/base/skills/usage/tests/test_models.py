@@ -273,13 +273,51 @@ class Rules(TempHome):
         with open(self.skill) as fh:
             new = fh.read()
         self.assertIn("| wave 1 slice owners                    | sonnet, high  | opus, high     |", new)
-        self.assertIn("| refuters (step 5)                      | opus, medium  | opus, medium   |", new)
+        # refuters at medium, the default: the rows keep "base" (step 0's effort)
+        self.assertIn("| refuters (step 5)                      | opus, base    | opus, base     |", new)
         changed = [l for l in new.split("\n") if l not in self.skill_text.split("\n")]
         self.assertTrue(all(l.startswith("| ") for l in changed))
-        self.assertEqual(len(changed), 7)
+        self.assertEqual(len(changed), 5)
 
     def test_decline_changes_nothing(self):
         before = [open(p).read() for p in (self.user, self.repo, self.skill)]
         out = self.apply(False)
         self.assertTrue(out["diff"])
         self.assertEqual([open(p).read() for p in (self.user, self.repo, self.skill)], before)
+
+    def test_unnamed_tasks_keep_their_line(self):
+        with open(self.user, "w") as fh:
+            fh.write("# G\n\n## Models\n\n- Coding: Opus 5.5 medium\n- Simple helpers: Haiku 5.5 high\n")
+        with open(self.repo, "w") as fh:
+            fh.write("# R\n\n## Models\n\n- Review refuters: Opus 5.5 medium\n")
+        out = models.apply_models("- Review slices: Haiku 5.5 max (x)\n", [self.user, self.repo], self.skill, True)
+        self.assertEqual(out["section"], ["- Coding: Opus 5.5 medium", "- Simple helpers: Haiku 5.5 high",
+                                          "- Review refuters: Opus 5.5 medium", "- Review slices: Haiku 5.5 max (x)"])
+        self.assertEqual(self.section(self.user), self.section(self.repo))
+
+    def test_empty_proposal_changes_nothing(self):
+        before = [open(p).read() for p in (self.user, self.repo, self.skill)]
+        out = models.apply_models("- Review slices: GPT-6 high\n", [self.user, self.repo], self.skill, True)
+        self.assertIn("error", out)
+        self.assertFalse(out["written"])
+        self.assertEqual([open(p).read() for p in (self.user, self.repo, self.skill)], before)
+
+    def test_lines_that_do_not_parse_are_dropped(self):
+        keep, dropped = models.parse_lines("- Review slices: Claude Haiku 5.5 max\n- Coding Opus 5.5 medium\n"
+                                           "- Review refuters: Sonnet 5.5 (high)\n")
+        self.assertEqual(keep, ["- Review slices: Haiku 5.5 max"])
+        self.assertEqual(dropped, ["- Coding Opus 5.5 medium", "- Review refuters: Sonnet 5.5 (high)"])
+
+    def test_new_base_effort_is_written_out(self):
+        out = models.update_role_table(self.skill_text, ["- Review refuters: Opus 5.5 high"])
+        self.assertIn("| refuters (step 5)                      | opus, high    | opus, high     |", out)
+
+    def test_write_follows_symlink_and_keeps_mode(self):
+        real = os.path.join(self.tmp, "dotfiles-CLAUDE.md")
+        os.rename(self.user, real)
+        os.symlink(real, self.user)
+        os.chmod(real, 0o644)
+        self.apply(True)
+        self.assertTrue(os.path.islink(self.user))
+        self.assertEqual(os.stat(real).st_mode & 0o777, 0o644)
+        self.assertIn("Sonnet 5.5 high", self.section(real))
