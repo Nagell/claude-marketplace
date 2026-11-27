@@ -57,6 +57,13 @@ class Dedupe(ScanBase):
         data = self.scan()
         self.assertEqual((data["skipped_lines"], data["no_skill"]["requests"]), (1, 1))
 
+    def test_bench_session_lines_not_counted(self):
+        title = {"type": "custom-title", "customTitle": "bench-x-J", "sessionId": "b"}
+        self.session("b1", [title, human(0), asst("m1", 1)], tail='{"type": "assistant", "mess')
+        data = self.scan()
+        self.assertEqual(data["skipped_lines"], 0)
+        self.assertEqual(data["warnings"], ["only benchmark sessions in the window, all left out"])
+
     def test_wrong_typed_fields_skip_the_line(self):
         bad_tokens = asst("m2", 2, u={"input_tokens": "10", "output_tokens": 5})
         bad_model = asst("m3", 3, model=["x"])
