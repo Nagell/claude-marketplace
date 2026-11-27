@@ -4,7 +4,7 @@ Each snapshot file under `snap/` and the commit of this repository (github.com/N
 
 | File | Source commit | Note |
 |---|---|---|
-| `plugins/base/hooks/hooks.json` | `8ac9b24` | newest commit with this content; parent line of fixes `0933c9f`, `fd405f0`, `5911c75` |
+| `plugins/base/hooks/hooks.json` | `8ac9b24` | the commit that wrote this content, which stays until the fixes `0933c9f`, `fd405f0`, `5911c75` |
 | `plugins/base/hooks/post-edit-format.sh` | `8ac9b24` | as above |
 | `plugins/base/hooks/safety-guards.sh` | `8ac9b24` | as above |
 | `plugins/extras/hooks/hooks.json` | `8ac9b24` | as above |
@@ -25,4 +25,12 @@ Each snapshot file under `snap/` and the commit of this repository (github.com/N
 | `plugins/browser/skills/browser/scripts/preflight.sh` | `0dc4655` | |
 | `plugins/browser/skills/browser/scripts/pw.sh` | `0dc4655` | |
 
-20 files, 2,905 lines. `history/` holds the briefs of runs B to H (`brief.md`, `brief-D-addendum.md`); they are not used by any setup.
+20 files, 2,905 lines. `history/` holds the briefs of runs B to F and H (`brief.md`, `brief-D-addendum.md`; H reused D's prompts); G and I used review-mr's `agent-brief.md` of PR #251, which stays in this repository's history. No setup uses them.
+
+## Notes on the answer key
+
+`answer-key.md` is not edited for these, because its hash is part of every stored result and an edit would mark them not comparable:
+
+- The key is the chosen 14 bugs, not every defect in the snapshot. The snapshot has more (the `rm` and `.env` guard gaps fixed in `10fdc5b`, the `npx` probes fixed in `f8ce2b0`). A report that flags them scores as real extra findings, the same for every model.
+- D2: the snapshot's sentence ("`fill` takes only literal text") was changed by `05e0493`; `992289b` fixed the wording that `05e0493` wrote. The key credits `992289b`.
+- S1: the missing `export PLAYWRIGHT_MCP_SECRETS_FILE` belongs after `scripts/common.sh:13`; the key names `:12`.

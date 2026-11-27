@@ -9,7 +9,7 @@ What the parts do:
 - `plugins/browser/`: a skill that starts and drives a Playwright-managed browser for Claude, including parallel isolated sessions, stored logins (credentials) and attaching to an installed Chrome. `scripts/*.sh` do the work; `SKILL.md` and `references/*.md` tell Claude how to use them.
 
 ## Rules
-- Read-only. Do not modify the snapshot. Do not read anything under `<session scratchpad>/` except `exp2/snap/` and this brief. Do not look at any git repository for these files.
+- Read-only. Do not modify the snapshot. Do not read anything under `<session scratchpad>/` except the snapshot folder and this brief. Do not look at any git repository for these files.
 - You may run the scripts against stubs and test input in a throwaway directory under /tmp (e.g. pipe hook JSON into a hook, put fake `git`/`npx`/`curl` on PATH). Never run a real `git push`, never create `.claude-push-token` in a real repo, never start a real browser, never touch real credentials. If a Bash command of yours contains push text, a real guard hook may check it; put such tests in a script file and run it by path.
 - Measure what you can; mark the rest as derived and name what would settle it.
 

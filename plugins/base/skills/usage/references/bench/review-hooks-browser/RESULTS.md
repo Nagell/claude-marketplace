@@ -13,7 +13,7 @@ One line per run, written by `bench.py run`. Results are compared only within on
 
 ## History: runs B to I (not ranked)
 
-Runs B to I used different briefs and slicings (3 slices with or without a cross-file agent, run D's 7 named slices, PR #251's first brief, the brief of commit `c3f54be`) and have no checker model, dates or hashes on record. They are history, not a setup: they get no entry in `results.json` and are never ranked. Run I is the reference point for the first `review-mr-v1` baseline (task 7.1 of `add-usage-models-mode`): Haiku 5.5 max, 7 hand-cut slices plus run-it, Opus 5.5 medium refuter, 12 strict / 13 with partials of 14, all 4 highs, $11.59 with the refuter. The Haiku 7-slice range of runs D, G and I is 10 to 13 strict of 14, all 4 highs. Their briefs are in `history/`; their run outputs stay outside the repo.
+Runs B to I used different briefs and slicings (3 slices with or without a cross-file agent, run D's 7 named slices, PR #251's first brief, the brief of commit `c3f54be`) and have no checker model, dates or hashes on record. They are history, not a setup: they get no entry in `results.json` and are never ranked. Run I is the reference point that the first `review-mr-v1` baseline, run M, was compared with (task 7.1 of `add-usage-models-mode`): Haiku 5.5 max, 7 hand-cut slices plus run-it, Opus 5.5 medium refuter, 12 strict / 13 with partials of 14, all 4 highs, $11.59 with the refuter. The Haiku 7-slice range of runs D, G and I is 10 to 13 strict of 14, all 4 highs. The briefs of runs B to F and H are in `history/` (see `provenance.md`); their run outputs stay outside the repo.
 
 | Run | Setup | Key caught (strict / with partials) | Real cost | Requests >100k | Notes |
 |---|---|---|---|---|---|
@@ -27,6 +27,8 @@ Lessons: (1) the defaults lens, not the model, closed the high-severity gap; (2)
 
 ## Run E (added 2026-11-22)
 
+| Run | Setup | Key caught (strict / with partials) | Real cost | Requests >100k | Notes |
+|---|---|---|---|---|---|
 | E | Haiku 5.5 max: 3 component slices, no cross-file, with the run-D lens | 9 / 9.5 | $4.25 | 87% | missed S1 (literal password fill); slowest agent 32.9 min; cleanup instruction worked (no leftovers) |
 
 Wall time (slowest agent): B 8.9 min, C 23.1, D 23.7, E 32.9. Cost per caught key bug: B $1.06, C $0.48, D $0.39, E $0.47.
@@ -35,6 +37,8 @@ Decision: fewer, wider Haiku agents grow their own context further (87% of reque
 
 ## Run F and the refuter test (added 2026-11-22)
 
+| Run | Setup | Key caught (strict / with partials) | Real cost | Requests >100k | Notes |
+|---|---|---|---|---|---|
 | F | Opus 5.5 medium: 3 component slices, no cross-file, with the run-D lens (same prompts as E) | 9 / 9.5 | $6.99 | 37% (flat price, no tier) | slowest agent 9.2 min; missed H1, H3, S2, S3; caught S1, D1 and both halves of S5 that E missed; two agents listed the S2 bug as "sound"; no leftovers |
 
 Opus has no long-context tier and stayed small (peak 146k vs 425k for E, 190 requests vs 252), but at Opus prices it cost $0.78 per caught key bug vs D's $0.39. Same miss count as E, different misses. `--fast` (Opus) is about 3.5x faster than the Haiku default, not better.
