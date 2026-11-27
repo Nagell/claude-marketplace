@@ -1,8 +1,12 @@
+import contextlib
+import io
 import json
 import os
 import re
 import shutil
+import subprocess
 import threading
+from unittest import mock
 
 from helpers import SKILL_DIR, TempHome
 import bench
@@ -16,6 +20,9 @@ BACK = {"{snap}": "<reviews worktree path>", "{head_sha}": "<sha>", "{primary}":
         "{run_tmp}": "<run temp dir>", "{slice_files}": "<the slice's files, with their line counts>",
         "{lenses}": '<lens text, or "none">', "{conventions}": "<find_conventions.py entries for the slice: path, lines, changed>",
         "{report}": "<report path>"}
+
+
+REPORT = "### 1. Coverage ledger\n| a.sh | examined, nothing found | - |\nLeftovers: none"
 
 
 def read(path):
@@ -166,6 +173,42 @@ class Plan(CaseCopy):
         out = bench.run(self.case, the_plan, 10.0, lambda *a: None, os.path.join(self.tmp, "out"), lambda c, e: None)
         self.assertEqual(out["not_run"][0]["reason"], "no estimate")
 
+    def test_estimate_counts_the_checker(self):
+        self.results([self.haiku_run(checker_cost=1.2)])
+        self.double_haiku()
+        out = bench.plan(self.case, None, ["claude-haiku-6"], None, None, self.table, fixed_effort="max")
+        est = out["picks"][0]["estimate"]
+        self.assertEqual((est["usd"], est["checker"]), (12.2, 1.2))
+        self.assertIn("effort not counted", est["basis"])
+
+    def test_estimate_prices_both_models_at_the_stored_share(self):
+        self.results([self.haiku_run(over_100k_share=0.5)])
+        self.double_haiku()
+        self.table.models["claude-haiku-6"]["long_prompt"]["input"] *= 10
+        est = bench.estimate("claude-haiku-6", [self.haiku_run(over_100k_share=0.5)], self.table)
+        new = bench.effective_price(self.table, "claude-haiku-6", 0.5)
+        old = bench.effective_price(self.table, "claude-haiku-5-5", 0.5)
+        self.assertEqual(est["price_ratio"], round(new / old, 4))
+
+    def test_incomplete_runs_and_models_without_effort_listed(self):
+        self.results([self.haiku_run(id="J", status="incomplete", reason="checker stopped: x", effort="max")])
+        out = bench.plan(self.case, None, ["claude-haiku-5-5", "claude-x"], [aa("claude-haiku-5-5", "max", 9.0)],
+                         None, self.table)
+        self.assertEqual(out["incomplete_in_setup"], [{"id": "J", "model": "claude-haiku-5-5", "effort": "max",
+                                                      "reason": "checker stopped: x"}])
+        self.assertEqual(out["no_effort"], ["claude-x"])
+
+    def test_unknown_usage_effort_is_not_planned(self):
+        self.results([])
+        usage = os.path.join(self.tmp, "usage.json")
+        with open(usage, "w") as fh:
+            json.dump({"skills": [{"skill": "base:review-mr", "effort": "?"}]}, fh)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            bench.main(["plan", self.case, "--models", "claude-haiku-5-5", "--usage", usage])
+        out = json.loads(buf.getvalue())
+        self.assertEqual((out["picks"], out["no_effort"]), ([], ["claude-haiku-5-5"]))
+
     def test_gpt_reference_never_planned(self):
         self.results([self.haiku_run()])
         ext = [models.row("openai", "gpt-6", "high", "cost_per_index_point", 1.0, "u", "d", "aa-models-page")]
@@ -183,7 +226,7 @@ class Run(CaseCopy):
             cost = costs.get(role, 0.0)
             if role == "checker":
                 return {"cost": 0.0, "minutes": 1.0, "result": "SCORE caught_strict=10 partial=2 missed=2 real_extra=0 false=0"}
-            return {"cost": cost, "minutes": 2.0, "result": "ok", "requests": 1, "over_100k": 0}
+            return {"cost": cost, "minutes": 2.0, "result": REPORT, "requests": 1, "over_100k": 0}
         agent.calls = calls
         return agent
 
@@ -199,7 +242,7 @@ class Run(CaseCopy):
         def agent2(prompt, model, effort, budget, name, cwd, case_dir):
             if name.endswith("slice-1"):
                 agent.calls.append({"name": name, "budget": budget})
-                return {"cost": next(costs), "minutes": 2.0, "result": "ok", "requests": 1, "over_100k": 0}
+                return {"cost": next(costs), "minutes": 2.0, "result": REPORT, "requests": 1, "over_100k": 0}
             return agent(prompt, model, effort, budget, name, cwd, case_dir)
 
         out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent2,
@@ -229,7 +272,7 @@ class Run(CaseCopy):
             calls.append((name, budget))
             if "-slice-" in name or name.endswith("runit"):
                 barrier.wait()  # raises unless all reviewer calls run at the same time
-            res = "SCORE caught_strict=9 partial=0 missed=5" if name.endswith("checker") else "ok"
+            res = "SCORE caught_strict=9 partial=0 missed=5" if name.endswith("checker") else REPORT
             return {"cost": 0.1, "minutes": 3.0 if name.endswith("slice-1") else 1.0, "result": res}
         picks = [{"model": "m", "effort": "max", "estimate": {"usd": 6.0, "reviewers": 4.0, "refuter": 2.0}}]
         bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 8.0, agent,
@@ -260,7 +303,7 @@ class Run(CaseCopy):
         out_dir = os.path.join(self.tmp, "out")
         os.makedirs(os.path.join(out_dir, "review-hooks-browser", "runs"))
         with open(os.path.join(out_dir, "review-hooks-browser", "runs", "M-runit.md"), "w") as fh:
-            fh.write("old run-it report")
+            fh.write(REPORT)
         agent, prompts, stored = self.fake_agent({"1": 1.0, "refuter": 2.0}), {}, []
 
         def spy(prompt, model, effort, budget, name, cwd, case_dir):
@@ -301,12 +344,13 @@ class Run(CaseCopy):
 
         def agent(prompt, model, effort, budget, name, cwd, case_dir):
             err = "error_max_budget_usd" if name.endswith("runit") else None
-            return {"cost": 1.5, "minutes": 2.0, "result": "x", "error": err}
+            return {"cost": 1.5, "minutes": 2.0, "result": REPORT, "error": err}
         picks = [{"model": "claude-haiku-5-5", "effort": "max", "estimate": {"usd": 5.0}}]
         out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, agent,
                         os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
         e = stored[0]
-        self.assertEqual((e["status"], e["cost"], e["cost_with_refuter"]), ("incomplete", 3.0, 3.0))
+        # clean cost: only slice-1's good attempt; the failed run-it call counts in spent_total
+        self.assertEqual((e["status"], e["cost"], e["cost_with_refuter"], e["spent_total"]), ("incomplete", 1.5, 1.5, 3.0))
         self.assertIn("runit stopped", e["reason"])
         self.assertEqual(e["roles"], {"slice-1": True, "runit": False, "refuter": False, "checker": False})
         self.assertEqual(out["runs"][0]["status"], "incomplete")
@@ -351,7 +395,7 @@ class Run(CaseCopy):
         out_dir = os.path.join(self.tmp, "out")
         bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]},
                   10.0, spy, out_dir, lambda c, e: None)
-        self.assertEqual(read(os.path.join(out_dir, "review-hooks-browser", "runs", "J-slice-1.md")), "ok")
+        self.assertEqual(read(os.path.join(out_dir, "review-hooks-browser", "runs", "J-slice-1.md")), REPORT)
 
     def test_report_file_kept_from_temp_folder(self):
         self.results([])
@@ -361,14 +405,14 @@ class Run(CaseCopy):
             m = re.search(r"(\S*run-tmp/J-slice-1\.md)", prompt)
             if m:
                 with open(m.group(1).strip("`"), "w") as fh:
-                    fh.write("file report")
-            res = "SCORE caught_strict=1 partial=0 missed=13" if name.endswith("checker") else "reply"
+                    fh.write("file report\n| a.sh | examined | - |")
+            res = "SCORE caught_strict=1 partial=0 missed=13" if name.endswith("checker") else "reply\n" + REPORT
             return {"cost": 0.0, "minutes": 1.0, "result": res}
         bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 1.0}}]},
                   10.0, agent, out_dir, lambda c, e: None)
         runs = os.path.join(out_dir, "review-hooks-browser", "runs")
-        self.assertEqual(read(os.path.join(runs, "J-slice-1.md")), "file report")
-        self.assertEqual(read(os.path.join(runs, "J-runit.md")), "reply")
+        self.assertEqual(read(os.path.join(runs, "J-slice-1.md")), "file report\n| a.sh | examined | - |")
+        self.assertEqual(read(os.path.join(runs, "J-runit.md")), "reply\n" + REPORT)
 
     def test_rerun_reply_replaces_old_report(self):
         path = os.path.join(self.tmp, "r.md")
@@ -396,7 +440,7 @@ class Run(CaseCopy):
 
     def test_stored_run_never_planned_again(self):
         self.results([self.haiku_run()])
-        picks = [{"model": "claude-haiku-5-5", "effort": "high", "estimate": {"usd": 1.0}}]
+        picks = [{"model": "claude-haiku-5-5", "effort": "max", "estimate": {"usd": 1.0}}]
         out = bench.run(self.case, {"setup_id": self.sid, "picks": picks}, 10.0, self.fake_agent({}),
                         os.path.join(self.tmp, "out"), lambda c, e: None)
         self.assertEqual(out["runs"], [])
@@ -414,11 +458,147 @@ class Run(CaseCopy):
             bench.store(self.case, {"id": "J"})  # temp copy is not a repo checkout
 
 
+class RunGuards(CaseCopy):
+    fake_agent = Run.fake_agent
+
+    def plan_of(self, *efforts, usd=1.0):
+        return {"setup_id": self.sid, "picks": [{"model": "m", "effort": e, "estimate": {"usd": usd}} for e in efforts]}
+
+    def test_installed_copy_refused_before_any_call(self):
+        self.results([])
+        agent = self.fake_agent({})
+        with self.assertRaises(RuntimeError):
+            bench.run(self.case, self.plan_of("max"), 10.0, agent, os.path.join(self.tmp, "out"))
+        self.assertEqual(agent.calls, [])
+
+    def test_second_effort_of_a_model_runs_too(self):
+        self.results([])
+        stored = []
+        out = bench.run(self.case, self.plan_of("high", "medium"), 10.0, self.fake_agent({}),
+                        os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual([(e["effort"], e["status"]) for e in stored], [("high", "complete"), ("medium", "complete")])
+        self.assertEqual(out["not_run"], [])
+
+    def test_resume_after_checker_stop_reuses_refuter(self):
+        prior = {"id": "M", "model": "m", "effort": "max", "status": "incomplete", "reason": "checker stopped: x",
+                 "cost": 4.0, "cost_with_refuter": 6.0, "role_costs": {"slice-1": 3.0, "runit": 1.0, "refuter": 2.0},
+                 "roles": {"slice-1": True, "runit": True, "refuter": True, "checker": False}, "date": "2026-11-25"}
+        self.results([prior])
+        runs = os.path.join(self.tmp, "out", "review-hooks-browser", "runs")
+        os.makedirs(runs)
+        for f in ("M-slice-1.md", "M-runit.md", "M-refute.md"):
+            with open(os.path.join(runs, f), "w") as fh:
+                fh.write(REPORT)
+        agent, stored = self.fake_agent({}), []
+        out = bench.run(self.case, {"setup_id": self.sid, "picks": [{"model": "m", "effort": "max", "estimate": {"usd": 8.0}}]},
+                        3.0, agent, os.path.join(self.tmp, "out"), lambda c, e: stored.append(e), resume="M")
+        self.assertEqual([c["name"].rsplit("-", 1)[-1] for c in agent.calls], ["checker"])
+        e = stored[0]
+        self.assertEqual((e["status"], e["cost"], e["cost_with_refuter"]), ("complete", 4.0, 6.0))
+        self.assertIn("refuter reused", e["resumed"])
+        self.assertEqual(out["not_run"], [])
+
+    def test_resume_needs_a_matching_pick(self):
+        self.results([{"id": "M", "model": "m", "effort": "max", "status": "incomplete", "roles": {}}])
+        with self.assertRaises(RuntimeError):
+            bench.run(self.case, self.plan_of("high"), 10.0, self.fake_agent({}), os.path.join(self.tmp, "out"),
+                      lambda c, e: None, resume="M")
+
+    def test_checker_without_score_line_is_incomplete(self):
+        self.results([])
+        stored = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            return {"cost": 0.1, "minutes": 1.0, "result": "Score: 11 strict" if name.endswith("checker") else REPORT}
+        bench.run(self.case, self.plan_of("max"), 10.0, agent, os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual((stored[0]["status"], stored[0]["reason"]), ("incomplete", "checker gave no SCORE line"))
+        self.assertFalse(stored[0]["roles"]["checker"])
+        self.assertTrue(stored[0]["roles"]["refuter"])
+
+    def test_path_only_reply_is_not_a_report(self):
+        self.results([])
+        stored = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            res = "/tmp/x/run-tmp/J-slice-1.md" if name.endswith("slice-1") else REPORT
+            return {"cost": 0.1, "minutes": 1.0, "result": res}
+        bench.run(self.case, self.plan_of("max"), 10.0, agent, os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual(stored[0]["reason"], "slice-1 stopped: report not saved: no ledger")
+
+    def test_denial_quoted_in_a_ledger_row_is_a_report(self):
+        path = os.path.join(self.tmp, "r.md")
+        with open(path, "w") as fh:
+            fh.write("| hooks/safety-guards.sh | examined | a write to .env is refused with exit 2 |\n")
+        self.assertIsNone(bench.report_problem(path))
+
+    def test_exception_in_one_reviewer_marks_it_failed(self):
+        self.results([])
+        stored = []
+
+        def agent(prompt, model, effort, budget, name, cwd, case_dir):
+            if name.endswith("runit"):
+                raise KeyError("cost")
+            return {"cost": 0.5, "minutes": 1.0, "result": REPORT}
+        bench.run(self.case, self.plan_of("max"), 10.0, agent, os.path.join(self.tmp, "out"), lambda c, e: stored.append(e))
+        self.assertEqual(stored[0]["status"], "incomplete")
+        self.assertTrue(stored[0]["reason"].startswith("runit stopped: KeyError"))
+        self.assertTrue(stored[0]["roles"]["slice-1"])
+
+
+class Store(CaseCopy):
+    def store(self, entry):
+        with mock.patch.object(bench, "is_repo_checkout", lambda c: True):
+            bench.store(self.case, entry)
+
+    def entry(self):
+        return {"id": "J", "setup_id": self.sid, "model": "m", "effort": "max", "status": "complete",
+                "caught_strict": 1, "caught_with_partials": 1.0, "cost": 1.0, "cost_with_refuter": 2.0,
+                "slowest_agent_min": 1.0, "date": "2026-11-25"}
+
+    def test_results_keep_their_mode(self):
+        self.results([])
+        path = os.path.join(self.case, "results.json")
+        os.chmod(path, 0o644)
+        self.store(self.entry())
+        self.assertEqual(os.stat(path).st_mode & 0o777, 0o644)
+        self.assertEqual([r["id"] for r in bench.load_json(path)["runs"]], ["J"])
+
+    def test_missing_results_header_changes_nothing(self):
+        self.results([])
+        with open(os.path.join(self.case, "RESULTS.md"), "w") as fh:
+            fh.write("# hand edited\n")
+        with self.assertRaises(RuntimeError):
+            self.store(self.entry())
+        self.assertEqual(bench.load_json(os.path.join(self.case, "results.json"))["runs"], [])
+
+
 class Repeat(CaseCopy):
     def test_one_behind_repeats_seven_behind_does_not(self):
         cur = {"caught_strict": 13}
         self.assertTrue(bench.propose_repeat(12, cur))
         self.assertFalse(bench.propose_repeat(6, cur))
+        self.assertFalse(bench.propose_repeat(17, cur))  # within 2 either way
+
+    def test_unread_models_line_is_named(self):
+        self.results([self.haiku_run()])
+        md = "## Models\n\n- Review slices: Haiku max\n"
+        cur = bench.current_model(bench.load_json(os.path.join(self.case, "results.json")), self.sid, [md])
+        self.assertEqual(cur["source"], "best stored result")
+        self.assertIn("Haiku max", cur["note"])
+
+    def test_old_hash_marks_only_its_own_run(self):
+        self.results([self.haiku_run(), self.haiku_run(id="K", key_hash="0ld")])
+        out = bench.comparability(bench.load_json(os.path.join(self.case, "results.json")), self.case)
+        self.assertEqual([m["run"] for m in out["runs_not_comparable"]], ["K"])
+        self.assertEqual(out["case_not_comparable"], ["key"])
+
+    def test_changed_refuter_brief_marks_runs(self):
+        setup, path = bench.setups(self.case)[self.sid]
+        self.results([self.haiku_run(**bench.brief_hashes(self.case, setup, path))])
+        with open(os.path.join(self.case, "refuter-brief.md"), "a") as fh:
+            fh.write("\nchanged\n")
+        out = bench.comparability(bench.load_json(os.path.join(self.case, "results.json")), self.case)
+        self.assertEqual(out["runs_not_comparable"][0]["reasons"], ["refuter_brief"])
 
     def test_current_from_models_line(self):
         self.results([self.haiku_run(), self.haiku_run(id="K", model="claude-sonnet-5-5", effort="high",
@@ -463,6 +643,29 @@ class Call(TempHome):
         self.assertIn("Read(//case/**)", cmd)
 
 
+class Agent(TempHome):
+    def call(self, stdout=None, exc=None):
+        def fake(*a, **kw):
+            if exc:
+                raise exc
+            return subprocess.CompletedProcess(a, 0, stdout, "")
+        with mock.patch.object(bench.subprocess, "run", fake), \
+                mock.patch.object(bench.scan, "PROJECTS_DIR", os.path.join(self.tmp, "projects")):
+            return bench.claude_agent("p", "m", "max", 1.0, "n", self.tmp, None)
+
+    def test_cli_cost_without_transcript(self):
+        r = self.call(json.dumps({"session_id": "s", "total_cost_usd": 0.7, "result": "ok"}))
+        self.assertEqual((r["cost"], r["error"]), (0.7, None))
+
+    def test_no_cost_at_all_fails_the_call(self):
+        r = self.call(json.dumps({"session_id": "s", "result": "ok"}))
+        self.assertIn("no cost", r["error"])
+
+    def test_timeout_fails_the_call(self):
+        r = self.call(exc=subprocess.TimeoutExpired("claude", 1))
+        self.assertIn("timed out", r["error"])
+
+
 class Trim(TempHome):
     def test_only_base_plugin_and_no_mcp(self):
         path = os.path.join(self.tmp, "settings.json")
@@ -474,3 +677,11 @@ class Trim(TempHome):
 
     def test_missing_settings(self):
         self.assertEqual(json.loads(bench.trim_flags("/nonexistent/x.json")[2]), {"enabledPlugins": {}})
+
+    def test_unreadable_settings_warn(self):
+        path = os.path.join(self.tmp, "settings.json")
+        with open(path, "w") as fh:
+            fh.write("{broken")
+        with mock.patch.object(bench.sys, "stderr") as err:
+            bench.trim_flags(path)
+        self.assertIn("unreadable", err.write.call_args[0][0])

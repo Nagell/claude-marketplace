@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Local benchmark: plan runs for new models, estimate cost, run them under a cap, store results.
 
-    python3 bench.py plan <case> [--setup <id>] [--models id,...] [--external FILE] [--usage FILE]
-    python3 bench.py run <case> --plan FILE --cap <usd>
+    python3 bench.py plan <case> [--setup <id>] [--models id,...] [--external FILE] [--usage FILE] [--effort E]
+    python3 bench.py run <case> --plan FILE --cap <usd> [--resume <id>]
     python3 bench.py status <case> [--claude-md FILE ...]
 
 Prints JSON. Only `run` writes: run outputs to ~/.claude/model-bench/<case>/runs/, and the result to the
@@ -33,8 +33,8 @@ OUT_ROOT = os.path.join(scan.config_dir(), "model-bench")
 GAP_S = 300
 REPEAT_WITHIN = 2
 MIN_BUDGET = 0.01  # the smallest --max-budget-usd a call gets; below it a role cannot start
-ROLE_LINES = {"slices": "Review slices", "refuters": "Review refuters", "fast": "Review with --fast"}
-FAMILIES = ("opus", "sonnet", "haiku", "fable", "mythos")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+AGENT_TIMEOUT_S = 2 * 3600  # one agent call; the slowest stored agent took about 30 minutes
 
 
 # ---------- case and setups ----------
@@ -82,23 +82,34 @@ def case_hashes(case_dir):
             "snapshot_hash": tree_hash(os.path.join(case_dir, "snap"))[:12]}
 
 
+def brief_hashes(case_dir, setup, setup_path):
+    """The briefs a setup id does not hash: the run-it template and the refuter brief."""
+    out = {"refuter_brief_hash": sha(os.path.join(case_dir, setup["refuter"]["brief"]))[:12]}
+    if setup.get("run_it_template"):
+        out["run_it_brief_hash"] = sha(os.path.join(os.path.dirname(setup_path), setup["run_it_template"]))[:12]
+    return out
+
+
 def comparability(results, case_dir):
-    """Marks runs not comparable: a changed checker brief, key or snapshot marks the case;
-    a setup whose name and version match but whose hashes differ marks that setup."""
+    """Marks each run whose own hashes differ from the current ones (checker brief, key, snapshot,
+    run-it and refuter brief), or whose setup changed or is gone. `case_not_comparable` lists the
+    case-level reasons found on any run."""
     now = case_hashes(case_dir)
     current = setups(case_dir)
     by_version = {sid.rsplit("-", 2)[0]: sid for sid in current}
-    case_reasons = sorted({k.replace("_hash", "") for r in results.get("runs", [])
-                           for k, v in now.items() if r.get(k) not in (None, v)})
-    marked = []
+    case_reasons, marked = set(), []
     for r in results.get("runs", []):
-        reasons = list(case_reasons)
+        reasons = [k.replace("_hash", "") for k, v in now.items() if r.get(k) not in (None, v)]
+        case_reasons.update(reasons)
         sid = r.get("setup_id") or ""
-        if sid not in current:
+        if sid in current:
+            reasons += [k.replace("_hash", "") for k, v in brief_hashes(case_dir, *current[sid]).items()
+                        if r.get(k) not in (None, v)]
+        else:
             reasons.append("setup changed" if sid.rsplit("-", 2)[0] in by_version else "setup missing")
         if reasons:
             marked.append({"run": r.get("id"), "setup_id": sid, "reasons": reasons})
-    return {"case_not_comparable": case_reasons, "runs_not_comparable": marked}
+    return {"case_not_comparable": sorted(case_reasons), "runs_not_comparable": marked}
 
 
 # ---------- slices ----------
@@ -157,11 +168,13 @@ def effective_price(table, model, over_share=0.0):
 
 
 def estimate(model, runs, table):
-    """Cost of the closest stored run (nearest price, then latest), reviewers scaled by price, refuter unchanged."""
-    new = effective_price(table, model)
+    """Cost of the closest stored run (nearest price, then latest): reviewers scaled by token price at that
+    run's share of prompts over 100k, refuter and checker unchanged. Effort is not counted."""
     best = None
     for r in runs:
-        old = effective_price(table, r.get("model"), r.get("over_100k_share") or 0.0)
+        share = r.get("over_100k_share") or 0.0
+        new = effective_price(table, model, share)
+        old = effective_price(table, r.get("model"), share)
         if not old or new is None or r.get("cost") is None:
             continue
         key = (abs(math.log(new / old)), -(dt.date.fromisoformat(r["date"]).toordinal() if r.get("date") else 0))
@@ -171,8 +184,10 @@ def estimate(model, runs, table):
         return None
     _, r, ratio = best
     refuter = (r.get("cost_with_refuter") or r["cost"]) - r["cost"]
-    return {"usd": round(r["cost"] * ratio + refuter, 2), "reviewers": round(r["cost"] * ratio, 2),
-            "refuter": round(refuter, 2), "from_run": r.get("id"), "price_ratio": round(ratio, 4)}
+    checker = r.get("checker_cost") or 0.0
+    return {"usd": round(r["cost"] * ratio + refuter + checker, 2), "reviewers": round(r["cost"] * ratio, 2),
+            "refuter": round(refuter, 2), "checker": round(checker, 2), "from_run": r.get("id"),
+            "price_ratio": round(ratio, 4), "basis": "token price only; effort not counted"}
 
 
 def is_complete(r):
@@ -242,8 +257,11 @@ def current_model(results, sid, claude_md_texts=(), task="Review slices"):
     if not ranked:
         return None
     r = ranked[0]
-    return {"model": r["model"], "effort": r["effort"], "source": "best stored result",
-            "caught_strict": r.get("caught_strict"), "run": r.get("id")}
+    out = {"model": r["model"], "effort": r["effort"], "source": "best stored result",
+           "caught_strict": r.get("caught_strict"), "run": r.get("id")}
+    if line:
+        out["note"] = f"`## Models` line not read, best stored result used: {line}"
+    return out
 
 
 def cost_per_caught(r):
@@ -259,7 +277,7 @@ def ranked_runs(runs):
 def propose_repeat(new_caught, current):
     if not current or current.get("caught_strict") is None or new_caught is None:
         return False
-    return current["caught_strict"] - new_caught <= REPEAT_WITHIN
+    return abs(current["caught_strict"] - new_caught) <= REPEAT_WITHIN
 
 
 def aa_pick(model, ext_rows):
@@ -270,7 +288,7 @@ def aa_pick(model, ext_rows):
 
 def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, table=None, claude_md_texts=(),
          fixed_effort=None):
-    """Models without a result in the setup, at most 2 efforts each, with an estimate per run."""
+    """Models without a complete result in the setup, at most 2 efforts each, with an estimate per run."""
     table = table or prices.PriceTable()
     results = load_json(os.path.join(case_dir, "results.json"))
     all_setups = setups(case_dir)
@@ -289,7 +307,7 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
     if models is None:
         models = sorted({r["model"] for r in ext_rows or [] if r.get("tag") == "anthropic"
                          and r.get("source", "").startswith("aa-models") and table.lookup(r["model"])})
-    picks = []
+    picks, no_effort = [], []
     for m in models:
         if m in done:
             continue
@@ -303,6 +321,8 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
                 hit["why"].append(why)
             else:
                 efforts.append({"effort": e, "why": [why]})
+        if not efforts:
+            no_effort.append(m)
         for x in efforts[:2]:
             est = estimate(m, in_setup, table)
             if est is None:
@@ -314,7 +334,11 @@ def plan(case_dir, sid=None, models=None, ext_rows=None, usage_effort=None, tabl
     return {"case": os.path.basename(case_dir), "skill": results.get("skill"), "setup_id": sid,
             "current": current_model(results, sid, claude_md_texts), "picks": picks,
             "total_estimate_usd": round(total, 2), "unestimated": [p["model"] for p in picks if not p["estimate"]],
+            "no_effort": no_effort,
             "stored_in_setup": [{"id": r.get("id"), "model": r.get("model"), "effort": r.get("effort")} for r in in_setup],
+            "incomplete_in_setup": [{"id": r.get("id"), "model": r.get("model"), "effort": r.get("effort"),
+                                     "reason": r.get("reason")} for r in runs
+                                    if r.get("setup_id") == sid and not is_complete(r)],
             "comparability": comparability(results, case_dir)}
 
 
@@ -337,20 +361,21 @@ def project_slug(path):
 def deny_rules(case_dir):
     """Every place a key copy can sit: this checkout, any repo checkout's case folder, the installed plugin copy,
     and ~/.claude/model-bench/."""
-    home = os.path.expanduser("~")
     return [f"Read(/{case_dir}/**)", "Read(//**/skills/usage/references/bench/**)",
-            f"Read(/{home}/.claude/plugins/**/references/bench/**)", f"Read(/{OUT_ROOT}/**)",
+            f"Read(/{scan.config_dir()}/plugins/**/references/bench/**)", f"Read(/{OUT_ROOT}/**)",
             "Bash(*references/bench*)", "Bash(*model-bench*)", "Bash(*answer-key*)"]
 
 
 def trim_flags(settings_path=None):
     """No MCP servers and no plugin but base, so the start context is close to a real review subagent's.
     Every other plugin enabled in the user's settings is switched off for this call only."""
-    path = settings_path or os.path.expanduser("~/.claude/settings.json")
-    try:
-        enabled = load_json(path).get("enabledPlugins") or {}
-    except (OSError, ValueError):
-        enabled = {}
+    path = settings_path or os.path.join(scan.config_dir(), "settings.json")
+    enabled = {}
+    if os.path.exists(path):
+        try:
+            enabled = load_json(path).get("enabledPlugins") or {}
+        except (OSError, ValueError, AttributeError) as exc:
+            sys.stderr.write(f"warning: {path} unreadable ({exc}); other plugins stay on for the benchmark calls\n")
     off = {k: False for k, v in enabled.items() if v and k.split("@")[0] != "base"}
     return ["--strict-mcp-config", "--settings", json.dumps({"enabledPlugins": off})]
 
@@ -380,9 +405,11 @@ def call_error(out):
 def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
     """One `claude -p` call. Returns cost and minutes from its transcript, the CLI's cost as a cross-check."""
     cmd = agent_cmd(prompt, model, effort, budget, name, case_dir)
-    proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     try:
+        proc = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=AGENT_TIMEOUT_S)
         out = json.loads(proc.stdout)
+    except subprocess.TimeoutExpired:
+        out = {"is_error": True, "result": f"timed out after {AGENT_TIMEOUT_S} s"}
     except ValueError:
         out = {"is_error": True, "result": proc.stderr[-500:]}
     sid = out.get("session_id")
@@ -393,8 +420,13 @@ def claude_agent(prompt, model, effort, budget, name, cwd, case_dir):
         cost = s["cost"]
         minutes = active_minutes([path] + glob.glob(os.path.join(path[:-6], "subagents", "**", "*.jsonl"),
                                                    recursive=True))
+    error = call_error(out)
+    if cost is None:  # no transcript at the computed path: the CLI's own figure, else the call counts as failed
+        cost = out.get("total_cost_usd")
+        if cost is None and not error:
+            error = "no cost: no transcript and no CLI cost"
     return {"cost": cost, "cli_cost": out.get("total_cost_usd"), "minutes": minutes, "result": out.get("result"),
-            "error": call_error(out), "transcript": path,
+            "error": error, "transcript": path,
             "over_100k": s["over_100k"] if s else None, "requests": s["requests"] if s else None}
 
 
@@ -416,13 +448,20 @@ DENIED = re.compile(r"report (is |was )?not (saved|written)|could(n't| not) (sav
                     r"write[^\n]{0,120}(was )?(denied|refused)|(denied|refused)[^\n]{0,60}\bwrite", re.I)
 
 
-def write_denied(report):
-    """True when the report is only the agent saying its report write was denied: the start of the
-    report says so, so a condensed reply never reaches the refuter as a finished report."""
+LEDGER = re.compile(r"coverage ledger|promises versus behaviou?r|^\|.*\|[ \t]*$", re.I | re.M)
+
+
+def report_problem(report):
+    """Why the saved report is not a finished one, or None. A finished report has its ledger (the
+    heading or a table row); without it, a reply saying the write was denied, a path-only reply or a
+    header-only file never reaches the refuter as a report. A denial quoted inside a ledger row is fine."""
     if not os.path.exists(report):
-        return True
+        return "report write denied"
     with open(report, encoding="utf-8", errors="replace") as fh:
-        return bool(DENIED.search(fh.read(600)))
+        text = fh.read()
+    if LEDGER.search(text):
+        return None
+    return "report write denied" if DENIED.search(text[:600]) else "report not saved: no ledger"
 
 
 def render(template_path, values):
@@ -483,15 +522,24 @@ def phase_times(agents):
     return {"phase_minutes": phases, "run_minutes": round(sum(phases.values()), 2) if phases else None}
 
 
+def call(agent, *args):
+    """One agent call; an exception (an odd transcript, say) marks only this call failed."""
+    try:
+        return agent(*args)
+    except Exception as exc:  # noqa: BLE001 - every other call of the phase has spent already
+        return {"cost": None, "minutes": None, "result": None, "error": f"{type(exc).__name__}: {exc}"}
+
+
 def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id, out_dir, prior=None):
     """All agents of one planned pick, then the refuter and the checker. Returns the result entry.
     With prior (an incomplete entry of the same run), only the roles it did not finish run again;
-    the finished ones' reports and costs are reused."""
-    prior_done = {k for k, v in (prior or {}).get("roles", {}).items() if v and k not in ("refuter", "checker")}
+    the finished ones' reports and costs are reused. The refuter's is reused only when no reviewer reruns."""
+    prior_roles = (prior or {}).get("roles", {})
+    prior_done = {k for k, v in prior_roles.items() if v and k not in ("refuter", "checker")}
     name = os.path.basename(case_dir)
     folder = prepare_folder(case_dir)
     spent = reviewers = 0.0
-    agents, reports, reason, values, todo = [], [], None, {}, []
+    agents, reports, reason, values, todo, roles = [], [], None, {}, [], []
     try:
         sdir = os.path.dirname(setup_path)
         slices = cut_slices(snapshot_files(folder["snap"]), setup["size_rule"])
@@ -501,7 +549,8 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
                   "lenses": "none", "conventions": "none"}
         jobs = []
         for s in slices:
-            files = ", ".join(f"{f['path']} ({f['lines']} lines)" for f in s["files"])
+            files = ", ".join(f"{f['path']} (lines {f['range'][0]}-{f['range'][1]} of {f['lines']})" if "range" in f
+                              else f"{f['path']} ({f['lines']} lines)" for f in s["files"])
             report = os.path.join(out_dir, f"{run_id}-slice-{s['slice']}.md")
             jobs.append((f"slice-{s['slice']}", render(os.path.join(sdir, setup["brief_template"]),
                                                        dict(common, slice_files=files, report=work_path(folder["run_tmp"], report))), report,
@@ -517,25 +566,32 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
         roles = [j[0] for j in jobs] + ["refuter", "checker"]
         reports = [j[2] for j in jobs if j[0] in prior_done]
         todo = [j for j in jobs if j[0] not in prior_done]
+        refute_report = os.path.join(out_dir, f"{run_id}-refute.md")
+        if prior_roles.get("refuter") and not todo and os.path.exists(refute_report):
+            prior_done.add("refuter")
         est = pick.get("estimate") or {}
         rev_est = est.get("reviewers", est.get("usd") or 0.0) * len(todo) / max(len(jobs), 1)
-        ref_est = est.get("refuter", 0.0)
+        ref_est = 0.0 if "refuter" in prior_done else est.get("refuter", 0.0)
+        chk_est = est.get("checker", 0.0)
         # phase 1: every slice owner and the run-it agent at once; each call may use the whole phase cap
-        # (the cap minus the refuter's estimate), and the run stops after the phase if the total passed it
-        phase_cap = budget_left - ref_est
-        if phase_cap < max(rev_est, MIN_BUDGET):
-            reason = f"cap ${budget_left:.2f} does not cover the reviewer phase estimate ${rev_est:.2f} plus the refuter's"
+        # (the cap minus the refuter's and checker's estimates), and the run stops after the phase if the
+        # total passed it, so parallel calls can pass the cap by up to the estimate's error
+        phase_cap = budget_left - ref_est - chk_est
+        if todo and phase_cap < max(rev_est, MIN_BUDGET):
+            reason = (f"cap ${budget_left:.2f} does not cover the reviewer phase estimate ${rev_est:.2f} "
+                      f"plus the refuter's and the checker's")
         elif todo:
             with concurrent.futures.ThreadPoolExecutor(max_workers=len(todo)) as pool:
-                futs = [(role, report, pool.submit(agent, prompt, pick["model"], pick["effort"], phase_cap,
+                futs = [(role, report, pool.submit(call, agent, prompt, pick["model"], pick["effort"], phase_cap,
                                                    f"bench-{name}-{run_id}-{role}", folder["snap"], case_dir))
                         for role, prompt, report, _ in todo]
                 for role, report, fut in futs:
                     r = fut.result()
-                    spent += r["cost"] or 0.0
+                    spent += r.get("cost") or 0.0
                     save_reply(report, r.get("result"), work_path(folder["run_tmp"], report))
-                    if not r.get("error") and write_denied(report):
-                        r = dict(r, error="report write denied")
+                    problem = None if r.get("error") else report_problem(report)
+                    if problem:
+                        r = dict(r, error=problem)
                     agents.append(dict(r, role=role, phase="reviewers"))
                     reports.append(report)
                     if r.get("error") and not reason:
@@ -544,26 +600,25 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
             if not reason and spent > phase_cap:
                 reason = f"reviewer phase spent ${spent:.2f}, above its cap ${phase_cap:.2f}"
         # phase 2: the refuter, only on full reports (reused ones included)
-        bad = [os.path.basename(x) for x in reports if write_denied(x)]
+        bad = [os.path.basename(x) for x in reports if report_problem(x)]
         if not reason and bad:
-            reason = f"reports not saved, write denied: {', '.join(bad)}"
-        if not reason and budget_left - spent < max(ref_est, MIN_BUDGET):
+            reason = f"reports not saved: {', '.join(bad)}"
+        values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
+                  "key": os.path.join(case_dir, "answer-key.md")}  # the checker reads the kept copies
+        if not reason and "refuter" not in prior_done and budget_left - spent - chk_est < max(ref_est, MIN_BUDGET):
             reason = f"cap reached before refuter could start (remaining ${budget_left - spent:.2f}, estimate ${ref_est:.2f})"
-        if not reason:
+        if not reason and "refuter" not in prior_done:
             ref = setup["refuter"]
-            report = os.path.join(out_dir, f"{run_id}-refute.md")
             work = [work_path(folder["run_tmp"], x) for x in reports]
             for src, dst in zip(reports, work):
                 if os.path.exists(src) and not os.path.exists(dst):
                     shutil.copyfile(src, dst)
-            values = {"snap": folder["snap"], "reports": ", ".join(reports), "report_count": len(reports),
-                      "key": os.path.join(case_dir, "answer-key.md")}  # the checker reads the kept copies
             prompt = render(os.path.join(case_dir, ref["brief"]), dict(values, key="", reports=", ".join(work))) + \
-                f"\n\nReport path: {work_path(folder['run_tmp'], report)}"
-            r = agent(prompt, ref["model"], ref["effort"], budget_left - spent, f"bench-{name}-{run_id}-refuter",
-                      folder["snap"], case_dir)
-            spent += r["cost"] or 0.0
-            save_reply(report, r.get("result"), work_path(folder["run_tmp"], report))
+                f"\n\nReport path: {work_path(folder['run_tmp'], refute_report)}"
+            r = call(agent, prompt, ref["model"], ref["effort"], budget_left - spent, f"bench-{name}-{run_id}-refuter",
+                     folder["snap"], case_dir)
+            spent += r.get("cost") or 0.0
+            save_reply(refute_report, r.get("result"), work_path(folder["run_tmp"], refute_report))
             agents.append(dict(r, role="refuter", phase="refuter"))
             if r.get("error"):
                 reason = f"refuter stopped: {r['error']}"
@@ -581,25 +636,32 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
         reused = {k: v for k, v in (prior or {}).get("role_costs", {}).items() if k in prior_done}
         entry["role_costs"] = dict(reused, **role_costs)
         entry["spent_total"] = round(total + ((prior or {}).get("spent_total") or 0.0), 4)
+        if entry["status"] == "incomplete":
+            rc = entry["role_costs"]
+            entry["cost"] = round(sum(v for k, v in rc.items() if k not in ("refuter", "checker")), 4)
+            entry["cost_with_refuter"] = round(sum(v for k, v in rc.items() if k != "checker"), 4)
+        elif prior:
+            add_all = sum(reused.values()) if prior.get("role_costs") else base_rev
+            add_rev = sum(v for k, v in reused.items() if k != "refuter") if prior.get("role_costs") else base_rev
+            entry["cost"] = round(entry["cost"] + add_rev, 4)
+            entry["cost_with_refuter"] = round(entry["cost_with_refuter"] + add_all, 4)
         if prior:
-            add = sum(reused.values()) if prior.get("role_costs") else base_rev
-            entry["cost"] = round(entry["cost"] + add, 4)
-            entry["cost_with_refuter"] = round(entry["cost_with_refuter"] + add, 4)
             old = (prior.get("phase_minutes") or {}).get("reviewers")
             if old is not None:
                 entry["phase_minutes"]["reviewers"] = max(old, entry["phase_minutes"].get("reviewers", 0.0))
                 entry["run_minutes"] = round(sum(entry["phase_minutes"].values()), 2)
                 if entry.get("status") == "complete":
                     entry["slowest_agent_min"] = max(old, entry.get("slowest_agent_min") or 0.0)
-            entry["resumed"] = f"resumed: {', '.join(j[0] for j in todo) or 'no reviewer'} rerun"
+            rerun = ", ".join(j[0] for j in todo) or "no reviewer"
+            entry["resumed"] = f"resumed: {rerun} rerun" + ("; refuter reused" if "refuter" in prior_done else "")
         entry.update(case_hashes(case_dir))
+        entry.update(brief_hashes(case_dir, setup, setup_path))
         return entry
 
     def incomplete(total):
         finished = {a["role"] for a in agents if not a.get("error")} | prior_done
         entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid,
                  "status": "incomplete", "reason": reason, "caught_strict": None, "caught_with_partials": None,
-                 "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
                  "roles": {role: role in finished for role in roles}, "date": dt.date.today().isoformat()}
         return merged(entry, total), total, agents
     if not reason and budget_left - spent < MIN_BUDGET:
@@ -611,11 +673,11 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
     check_report = os.path.join(out_dir, f"{run_id}-check.md")
     check_dir = tempfile.mkdtemp(prefix="bench-check.")
     try:
-        c = agent(render(os.path.join(case_dir, chk["brief"]), values) + f"\n\nReport path: {check_report}",
-                  chk["model"], chk["effort"], budget_left - spent, f"bench-{name}-{run_id}-checker", check_dir, None)
+        c = call(agent, render(os.path.join(case_dir, chk["brief"]), values) + f"\n\nReport path: {check_report}",
+                 chk["model"], chk["effort"], budget_left - spent, f"bench-{name}-{run_id}-checker", check_dir, None)
     finally:
         shutil.rmtree(check_dir, ignore_errors=True)
-    checker_cost = c["cost"] or 0.0
+    checker_cost = c.get("cost") or 0.0
     if c.get("error"):
         agents.append(dict(c, role="checker", phase="checker"))
         reason = f"checker stopped: {c['error']}"
@@ -625,10 +687,14 @@ def run_pick(case_dir, setup, setup_path, sid, pick, budget_left, agent, run_id,
         with open(check_report, encoding="utf-8") as fh:
             text = fh.read()
     strict, partial = parse_score(text)
+    if strict is None:
+        agents.append(dict(c, role="checker", phase="checker", error="no SCORE line"))
+        reason = "checker gave no SCORE line"
+        return incomplete(spent + checker_cost)
     reqs = sum(a.get("requests") or 0 for a in agents)
     over = sum(a.get("over_100k") or 0 for a in agents)
     entry = {"id": run_id, "model": pick["model"], "effort": pick["effort"], "setup_id": sid, "status": "complete",
-             "caught_strict": strict, "caught_with_partials": strict + partial / 2 if strict is not None else None,
+             "caught_strict": strict, "caught_with_partials": strict + partial / 2,
              "cost": round(reviewers, 4), "cost_with_refuter": round(spent, 4),
              "slowest_agent_min": max((a["minutes"] for a in agents if a.get("minutes") is not None), default=None),
              "walltime_method": "active time, gaps over 5 min left out", "over_100k_share":
@@ -643,17 +709,15 @@ def store(case_dir, entry):
     if not is_repo_checkout(case_dir):
         raise RuntimeError(f"{case_dir} is not a repo checkout; results are written only there")
     path = os.path.join(case_dir, "results.json")
-    data = load_json(path)
-    data["runs"] = [r for r in data.get("runs", []) if r.get("id") != entry["id"]] + [entry]
-    fd, tmp = tempfile.mkstemp(dir=case_dir, prefix=".results.")
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, indent=1)
-        fh.write("\n")
-    os.replace(tmp, path)
     md = os.path.join(case_dir, "RESULTS.md")
     with open(md, encoding="utf-8") as fh:
         lines = [l for l in fh.read().split("\n") if not l.startswith(f"| {entry['id']} | {entry['setup_id']} |")]
-    head = next(i for i, l in enumerate(lines) if l.startswith("| Run | Setup | Model"))
+    head = next((i for i, l in enumerate(lines) if l.startswith("| Run | Setup | Model")), None)
+    if head is None:  # checked before results.json changes, so the two files stay in step
+        raise RuntimeError(f"{md} has no '| Run | Setup | Model' table; nothing stored")
+    data = load_json(path)
+    data["runs"] = [r for r in data.get("runs", []) if r.get("id") != entry["id"]] + [entry]
+    prices.write_atomic(path, json.dumps(data, indent=1) + "\n")
     end = head + 2
     while end < len(lines) and lines[end].startswith("|"):
         end += 1
@@ -682,6 +746,9 @@ def store(case_dir, entry):
 def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn=store, claude_md_texts=(),
         resume=None):
     """Runs each pick once while its estimate fits the remaining cap; every call gets the remaining cap as budget."""
+    if store_fn is store and not is_repo_checkout(case_dir):  # checked before any call spends
+        raise RuntimeError(f"{case_dir} is not a repo checkout; results are written only there. "
+                           "Pass the case folder of a marketplace checkout.")
     results = load_json(os.path.join(case_dir, "results.json"))
     all_setups = setups(case_dir)
     sid = the_plan["setup_id"]
@@ -698,16 +765,22 @@ def run(case_dir, the_plan, cap, agent=claude_agent, out_root=OUT_ROOT, store_fn
         prior = next((r for r in results.get("runs", []) if r.get("id") == resume), None)
         if not prior or is_complete(prior) or prior.get("setup_id") != sid:
             raise RuntimeError(f"run {resume} is not an incomplete run of setup {sid}")
+        if not any((p["model"], p["effort"]) == (prior["model"], prior["effort"]) for p in the_plan["picks"]):
+            raise RuntimeError(f"the plan has no pick for run {resume} ({prior['model']} {prior['effort']}); "
+                               "plan with --models and --effort for it")
     for pick in the_plan["picks"]:
         if prior and (pick["model"], pick["effort"]) != (prior["model"], prior["effort"]):
             continue
-        stored = {(r.get("model"), r.get("setup_id")) for r in results.get("runs", []) if is_complete(r)}
-        if (pick["model"], sid) in stored:
+        stored = {(r.get("model"), r.get("effort"), r.get("setup_id")) for r in results.get("runs", []) if is_complete(r)}
+        if (pick["model"], pick["effort"], sid) in stored:
             stopped.append({"pick": pick, "reason": "already has a result in this setup"})
             continue
         est = (pick.get("estimate") or {}).get("usd")
         if prior and est is not None:  # only the unfinished part runs again
-            est = est - (prior.get("cost") or 0.0)
+            roles = prior.get("roles") or {}
+            reviewers_done = all(v for k, v in roles.items() if k not in ("refuter", "checker"))
+            refuter = (prior.get("role_costs") or {}).get("refuter", 0.0) if roles.get("refuter") and reviewers_done else 0.0
+            est = est - (prior.get("cost") or 0.0) - refuter
         if est is None or est > remaining:
             stopped.append({"pick": pick, "reason": "no estimate" if est is None else
                             f"estimate ${est:.2f} is above the remaining cap ${remaining:.2f}"})
@@ -750,6 +823,7 @@ def main(argv=None):
             skill = load_json(os.path.join(case_dir, "results.json")).get("skill")
             effort = next((s["effort"] for s in load_json(a.usage)["skills"] if scan.skill_display(s["skill"]) == skill),
                           None)
+            effort = effort if effort in EFFORTS else None  # a placeholder such as "?" never reaches --effort
         models = a.models.split(",") if a.models else None
         out = plan(case_dir, a.setup, models, ext, effort, claude_md_texts=texts, fixed_effort=a.effort)
     elif a.action == "run":
