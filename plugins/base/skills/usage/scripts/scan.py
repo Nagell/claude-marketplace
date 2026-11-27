@@ -450,6 +450,14 @@ def skill_display(name):
 
 # ---------- scan ----------
 
+def is_bench_session(entries):
+    """A session named `bench-...` (claude -p -n bench-...) is a benchmark run, not normal usage."""
+    for e in entries:
+        if e.get("type") == "custom-title" and str(e.get("customTitle") or "").startswith("bench-"):
+            return True
+    return False
+
+
 def find_sessions(projects_dir, since_epoch):
     out = []
     for path in glob.glob(os.path.join(projects_dir, "*", "*.jsonl")):
@@ -468,8 +476,12 @@ def scan(days=30, projects_dir=PROJECTS_DIR, table=None, now=None):
     counters = Counters()
     seen = set()
     loaded = []
+    bench_sessions = 0
     for path, agents in find_sessions(projects_dir, since.timestamp()):
         entries, skipped = read_jsonl(path)
+        if is_bench_session(entries):
+            bench_sessions += 1
+            continue
         counters.skipped_lines += skipped
         loaded.append((first_ts(entries) or now, len(entries), path, entries, agents))
     # a resumed session copies its parent's history, so on equal first timestamps the shorter file is the parent
@@ -559,7 +571,9 @@ def scan(days=30, projects_dir=PROJECTS_DIR, table=None, now=None):
         "skipped_lines": counters.skipped_lines,
         "api_errors": counters.api_errors,
         "unpriced_models": dict(counters.unpriced),
-        "warnings": warnings + ([] if files_read else ["no transcript files in the window"]),
+        "warnings": warnings + ([] if files_read else
+                                ["only benchmark sessions in the window, all left out" if bench_sessions
+                                 else "no transcript files in the window"]),
         "runs": runs_out,
         "no_skill": no_skill,
     }

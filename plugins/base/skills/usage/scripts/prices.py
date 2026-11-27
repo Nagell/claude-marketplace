@@ -6,6 +6,7 @@ import json
 import math
 import os
 import re
+import tempfile
 
 SEED_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "prices.json")
 OVERRIDE_PATH = os.path.join(os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude"),
@@ -86,6 +87,25 @@ class PriceTable:
         if model in self.models:
             return self.models[model]
         return self.models.get(_DATE_SUFFIX.sub("", model))
+
+
+def write_atomic(path, text):
+    """Replace path's content in one step. A symlink is followed, and the file keeps its mode
+    (a new file gets 0644), so the replace never turns a link into a copy or the file private."""
+    real = os.path.realpath(path)
+    folder = os.path.dirname(real) or "."
+    os.makedirs(folder, exist_ok=True)
+    mode = os.stat(real).st_mode & 0o7777 if os.path.exists(real) else 0o644
+    fd, tmp = tempfile.mkstemp(dir=folder, prefix="." + os.path.basename(real) + ".")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        os.chmod(tmp, mode)
+        os.replace(tmp, real)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
 
 
 def token_classes(usage):

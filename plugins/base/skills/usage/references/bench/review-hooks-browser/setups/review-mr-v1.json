@@ -1,0 +1,12 @@
+{
+  "name": "review-mr",
+  "version": 1,
+  "source": "plugins/base/skills/review-mr at main: references/agent-brief.md, references/run-it-brief.md, SKILL.md step 2a (size rule) and step 4 (refuter)",
+  "brief_template": "review-mr-v1/slice-brief.md",
+  "run_it_template": "review-mr-v1/run-it-brief.md",
+  "size_rule": {"target_lines": 400, "hard_limit": 700, "split_above": 1500},
+  "slice_model": null,
+  "extra_agents": [{"role": "run-it", "model": "slice", "brief": "run_it_template"}],
+  "refuter": {"model": "claude-opus-5-5", "effort": "medium", "brief": "refuter-brief.md"},
+  "checker": {"model": "claude-opus-5-5", "effort": "medium", "brief": "checker-brief.md"}
+}

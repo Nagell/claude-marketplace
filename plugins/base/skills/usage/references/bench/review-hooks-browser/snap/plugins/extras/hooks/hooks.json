@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git push *)",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/refresh-mr-description.sh hook",
+            "async": true
+          },
+          {
+            "type": "command",
+            "if": "Bash(git * push*)",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/refresh-mr-description.sh hook",
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}
