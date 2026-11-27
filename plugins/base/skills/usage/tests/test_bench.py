@@ -23,6 +23,12 @@ def read(path):
         return fh.read()
 
 
+def without_delivery(text):
+    """Drop the paragraph on how the report file is written: bench saves the agent's
+    reply as the report, so that wording is not part of what a setup measures."""
+    return re.sub(r"^Write (?:your|the) report to .*?(?=\n\n)", "", text, count=1, flags=re.M | re.S)
+
+
 class Case(TempHome):
     def test_snapshot_size(self):
         files = bench.snapshot_files(os.path.join(CASE, "snap"))
@@ -33,7 +39,8 @@ class Case(TempHome):
         text = re.sub(r"^\{/?drop\}\n", "", text, flags=re.M)
         for k, v in BACK.items():
             text = text.replace(k, v)
-        self.assertEqual(text, read(os.path.join(REVIEW_MR, "agent-brief.md")))
+        self.assertEqual(without_delivery(text), without_delivery(read(os.path.join(REVIEW_MR, "agent-brief.md"))))
+
 
     def test_slices_under_hard_limit(self):
         setup = json.loads(read(os.path.join(CASE, "setups", "review-mr-v1.json")))
