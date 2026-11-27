@@ -3,7 +3,7 @@
 
     python3 models.py --usage [--days 30] [--top 5]
     python3 models.py --prices [--write] [--page FILE]
-    AA_API_KEY=... python3 models.py --external
+    python3 models.py --external [--key-file FILE]
     python3 models.py --rank <case>
     python3 models.py --rules FILE [--write] [--claude-md FILE ...] [--review-skill FILE]
 
@@ -31,6 +31,7 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCES_PATH = os.path.join(SKILL_DIR, "sources.json")
 BENCH_DIR = os.path.join(SKILL_DIR, "references", "bench")
 EXTERNAL_DIR = os.path.join(scan.config_dir(), "model-bench", "external")
+KEY_PATH = os.path.join(scan.config_dir(), "usage", "aa-api-key")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 USER_AGENT = "Mozilla/5.0 (usage-skill)"
 
@@ -317,6 +318,16 @@ def effort_coverage(rows):
     return out
 
 
+def api_key(path=KEY_PATH):
+    """AA_API_KEY from the environment, else the first line of the key file the user wrote, else None.
+    The key never goes on a command line, so it stays out of the transcript and past the safety hook."""
+    key = os.environ.get("AA_API_KEY")
+    if not key and path and os.path.exists(path):
+        with open(path, encoding="utf-8") as fh:
+            key = fh.readline().strip()
+    return key or None
+
+
 def external(key=None, sources=None, fetcher=fetch, raw_root=EXTERNAL_DIR, day=None):
     """Rows from every registry source. A failing source is named in `skipped` and the run continues."""
     sources = sources or load_sources()
@@ -597,6 +608,7 @@ def main(argv=None):
     p.add_argument("--page", help="read the pricing page from this file instead of fetching it")
     p.add_argument("--write", action="store_true", help="with --prices or --rules: apply the change")
     p.add_argument("--override", default=prices.OVERRIDE_PATH)
+    p.add_argument("--key-file", default=KEY_PATH, help="with --external: file holding the Artificial Analysis key")
     p.add_argument("--external-json", help="with --rank: output of --external")
     p.add_argument("--claude-md", action="append", help="with --rules: CLAUDE.md files (default: ~/.claude/CLAUDE.md and "
                                                        "plugins/base/CLAUDE.md of this checkout)")
@@ -623,7 +635,7 @@ def main(argv=None):
             out["written"] = write_override({c["model"]: c["new"] for c in out["added"] + out["changed"]},
                                             a.override)
     elif a.external:
-        out = external(os.environ.get("AA_API_KEY") or None)
+        out = external(api_key(a.key_file))
     elif a.rules:
         with open(a.rules, encoding="utf-8") as fh:
             proposal = fh.read()

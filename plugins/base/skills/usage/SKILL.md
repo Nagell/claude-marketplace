@@ -100,18 +100,18 @@ When `added` or `changed` is not empty, ask one AskUserQuestion: `Update ~/.clau
 
 ### M3. External data
 
-Before any fetch, check whether `AA_API_KEY` is set (`test -n "$AA_API_KEY"`; never print it). When it is not set, ask one AskUserQuestion first:
+Before any fetch, check whether a key is there: `AA_API_KEY` is set or `~/.claude/usage/aa-api-key` exists (`test -n "$AA_API_KEY" || test -s ~/.claude/usage/aa-api-key`; never print the key). When neither is, ask one AskUserQuestion first:
 
-- `I'll paste a key (Recommended)` - Artificial Analysis gives a free API key after a free sign-up; get it at https://artificialanalysis.ai/data-api. The free tier covers the models list (index score and cost to run per model and effort, 100 requests a day). The key is used for this run only and is not stored.
+- `I'll add a key (Recommended)` - Artificial Analysis gives a free API key after a free sign-up; get it at https://artificialanalysis.ai/data-api. The free tier covers the models list (index score and cost to run per model and effort, 100 requests a day). The user writes the key, from their own terminal and not in this session, to `~/.claude/usage/aa-api-key` (`umask 077` first, so only they can read it), then says when it is there. Never ask them to paste the key into the session: a key on a command line lands in the transcript and the safety hook blocks it.
 - `No key, read the page` - the scores come from the public page, which lists fewer efforts.
 
-Then run, with a pasted key only in the command's environment:
+Then run:
 
 ```bash
-AA_API_KEY='<pasted key>' python3 $SKILL_DIR/scripts/models.py --external   # or without the variable
+python3 $SKILL_DIR/scripts/models.py --external
 ```
 
-Say which `path` was used (`free API` or `page`). A Pro+ endpoint answering 403 is reported in `notes` as `free tier`; that is expected, not an error. Name every entry in `skipped` (a source that did not answer) and go on without it. Show `effort_coverage` notes ("Effort not listed: ...") for the models you discuss. Rows tagged `reference` (other vendors) are context only: never benchmark them and never put them in the rule list. Credit Artificial Analysis when you show its numbers (`attribution`). Raw fetches with their hashes are under `~/.claude/model-bench/external/<date>/`; when a hash differs from the last run and the rows look wrong, say the page layout may have changed.
+Say which `path` was used (`free API` or `page`). A Pro+ endpoint answering 403 is reported in `notes` as `free tier`; that is expected, not an error. Name every entry in `skipped` (a source that did not answer, or answered with nothing the script could read) and go on without it. Show `effort_coverage` notes ("Effort not listed: ...") for the models you discuss. Rows tagged `reference` (other vendors) are context only: never benchmark them and never put them in the rule list. Credit Artificial Analysis when you show its numbers (`attribution`). Raw fetches with their hashes are under `~/.claude/model-bench/external/<date>/`; when a hash differs from the last run and the rows look wrong, say the page layout may have changed.
 
 ### M4. Benchmark plan
 

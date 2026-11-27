@@ -276,6 +276,21 @@ class External(TempHome):
         self.assertTrue(tb)
         self.assertTrue(all(r["value"] is not None and r["agent"] for r in tb))
 
+    def test_key_from_file_when_env_unset(self):
+        path = os.path.join(self.tmp, "aa-api-key")
+        with open(path, "w") as fh:
+            fh.write("abc123\n")
+        old = os.environ.pop("AA_API_KEY", None)
+        try:
+            self.assertEqual(models.api_key(path), "abc123")
+            self.assertIsNone(models.api_key(os.path.join(self.tmp, "missing")))
+            os.environ["AA_API_KEY"] = "env"
+            self.assertEqual(models.api_key(path), "env")
+        finally:
+            os.environ.pop("AA_API_KEY", None)
+            if old is not None:
+                os.environ["AA_API_KEY"] = old
+
     def test_registry_fields(self):
         src = models.load_sources()
         for s in src["sources"]:
