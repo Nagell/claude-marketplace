@@ -1,4 +1,6 @@
+import contextlib
 import datetime as dt
+import io
 import json
 import os
 
@@ -104,10 +106,63 @@ class Prices(TempHome):
         self.assertEqual(data["version"], "v2")
         self.assertEqual(os.listdir(os.path.dirname(path)), ["prices.json"])
 
+    def main(self, *args):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            try:
+                models.main(list(args))
+                code = 0
+            except SystemExit as exc:
+                code = exc.code
+        return code, json.loads(buf.getvalue())
+
+    def page_file(self, text):
+        path = os.path.join(self.tmp, "page.md")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        return path
+
     def test_declined_leaves_file_unchanged(self):
-        path = os.path.join(self.tmp, "prices.json")
-        models.check_prices(self.table, fixture("pricing.md"))
+        path = os.path.join(self.tmp, "home", "usage", "prices.json")
+        code, out = self.main("--prices", "--page", self.page_file(fixture("pricing.md")), "--override", path)
+        self.assertEqual(code, 0)
+        self.assertTrue(out["added"] or out["changed"] or out["not_on_page"] is not None)
         self.assertFalse(os.path.exists(path))
+
+    def test_page_with_no_rows_is_an_error(self):
+        md = fixture("pricing.md").replace(" / MTok", " per MTok")
+        code, out = self.main("--prices", "--page", self.page_file(md), "--override", os.path.join(self.tmp, "o.json"))
+        self.assertEqual(code, 1)
+        self.assertIn("no model rows", out["error"])
+
+    def test_write_refused_while_override_invalid(self):
+        path = os.path.join(self.tmp, "o.json")
+        with open(path, "w") as fh:
+            json.dump({"models": {"claude-x": {"input": "bad"}}}, fh)
+        code, out = self.main("--prices", "--write", "--page", self.page_file(fixture("pricing.md")), "--override", path)
+        self.assertEqual(code, 1)
+        self.assertIn("override file is invalid", out["error"])
+        with open(path) as fh:
+            self.assertEqual(json.load(fh), {"models": {"claude-x": {"input": "bad"}}})
+
+    def test_long_prompt_note_variants(self):
+        row = "| Claude Haiku 5.5 {} | $1 / MTok | $1 / MTok | $1 / MTok | $1 / MTok | $1 / MTok |"
+        for note, threshold in (("(for prompts over 200K tokens)", 200000), ("(over 200,000 input tokens)", 200000)):
+            page, _ = models.parse_pricing("## Model pricing\n\n" + row.format(note) + "\n")
+            self.assertEqual(page["claude-haiku-5-5"]["long_prompt"]["threshold"], threshold)
+            self.assertNotIn("input", page["claude-haiku-5-5"])
+        with self.assertRaises(ValueError):
+            models.parse_pricing("## Model pricing\n\n" + row.format("(over a long prompt)") + "\n")
+
+    def test_dropped_tier_is_not_proposed_again(self):
+        md = "\n".join(l for l in fixture("pricing.md").split("\n") if "over 100,000 tokens) | $0.50" not in l)
+        out = models.check_prices(self.table, md)
+        ch = {c["model"]: c for c in out["changed"]}
+        self.assertIsNone(ch["claude-haiku-5-5"]["new"]["long_prompt"])
+        path = os.path.join(self.tmp, "o.json")
+        models.write_override({"claude-haiku-5-5": ch["claude-haiku-5-5"]["new"]}, path, "v2")
+        again = models.check_prices(prices.PriceTable(prices.SEED_PATH, path), md)
+        self.assertNotIn("claude-haiku-5-5", [c["model"] for c in again["changed"]])
 
 
 class External(TempHome):
@@ -186,6 +241,41 @@ class External(TempHome):
         self.assertFalse(any(r["source"] == "tbench-leaderboard" for r in out["rows"]))
         self.assertTrue(any(r["source"] == "aa-coding-agents" for r in out["rows"]))
 
+    def test_api_without_rows_falls_back_to_page_scores(self):
+        f = self.fetcher()
+
+        def empty_api(url, headers=None):
+            return (200, '{"data": []}') if url.endswith("/free") else f(url, headers)
+        out = models.external("k", None, empty_api, os.path.join(self.tmp, "raw"), "2026-11-25")
+        self.assertEqual(out["path"], "page")
+        self.assertIn({"source": "aa-models-api", "reason": "no rows parsed; the layout may have changed"},
+                      [{"source": s["source"], "reason": s["reason"]} for s in out["skipped"]])
+        self.assertTrue(any(r["source"] == "aa-models-page" and r["metric"] == "intelligence_index" for r in out["rows"]))
+
+    def test_api_not_json_is_skipped(self):
+        f = self.fetcher()
+
+        def html_api(url, headers=None):
+            return (200, "<html>maint</html>") if url.endswith("/free") else f(url, headers)
+        out = models.external("k", None, html_api, os.path.join(self.tmp, "raw"), "2026-11-25")
+        self.assertEqual([(s["source"], s["reason"]) for s in out["skipped"]], [("aa-models-api", "not JSON")])
+        self.assertEqual(out["path"], "page")
+        self.assertTrue(any(r["source"] == "tbench-leaderboard" for r in out["rows"]))
+
+    def test_page_layout_change_is_skipped(self):
+        f = self.fetcher()
+
+        def changed(url, headers=None):
+            return (200, "<html>new layout</html>") if url == "https://www.tbench.ai/leaderboard" else f(url, headers)
+        out = models.external(None, None, changed, os.path.join(self.tmp, "raw"), "2026-11-25")
+        self.assertEqual([(s["source"], s["status"]) for s in out["skipped"]], [("tbench-leaderboard", 200)])
+
+    def test_tbench_rows(self):
+        out, _ = self.ext(None)
+        tb = [r for r in out["rows"] if r["source"] == "tbench-leaderboard" and r["metric"] == "terminal_bench_accuracy_pct"]
+        self.assertTrue(tb)
+        self.assertTrue(all(r["value"] is not None and r["agent"] for r in tb))
+
     def test_registry_fields(self):
         src = models.load_sources()
         for s in src["sources"]:
@@ -211,6 +301,13 @@ class Ranking(TempHome):
         s1 = next(g for g in out["local"] if g["setup_id"] == "s1")["rows"]
         self.assertEqual([r["run"] for r in s1], ["K", "J"])
         self.assertEqual(s1[1]["token_price"]["output"], 0.5)
+
+    def test_incomplete_run_not_ranked(self):
+        res = self.results()
+        res["runs"].append({"id": "N", "model": "claude-opus-5-5", "effort": "high", "setup_id": "s1",
+                            "status": "incomplete", "caught_strict": None, "cost_with_refuter": 0.5})
+        s1 = next(g for g in models.rank(res, None, self.table)["local"] if g["setup_id"] == "s1")["rows"]
+        self.assertEqual([r["run"] for r in s1], ["K", "J"])
 
     def test_setups_not_ranked_together(self):
         out = models.rank(self.results(), None, self.table)
@@ -258,6 +355,13 @@ class Rules(TempHome):
     def apply(self, write):
         return models.apply_models(self.PROPOSAL, [self.user, self.repo], self.skill, write)
 
+    def texts(self):
+        out = []
+        for p in (self.user, self.repo, self.skill):
+            with open(p) as fh:
+                out.append(fh.read())
+        return out
+
     def section(self, path):
         with open(path) as fh:
             text = fh.read()
@@ -280,10 +384,10 @@ class Rules(TempHome):
         self.assertEqual(len(changed), 5)
 
     def test_decline_changes_nothing(self):
-        before = [open(p).read() for p in (self.user, self.repo, self.skill)]
+        before = self.texts()
         out = self.apply(False)
         self.assertTrue(out["diff"])
-        self.assertEqual([open(p).read() for p in (self.user, self.repo, self.skill)], before)
+        self.assertEqual(self.texts(), before)
 
     def test_unnamed_tasks_keep_their_line(self):
         with open(self.user, "w") as fh:
@@ -296,11 +400,11 @@ class Rules(TempHome):
         self.assertEqual(self.section(self.user), self.section(self.repo))
 
     def test_empty_proposal_changes_nothing(self):
-        before = [open(p).read() for p in (self.user, self.repo, self.skill)]
+        before = self.texts()
         out = models.apply_models("- Review slices: GPT-6 high\n", [self.user, self.repo], self.skill, True)
         self.assertIn("error", out)
         self.assertFalse(out["written"])
-        self.assertEqual([open(p).read() for p in (self.user, self.repo, self.skill)], before)
+        self.assertEqual(self.texts(), before)
 
     def test_lines_that_do_not_parse_are_dropped(self):
         keep, dropped = models.parse_lines("- Review slices: Claude Haiku 5.5 max\n- Coding Opus 5.5 medium\n"

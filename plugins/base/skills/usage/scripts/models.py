@@ -101,10 +101,13 @@ def parse_pricing(md):
         entry = dict(zip(_COLUMNS, vals))
         mid = model_id(base)
         note = " ".join(notes).lower()
-        over = re.search(r"over ([0-9,]+) tokens", note)
+        over = re.search(r"over ([0-9][0-9,]*)\s*(k)?(?:\s+[a-z-]+)*?\s+tokens", note)
         if over:
-            models.setdefault(mid, {})["long_prompt"] = dict(entry, threshold=int(over.group(1).replace(",", "")))
+            threshold = int(over.group(1).replace(",", "")) * (1000 if over.group(2) else 1)
+            models.setdefault(mid, {})["long_prompt"] = dict(entry, threshold=threshold)
             continue
+        if re.search(r"\bover\b", note):
+            raise ValueError(f"cannot read the long-prompt threshold in '{name}'")
         row = models.setdefault(mid, {})
         row.update(entry)
         row["display"] = base
@@ -128,6 +131,8 @@ def diff_prices(page_models, table):
             retired.append(mid)
         new = _strip(entry)
         old = table.models.get(mid)
+        if old and old.get("long_prompt") and "long_prompt" not in new:
+            new["long_prompt"] = None  # the page dropped the tier: an explicit null keeps the seed's tier out
         if old is None:
             added.append({"model": mid, "new": new, "retired": bool(entry.get("retired"))})
             continue
@@ -168,6 +173,8 @@ def source(sources, sid):
 
 def check_prices(table, md):
     page, footnotes = parse_pricing(md)
+    if not page:
+        raise ValueError("no model rows read from the pricing page; its layout may have changed")
     out = diff_prices(page, table)
     out.update(page_models=len(page), footnotes=footnotes, prices=table.versions())
     return out
@@ -318,6 +325,9 @@ def external(key=None, sources=None, fetcher=fetch, raw_root=EXTERNAL_DIR, day=N
     by_id = {s["id"]: s for s in sources["sources"]}
     path = "page"
 
+    def empty(sid, url):
+        skipped.append({"source": sid, "url": url, "status": 200, "reason": "no rows parsed; the layout may have changed"})
+
     def get(sid, headers=None):
         s = by_id.get(sid)
         if not s:
@@ -341,15 +351,24 @@ def external(key=None, sources=None, fetcher=fetch, raw_root=EXTERNAL_DIR, day=N
                                 "reason": "did not answer" if status is None else f"HTTP {status}"})
                 break
             raw.append(dict(save_raw(f"aa-models-api-{page_no}.json", body, raw_root, day), source="aa-models-api"))
-            part = json.loads(body)
+            try:
+                part = json.loads(body)
+            except ValueError:
+                part = None
+            if not isinstance(part, dict):
+                skipped.append({"source": "aa-models-api", "url": url, "status": status, "reason": "not JSON"})
+                break
             data["data"].extend(part.get("data") or [])
             if not (part.get("pagination") or {}).get("has_more") or page_no >= 10:
-                api_ok = True
+                api_rows = rows_from_api(data, url, day)
+                api_ok = bool(api_rows)
+                if api_ok:
+                    rows.extend(api_rows)
+                    path = "free API"
+                else:
+                    empty("aa-models-api", url)
                 break
             page_no += 1
-        if api_ok:
-            rows.extend(rows_from_api(data, url, day))
-            path = "free API"
         tiers = []
         for pro in sources.get("pro_endpoints", []):
             status, _ = fetcher(pro, {"x-api-key": key})
@@ -360,15 +379,16 @@ def external(key=None, sources=None, fetcher=fetch, raw_root=EXTERNAL_DIR, day=N
     elif not key:
         notes.append("no AA_API_KEY: scores and cost to run read from the page")
 
-    body = get("aa-models-page")
-    if body is not None:
-        rows.extend(rows_from_models_page(body, by_id["aa-models-page"]["url"], day, with_scores=not api_ok))
-    body = get("aa-coding-agents")
-    if body is not None:
-        rows.extend(rows_from_coding_page(body, by_id["aa-coding-agents"]["url"], day))
-    body = get("tbench-leaderboard")
-    if body is not None:
-        rows.extend(rows_from_tbench(body, by_id["tbench-leaderboard"]["url"], day))
+    for sid, parse in (("aa-models-page", lambda b, u: rows_from_models_page(b, u, day, with_scores=not api_ok)),
+                       ("aa-coding-agents", lambda b, u: rows_from_coding_page(b, u, day)),
+                       ("tbench-leaderboard", lambda b, u: rows_from_tbench(b, u, day))):
+        body = get(sid)
+        if body is None:
+            continue
+        found = parse(body, by_id[sid]["url"])
+        if not found:
+            empty(sid, by_id[sid]["url"])
+        rows.extend(found)
     return {"path": path, "rows": rows, "effort_coverage": effort_coverage(rows), "skipped": skipped,
             "raw": raw, "notes": notes, "attribution": "Data: Artificial Analysis (artificialanalysis.ai)"}
 
@@ -387,6 +407,8 @@ def rank(results, ext_rows=None, table=None):
     groups = collections.defaultdict(list)
     local_pairs = set()
     for r in results.get("runs", []):
+        if r.get("status") == "incomplete":
+            continue  # no score; it waits for a resume
         caught = r.get("caught_strict")
         cost = r.get("cost_with_refuter") if r.get("cost_with_refuter") is not None else r.get("cost")
         groups[r.get("setup_id")].append({
@@ -555,6 +577,12 @@ def load_results(case, bench_dir=BENCH_DIR):
         return json.load(fh)
 
 
+def fail(message):
+    json.dump({"error": message}, sys.stdout)
+    sys.stdout.write("\n")
+    sys.exit(1)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     g = p.add_mutually_exclusive_group(required=True)
@@ -584,10 +612,13 @@ def main(argv=None):
         else:
             status, md = fetch(source(load_sources(), "anthropic-pricing")["url"])
             if status != 200:
-                json.dump({"error": f"pricing page: {status}"}, sys.stdout)
-                sys.stdout.write("\n")
-                sys.exit(1)
-        out = check_prices(table, md)
+                fail(f"pricing page: {'no answer' if status is None else f'HTTP {status}'}: {md[:200]}")
+        try:
+            out = check_prices(table, md)
+        except ValueError as exc:
+            fail(f"pricing page: {exc}")
+        if a.write and table.override_error:
+            fail(f"not written, the override file is invalid: {table.override_error}")
         if a.write:
             out["written"] = write_override({c["model"]: c["new"] for c in out["added"] + out["changed"]},
                                             a.override)
