@@ -30,20 +30,20 @@
     {
       "id": "aa-coding-agents",
       "name": "Artificial Analysis Coding Agent Index",
-      "url": "https://artificialanalysis.ai/agents/coding",
+      "url": "https://artificialanalysis.ai/agents/coding-agents",
       "contributes": "One row per agent, model and effort: index score, cost and wall time per task; Terminal-Bench 4.0 is a component",
       "read": "Page embedded data. API /api/v2/language/agents/coding is Pro+ only",
       "stability": "New; verify per run",
-      "verified": "2026-11-25"
+      "verified": "2026-11-27"
     },
     {
       "id": "tbench-leaderboard",
       "name": "Terminal-Bench leaderboard",
-      "url": "https://www.tbench.ai/leaderboard",
+      "url": "https://www.tbench.ai/",
       "contributes": "Model with effort, resolution rate, tokens and cost",
       "read": "Page embedded data (leaderboard rows)",
       "stability": "Stable, no key; mostly max effort",
-      "verified": "2026-11-25"
+      "verified": "2026-11-27"
     }
   ],
   "pro_endpoints": [

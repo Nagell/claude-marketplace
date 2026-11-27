@@ -168,8 +168,8 @@ class Prices(TempHome):
 class External(TempHome):
     URLS = {
         "https://artificialanalysis.ai/models": "aa_models_page.html",
-        "https://artificialanalysis.ai/agents/coding": "aa_coding_page.html",
-        "https://www.tbench.ai/leaderboard": "tbench_page.html",
+        "https://artificialanalysis.ai/agents/coding-agents": "aa_coding_page.html",
+        "https://www.tbench.ai/": "tbench_page.html",
         "https://artificialanalysis.ai/api/v2/language/models/free": "aa_free.json",
     }
 
@@ -236,7 +236,7 @@ class External(TempHome):
             self.assertEqual(len(r["sha256"]), 64)
 
     def test_dead_source_named_and_skipped(self):
-        out, _ = self.ext(None, dead=("https://www.tbench.ai/leaderboard",))
+        out, _ = self.ext(None, dead=("https://www.tbench.ai/",))
         self.assertEqual([s["source"] for s in out["skipped"]], ["tbench-leaderboard"])
         self.assertFalse(any(r["source"] == "tbench-leaderboard" for r in out["rows"]))
         self.assertTrue(any(r["source"] == "aa-coding-agents" for r in out["rows"]))
@@ -266,7 +266,7 @@ class External(TempHome):
         f = self.fetcher()
 
         def changed(url, headers=None):
-            return (200, "<html>new layout</html>") if url == "https://www.tbench.ai/leaderboard" else f(url, headers)
+            return (200, "<html>new layout</html>") if url == "https://www.tbench.ai/" else f(url, headers)
         out = models.external(None, None, changed, os.path.join(self.tmp, "raw"), "2026-11-25")
         self.assertEqual([(s["source"], s["status"]) for s in out["skipped"]], [("tbench-leaderboard", 200)])
 

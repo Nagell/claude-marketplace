@@ -5,6 +5,7 @@ argument-hint: "[--days N] [--top N] [--runs N]"
 disable-model-invocation: true
 dependencies:
   - review-mr
+  - claude-api
 ---
 
 # Usage
@@ -18,7 +19,7 @@ Estimated API-equivalent cost of your skill runs, from the transcripts Claude Co
 - Every number you show comes from the script output. Never compute, estimate or round a cost yourself beyond formatting, and never read transcripts to count tokens.
 - Report mode writes nothing into the working tree or any repository. The report is printed in the session.
 - Report mode may change only `~/.claude/settings.json`, through `report.py --set-retention`, and only after the user said yes in this run.
-- Models mode may change only these, each after the user's yes in this run: `~/.claude/usage/prices.json` (through `models.py --prices --write`), the case's `results.json` and `RESULTS.md` in a repo checkout (through `bench.py run`), and the `## Models` sections and the review-mr role table (step M8). It never edits the plugin's `prices.json` seed.
+- Models mode may change only these, each after the user's yes in this run: `~/.claude/usage/prices.json` (through `models.py --prices --write`), the case's `results.json` and `RESULTS.md` in a repo checkout (through `bench.py run`), and the `## Models` sections and the review-mr role table (step M8). It never edits the plugin's `prices.json` seed. Its scripts also write their own outputs under `~/.claude/model-bench/`: raw external fetches (`external/<date>/`, step M3) and run reports (`<case>/runs/`, step M5).
 - Recommendations are output only. Never edit a skill, an agent brief or a setting to apply one: applying it goes through an OpenSpec change and a benchmark check.
 - Costs are estimates at API prices, not plan usage. Say "estimate" with the totals.
 
@@ -94,7 +95,7 @@ Show one line per top skill: runs, the model and effort used most, cost per run 
 python3 $SKILL_DIR/scripts/models.py --prices
 ```
 
-It fetches Anthropic's pricing page (URL in `sources.json`), maps display names to model ids and diffs them against the active table (seed plus override). Read `footnotes` yourself: a tier such as "for prompts over 100,000 tokens" is already a `long_prompt` entry; say which models are `retired`. Then invoke the `claude-api` skill once and cross-check the mapped ids and the prices of `added` and `changed` against it. The page wins; show every difference between the page, the skill and the table as old and new price.
+It fetches Anthropic's pricing page (URL in `sources.json`), maps display names to model ids and diffs them against the active table (seed plus override). An `error` (exit 1) means the page could not be read (no answer, no model rows, a long-prompt note it cannot parse) or the override file is invalid: show it and keep the current table. Read `footnotes` yourself: a tier such as "for prompts over 100,000 tokens" is already a `long_prompt` entry; say which models are `retired`. Then invoke the `claude-api` skill once and cross-check the mapped ids and the prices of `added` and `changed` against it. The page wins; show every difference between the page, the skill and the table as old and new price.
 
 When `added` or `changed` is not empty, ask one AskUserQuestion: `Update ~/.claude/usage/prices.json (Recommended)` or `Keep the current table`. On yes run `python3 $SKILL_DIR/scripts/models.py --prices --write` (atomic; only those models change, other keys are kept) and confirm in one line. On no, nothing is written and the run uses the current table.
 
@@ -122,17 +123,18 @@ python3 $SKILL_DIR/scripts/bench.py plan <case> --external '<scratchpad>/externa
   --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md > '<scratchpad>/plan.json'
 ```
 
-It plans only models with no stored result in the setup (`setup_id`; default: the setup of the current model's result), at most 2 efforts each (`why`: lowest Artificial Analysis cost per index point, most used effort of the case's skill), and estimates each run from the closest stored run in the same setup. Show every pick with its estimate and the total, `current` (the `## Models` line, else the best stored result) and anything in `comparability` (a changed checker brief, key, snapshot or setup makes those results not comparable: say so and let the user decide). A pick in `unestimated` has no stored run to scale from; say that its cost is unknown. Nothing planned: say so and go to M6.
+It plans only models with no stored result in the setup (`setup_id`; default: the setup of the current model's result), at most 2 efforts each (`why`: lowest Artificial Analysis cost per index point, most used effort of the case's skill), and estimates each run from the closest stored run in the same setup. Show every pick with its estimate and the total (say "from history" for an estimate with `from_history`: it scales a run from before the setup; every estimate scales by token price only, not effort), `current` (the `## Models` line, else the best stored result) and anything in `comparability` (a changed checker brief, key, snapshot or setup makes those results not comparable: say so and let the user decide). A pick in `unestimated` has no stored run to scale from; say that its cost is unknown. Name the models in `no_effort` (no Artificial Analysis effort and no usage effort, so not planned) and a `note` on `current` (a `## Models` line the script could not read). List `incomplete_in_setup` with its `reason`: such a run can resume instead of starting over. Nothing planned: say so and go to M6.
 
 ### M5. Approval, cap and runs
 
-Ask one AskUserQuestion with the plan and its total: `Run with a cap of $<total, rounded up> (Recommended)`, `Run with another cap` (the user types it) or `Skip the benchmark`. Run nothing without a yes. A cap is required. Then, from a repo checkout of this marketplace (results are written only there, never to the installed plugin copy):
+Ask one AskUserQuestion with the plan and its total: `Run with a cap of $<total, rounded up> (Recommended)`, `Run with another cap` (the user types it) or `Skip the benchmark`. When `incomplete_in_setup` holds a run of a planned pick, add `Resume run <id> (Recommended)` first: it reruns only the agents that did not finish. Run nothing without a yes. A cap is required. Results are written only to a repo checkout of this marketplace, never to the installed plugin copy, so pass the case folder of that checkout (`<repo>` is its root); the script refuses any other folder before it spends:
 
 ```bash
-python3 $SKILL_DIR/scripts/bench.py run <case> --plan '<scratchpad>/plan.json' --cap <usd> --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md
+python3 $SKILL_DIR/scripts/bench.py run <repo>/plugins/base/skills/usage/references/bench/<case> --plan '<scratchpad>/plan.json' --cap <usd> \
+  --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md   # add --resume <id> to resume
 ```
 
-Run it in the background; it takes as long as one review per pick. Each agent is a `claude -p` call in a fresh temp folder with the snapshot and no key, `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, deny rules for every key copy, `-n bench-<case>-<run>` (so both modes leave it out) and `--max-budget-usd` set to the remaining cap. A pick whose estimate is above the remaining cap is not started: show its `reason`. After the runs, show per run: key bugs caught (strict and with partials), real cost with and without the refuter, slowest agent, and `repeat_proposed`. A repeat (within 2 key bugs of the current model) needs the same approval and cap as a first run. Results go to the case's `results.json` and `RESULTS.md`; commit them on a branch when the user wants them kept.
+Run it in the background; it takes as long as one review per pick. One fresh temp folder with the snapshot and no key serves each pick. Each reviewer and the refuter is a `claude -p` call in it, with `--tools "Read,Grep,Glob,Bash" --permission-mode dontAsk`, deny rules for every key copy and `-n bench-<case>-<run>` (so both modes leave it out). The checker runs in its own folder and reads the key. `--max-budget-usd`: each reviewer gets the remaining cap minus the refuter's and checker's estimates, the refuter and the checker get what remains. The cap is checked after each phase, so reviewers running at once can together pass it by the estimate's error; the run then stops before the refuter. A pick whose estimate is above the remaining cap is not started: show its `reason`. After the runs, show per run: key bugs caught (strict and with partials), real cost with and without the refuter, slowest agent, and `repeat_proposed`. A repeat (within 2 key bugs of the current model) needs the same approval and cap as a first run. Results go to the case's `results.json` and `RESULTS.md`; commit them on a branch when the user wants them kept.
 
 ### M6. Case suggestions
 
@@ -144,17 +146,18 @@ From report mode's top skills (`python3 $SKILL_DIR/scripts/report.py --days <N> 
 python3 $SKILL_DIR/scripts/models.py --rank <case> --external-json '<scratchpad>/external.json'
 ```
 
-`local` ranks runs within one setup by cost per caught key bug, then slowest-agent time; never rank across setups. `external` holds pairs without a local result by Artificial Analysis cost per index point (the cost of the whole index run, not a cost per task) and time per task, as a separate group. Token price is only a column.
+`local` ranks complete runs within one setup by cost per caught key bug, then slowest-agent time (incomplete runs are left out); never rank across setups. `external` holds pairs without a local result by Artificial Analysis cost per index point (the cost of the whole index run, not a cost per task) and time per task, as a separate group. Token price is only a column.
 
 ### M8. Rule list and diff
 
-Write the proposal as a `## Models` list, one line per task in the form `- <task>: <model> <effort>`, a short note in brackets where the setup matters, for example `- Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)`. Give a line only to tasks with evidence (a local result or external data, named in one line under the list); other tasks keep their current line. Never name another vendor's model. No report file, no table. Save it to `<scratchpad>/models.md` and run:
+Write the proposal as a `## Models` list, one line per task in the form `- <task>: <model> <effort>`, a short note in brackets where the setup matters, for example `- Review slices: Haiku 5.5 max (about 7 agents, ~400 lines each)`. Give a line only to tasks with evidence (a local result or external data, named in one line under the list); the script keeps the current line of every task the proposal does not name. Never name another vendor's model. No report file, no table. Save it to `<scratchpad>/models.md` and run:
 
 ```bash
-python3 $SKILL_DIR/scripts/models.py --rules '<scratchpad>/models.md' --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md
+python3 $SKILL_DIR/scripts/models.py --rules '<scratchpad>/models.md' --claude-md ~/.claude/CLAUDE.md --claude-md <repo>/plugins/base/CLAUDE.md \
+  --review-skill <repo>/plugins/base/skills/review-mr/SKILL.md
 ```
 
-Show `diff` (both `## Models` sections, kept identical, and the rows of review-mr's fallback role table in `plugins/base/skills/review-mr/SKILL.md` step 4 that the `- Review` lines cover) and ask one AskUserQuestion: `Apply (Recommended)` or `Leave the files`. On yes rerun with `--write`; it replaces an existing `## Models` section or appends one, and changes nothing else. On no, none of the three files changes.
+Name every line in `dropped` (no task, or a model and effort the script cannot read) and fix or leave it. An `error` (exit 1) means no line was left: nothing changes. Show `diff` (both `## Models` sections, kept identical, and the rows of review-mr's fallback role table in `plugins/base/skills/review-mr/SKILL.md` step 4 that the `- Review` lines cover) and ask one AskUserQuestion: `Apply (Recommended)` or `Leave the files`. On yes rerun with `--write`; it writes the merged lines (`section`) into an existing `## Models` section or appends one, and changes nothing else. On no, none of the three files changes.
 
 ## Tests
 
