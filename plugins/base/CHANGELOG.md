@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.7.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.6.0...base-v2.7.0) (2026-11-27)
+
+
+### Features
+
+* **base:** models mode for the usage skill ([6626bfa](https://github.com/Nagell/claude-marketplace/commit/6626bfa83e9e30b37fe2d85e81fb809c9e57e9d6))
+
+
+### Bug Fixes
+
+* **base:** bench checks the case, reports and costs before scoring ([b618ef3](https://github.com/Nagell/claude-marketplace/commit/b618ef3540598f72fcc775cf135ad089433ea765))
+* **base:** models checks name empty and unreadable sources ([51e70c1](https://github.com/Nagell/claude-marketplace/commit/51e70c15aa096e339475a38fb42e793df181c306))
+* **base:** models rules keep unnamed tasks and file links ([fbb3169](https://github.com/Nagell/claude-marketplace/commit/fbb31692f78adac9a185a9777119739d924b0f4e))
+* **base:** read the Artificial Analysis key from a file ([3f75ba8](https://github.com/Nagell/claude-marketplace/commit/3f75ba86cfdba01eaa7a67f4785d43180f0d5b2d))
+* **base:** scan leaves bench sessions out of skipped lines ([6771072](https://github.com/Nagell/claude-marketplace/commit/67710722d31a5b3fca5f467671b2fb7dfed56553))
+
+
+### Documentation
+
+* **base:** align usage skill, README and spec with the fixes ([981654d](https://github.com/Nagell/claude-marketplace/commit/981654d40f0b3b13e62c89608ee06c845bfe054e))
+* **base:** correct the bench case records ([92f18d2](https://github.com/Nagell/claude-marketplace/commit/92f18d2bd90206c04939716c6adce1dde34b318f))
+
 ## [2.6.0](https://github.com/Nagell/claude-marketplace/compare/base-v2.5.1...base-v2.6.0) (2026-11-26)
 
 
